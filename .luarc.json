@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "diagnostics": {
+    "globals": [
+      "put",
+      "fput",
+      "pause",
+      "waitfor",
+      "respond",
+      "GameState",
+      "CharSettings",
+      "UserVars",
+      "DownstreamHook",
+      "UpstreamHook",
+      "Script",
+      "Map"
+    ]
+  }
+}
