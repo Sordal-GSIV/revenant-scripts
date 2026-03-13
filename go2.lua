@@ -1,11 +1,11 @@
 -- go2.lua
 -- Navigate to a room by ID or name.
--- Launch via Script.run("go2") after setting Script.args to destination.
--- Usage from another script: Script.args = "bank"; Script.run("go2")
+-- Launch via ;go2 <destination>  or  Script.run("go2", "bank")
 
-local dest = Script.args
+local vars = Script.vars
+local dest = vars and vars[1]
 if not dest or dest == "" then
-    respond("[go2] Usage: set Script.args to a room ID or name, then Script.run('go2')")
+    respond("[go2] Usage: ;go2 <room ID or name>")
     return
 end
 
