@@ -25,23 +25,28 @@ local input = Script.vars[0] or ""
 local parsed = args.parse(input)
 local cmd    = parsed.args[1]
 
-if input ~= "" and cmd then
+if cmd then
   local target    = parsed.args[2]
   local is_global = (parsed["global"] == true)
   local store_key = is_global and "autostart_global" or "autostart"
   local store     = is_global and Settings or CharSettings
   local scope_lbl = is_global and "global" or "character"
 
-  if cmd == "add" then
+  if cmd == "list" then
+    local global_list = load_list("autostart_global", Settings)
+    local char_list   = load_list("autostart", CharSettings)
+    local enabled     = CharSettings["autostart_enabled"] ~= "false"
+    respond("Autostart: " .. (enabled and "enabled" or "disabled"))
+    respond("  Global:    " .. (#global_list > 0 and table.concat(global_list, ", ") or "(none)"))
+    respond("  Character: " .. (#char_list   > 0 and table.concat(char_list,   ", ") or "(none)"))
+
+  elseif cmd == "add" then
     if not target then
       respond("Usage: ;autostart add <script> [--global]")
     else
       local list = load_list(store_key, store)
       for _, v in ipairs(list) do
-        if v == target then
-          respond(target .. " is already in the " .. scope_lbl .. " autostart list.")
-          return
-        end
+        if v == target then return end  -- silent no-op if already present
       end
       list[#list + 1] = target
       save_list(store_key, store, list)
@@ -69,14 +74,6 @@ if input ~= "" and cmd then
     CharSettings["autostart_enabled"] = "false"
     respond("Autostart disabled.")
 
-  elseif cmd == "list" then
-    local global_list = load_list("autostart_global", Settings)
-    local char_list   = load_list("autostart", CharSettings)
-    local enabled     = CharSettings["autostart_enabled"] ~= "false"
-    respond("Autostart: " .. (enabled and "enabled" or "disabled"))
-    respond("  Global:    " .. (#global_list > 0 and table.concat(global_list, ", ") or "(none)"))
-    respond("  Character: " .. (#char_list   > 0 and table.concat(char_list,   ", ") or "(none)"))
-
   else
     respond("Usage: ;autostart [list | add <script> [--global] | remove <script> [--global] | enable | disable]")
   end
@@ -85,7 +82,16 @@ if input ~= "" and cmd then
 end
 
 -- ── Daemon mode ───────────────────────────────────────────────────────────────
--- No arguments: register connect hook and block.
+-- No arguments: show list, register connect hook, and block indefinitely.
+
+do
+  local global_list = load_list("autostart_global", Settings)
+  local char_list   = load_list("autostart", CharSettings)
+  local enabled     = CharSettings["autostart_enabled"] ~= "false"
+  respond("Autostart: " .. (enabled and "enabled" or "disabled"))
+  respond("  Global:    " .. (#global_list > 0 and table.concat(global_list, ", ") or "(none)"))
+  respond("  Character: " .. (#char_list   > 0 and table.concat(char_list,   ", ") or "(none)"))
+end
 
 local last_connect_time = 0
 
@@ -140,4 +146,4 @@ DownstreamHook.add("autostart_connect", function(data)
 end)
 
 respond("autostart: daemon running. Use ;autostart list to see configured scripts.")
-pause()
+while true do pause() end
