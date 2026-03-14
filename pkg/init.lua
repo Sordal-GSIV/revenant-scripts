@@ -5,32 +5,7 @@
 --- description: Revenant package manager
 
 local config = require("config")
-
-local function parse_args(args_str)
-    local cmd = nil
-    local positional = {}
-    local flags = {}
-
-    if not args_str or args_str == "" then
-        return nil, positional, flags
-    end
-
-    for token in args_str:gmatch("%S+") do
-        if token:match("^%-%-") then
-            local key, val = token:match("^%-%-([%w_-]+)=?(.*)")
-            if key then
-                key = key:gsub("-", "_")
-                flags[key] = (val and val ~= "") and val or true
-            end
-        elseif not cmd then
-            cmd = token
-        else
-            positional[#positional + 1] = token
-        end
-    end
-
-    return cmd, positional, flags
-end
+local args_lib = require("lib/args")
 
 local function show_help()
     respond("Usage: ;pkg <command> [args] [--flags]")
@@ -51,7 +26,11 @@ local function show_help()
     respond("  help               Show this help")
 end
 
-local cmd, positional, flags = parse_args(Script.vars[0])
+local _parsed = args_lib.parse(Script.vars[0] or "")
+local cmd = _parsed.args[1]
+local positional = {}
+for i = 2, #_parsed.args do positional[i-1] = _parsed.args[i] end
+local flags = _parsed
 
 if not cmd or cmd == "help" then
     show_help()
