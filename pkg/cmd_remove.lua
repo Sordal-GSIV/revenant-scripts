@@ -23,7 +23,9 @@ function M.run(positional, flags)
             File.remove(name)
         end
     else
-        local filename = name .. ".lua"
+        -- Use stored path if available (respects lib/ prefix for library files);
+        -- fall back to plain name.lua for records installed before path tracking.
+        local filename = info.path or (name .. ".lua")
         if File.exists(filename) then
             File.remove(filename)
         end

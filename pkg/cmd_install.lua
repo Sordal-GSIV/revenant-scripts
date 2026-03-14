@@ -6,6 +6,18 @@ local M = {}
 -- Track scripts currently being installed to detect circular dependencies
 local installing = {}
 
+-- Compute the local install path for a single-file entry.
+-- If the entry path starts with lib/, preserve that prefix so library files
+-- land in scripts/lib/ rather than scripts/.
+-- lib/ dependencies in entry.depends go through the same registry lookup and
+-- download flow as regular scripts — the lib/ path convention is sufficient.
+local function install_path(entry_path)
+    if entry_path:match("^lib/") then
+        return "lib/" .. entry_path:match("^lib/(.+)$")
+    end
+    return entry_path
+end
+
 local function download_single_file(base_url, channel, script_info)
     local url = registry.build_download_url(base_url, channel, script_info.path or (script_info.name .. ".lua"))
     local resp, err = Http.get(url)
@@ -208,7 +220,12 @@ function M.run(positional, flags)
                 end
             end
 
-            local dest = path:match("%.lua$") and path or (name .. ".lua")
+            local raw_dest = path:match("%.lua$") and path or (name .. ".lua")
+            local dest = install_path(raw_dest)
+            -- Ensure lib/ subdirectory exists for library files
+            if dest:match("^lib/") then
+                File.mkdir("lib")
+            end
             File.write(dest, content)
 
             installed[name] = {
@@ -218,6 +235,7 @@ function M.run(positional, flags)
                 sha256 = channel_info.sha256 or "",
                 installed_at = os.date("!%Y-%m-%dT%H:%M:%SZ"),
                 type = "single",
+                path = dest,
             }
         end
 
