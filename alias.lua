@@ -1,3 +1,9 @@
+--- @revenant-script
+--- name: alias
+--- version: 0.1.0
+--- author: Sordal
+--- description: Command alias expansion via upstream hooks
+
 -- alias.lua
 -- Registers command aliases via UpstreamHook.
 -- Set aliases: CharSettings["aliases"] = "alias1=expansion1;alias2=expansion2"

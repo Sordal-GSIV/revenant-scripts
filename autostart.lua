@@ -1,3 +1,9 @@
+--- @revenant-script
+--- name: autostart
+--- version: 0.1.0
+--- author: Sordal
+--- description: Auto-launch scripts on login from CharSettings
+
 -- autostart.lua
 -- Runs scripts listed in CharSettings["autostart"] on login.
 -- Set: CharSettings["autostart"] = "alias,vars"

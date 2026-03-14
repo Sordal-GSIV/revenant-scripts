@@ -1,3 +1,9 @@
+--- @revenant-script
+--- name: vars
+--- version: 0.1.0
+--- author: Sordal
+--- description: Display help for CharSettings and UserVars
+
 -- vars.lua
 -- Display current CharSettings and UserVars.
 

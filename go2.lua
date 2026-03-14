@@ -1,3 +1,9 @@
+--- @revenant-script
+--- name: go2
+--- version: 0.1.0
+--- author: Sordal
+--- description: Room navigation using map pathfinding
+
 -- go2.lua
 -- Navigate to a room by ID or name.
 -- Launch via ;go2 <destination>  or  Script.run("go2", "bank")

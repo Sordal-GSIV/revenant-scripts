@@ -1,3 +1,9 @@
+--- @revenant-script
+--- name: version
+--- version: 0.1.0
+--- author: Sordal
+--- description: Display Revenant version information
+
 -- version.lua
 -- Display Revenant version info.
 
