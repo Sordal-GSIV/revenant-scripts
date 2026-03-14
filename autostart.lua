@@ -58,12 +58,16 @@ if cmd then
       respond("Usage: ;autostart remove <script> [--global]")
     else
       local list = load_list(store_key, store)
-      local new = {}
+      local new, found = {}, false
       for _, v in ipairs(list) do
-        if v ~= target then new[#new + 1] = v end
+        if v ~= target then new[#new + 1] = v else found = true end
       end
-      save_list(store_key, store, new)
-      respond("Removed " .. target .. " from " .. scope_lbl .. " autostart.")
+      if found then
+        save_list(store_key, store, new)
+        respond("Removed " .. target .. " from " .. scope_lbl .. " autostart.")
+      else
+        respond(target .. " was not in " .. scope_lbl .. " autostart.")
+      end
     end
 
   elseif cmd == "enable" then
