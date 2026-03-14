@@ -140,6 +140,39 @@ Scripts can be published on three channels: `stable`, `beta`, `dev`.
 | `GameState.roundtime()` | function | Seconds of RT remaining |
 | `GameState.cast_roundtime()` | function | Seconds of cast RT remaining |
 
+### Char (convenience wrapper)
+
+Reads from the same game state as `GameState`, with Lich5-compatible names and percent helpers.
+
+```lua
+Char.name                -- character name
+Char.health              -- current health
+Char.max_health          -- max health
+Char.percent_health      -- health as 0-100 integer
+Char.mana / .max_mana / .percent_mana
+Char.spirit / .max_spirit / .percent_spirit
+Char.stamina / .max_stamina / .percent_stamina
+Char.stance              -- "offensive", "defensive", etc. (nil if unknown)
+Char.stance_value        -- 0-100 numeric (nil if unknown)
+Char.encumbrance         -- "none", "light", "moderate", etc.
+Char.encumbrance_value   -- 0-5 numeric
+Char.level               -- character level
+Char.experience          -- experience points
+Char.dead / .stunned / .bleeding / .sleeping / .prone / .sitting / .kneeling
+Char.roundtime()         -- seconds of roundtime remaining
+Char.cast_roundtime()    -- seconds of cast roundtime remaining
+```
+
+### Room (convenience wrapper)
+
+```lua
+Room.title        -- room name
+Room.description  -- room description text
+Room.exits        -- { "north", "east", "out" }
+Room.id           -- room ID (integer or nil)
+Room.count        -- total room transitions this session
+```
+
 ### Hooks
 ```lua
 -- Downstream: intercept lines from the game server
