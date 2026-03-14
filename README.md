@@ -51,6 +51,67 @@ pause(2)
 put("go out")
 ```
 
+## Package Manager
+
+Revenant includes a built-in package manager for installing and updating scripts from registries.
+
+### Quick Start
+
+```
+;pkg search healbot          -- Find scripts
+;pkg install healbot          -- Install a script
+;pkg update                   -- Update all scripts
+;pkg list                     -- List installed scripts
+;pkg check                    -- Check for updates
+```
+
+### Script Headers
+
+Published scripts include a metadata header:
+
+```lua
+--- @revenant-script
+--- name: my-script
+--- version: 1.0.0
+--- author: YourName
+--- depends: some-lib >= 0.1
+--- description: What this script does
+--- tags: combat, healing
+
+-- your code here
+```
+
+Required fields: `name`, `version`, `author`. Optional: `depends`, `description`, `tags`, `channel`.
+
+### Package Scripts
+
+Complex scripts can use a directory structure:
+
+```
+myscript/
+  manifest.lua    -- metadata (returns table)
+  init.lua        -- entry point
+  helper.lua      -- internal modules (require("helper"))
+```
+
+### Managing Registries
+
+```
+;pkg repo list               -- Show configured registries
+;pkg repo add myrepo URL     -- Add a community registry
+;pkg repo remove myrepo      -- Remove a registry
+```
+
+### Release Channels
+
+Scripts can be published on three channels: `stable`, `beta`, `dev`.
+
+```
+;pkg channel                  -- Show current channel settings
+;pkg channel beta             -- Set global default to beta
+;pkg channel healbot dev      -- Use dev channel for healbot only
+```
+
 ## API reference
 
 ### Commands
