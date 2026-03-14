@@ -36,7 +36,10 @@ if not cmd then
 
 elseif cmd == "set" then
   local name = parsed.args[2]
-  local val  = parsed.args[3]
+  -- Join remaining tokens so multi-word values like "hello world" work
+  local val_parts = {}
+  for i = 3, #parsed.args do val_parts[#val_parts + 1] = parsed.args[i] end
+  local val = #val_parts > 0 and table.concat(val_parts, " ") or nil
   if not name or not val then
     respond("Usage: ;vars set <name> <value>")
     return
