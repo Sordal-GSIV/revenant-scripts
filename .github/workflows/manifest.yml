@@ -31,7 +31,7 @@ jobs:
 
       - name: Generate manifest
         run: |
-          python tools/generate-manifest.py \
+          python3 tools/generate-manifest.py \
             --channel "${{ steps.channel.outputs.channel }}" \
             --registry-name "revenant-official" \
             --base-url "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts" \
