@@ -24,7 +24,7 @@ local input  = Script.vars[0] or ""
 local parsed = args.parse(input)
 local cmd    = parsed.args[1]
 
-if input ~= "" and cmd then
+if cmd then
   local is_global = (parsed["global"] == true)
   local store_key = is_global and "aliases_global" or "aliases"
   local store     = is_global and Settings or CharSettings
@@ -65,8 +65,11 @@ if input ~= "" and cmd then
       for _, entry in ipairs(list) do
         if entry.name ~= name then new[#new + 1] = entry end
       end
-      save_aliases(store_key, store, new)
-      respond("Alias '" .. name .. "' removed from " .. scope_lbl .. " list.")
+      if #new < #list then
+        save_aliases(store_key, store, new)
+        respond("Alias '" .. name .. "' removed from " .. scope_lbl .. " list.")
+      end
+      -- silent no-op if name not found
     end
 
   elseif cmd == "enable" then
@@ -96,6 +99,23 @@ if input ~= "" and cmd then
   end
 
   return
+end
+
+-- ── Bare invocation: show list ────────────────────────────────────────────────
+-- ;alias with no args shows the current alias configuration.
+do
+  local char_list   = load_aliases("aliases", CharSettings)
+  local global_list = load_aliases("aliases_global", Settings)
+  local enabled     = CharSettings["alias_enabled"] ~= "false"
+  respond("Aliases: " .. (enabled and "enabled" or "disabled"))
+  respond("Character aliases (" .. #char_list .. "):")
+  for _, e in ipairs(char_list) do
+    respond(string.format("  %-20s  %s  →  %s", e.name, e.pattern, tostring(e.replacement)))
+  end
+  respond("Global aliases (" .. #global_list .. "):")
+  for _, e in ipairs(global_list) do
+    respond(string.format("  %-20s  %s  →  %s", e.name, e.pattern, tostring(e.replacement)))
+  end
 end
 
 -- ── Tier 2: Load personal aliases.lua config ─────────────────────────────────
@@ -198,4 +218,4 @@ UpstreamHook.add("alias_intercept", function(data)
 end)
 
 respond("alias: daemon running. Use ;alias list to see configured aliases.")
-pause()
+while true do pause() end
