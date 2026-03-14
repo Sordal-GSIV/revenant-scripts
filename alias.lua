@@ -152,8 +152,9 @@ local function apply_alias(entry, line)
 
   if t == "string" then
     -- String: gsub pattern, then split on ; for multiple commands
-    local result = line:gsub(entry.pattern, repl)
-    if result == line then return nil end  -- no match
+    -- pcall guards against % in replacement string causing gsub errors
+    local ok, result = pcall(line.gsub, line, entry.pattern, repl)
+    if not ok or result == line then return nil end  -- no match or gsub error
     return result  -- caller splits on ; if needed
 
   elseif t == "table" then
@@ -186,7 +187,9 @@ local function send_commands(cmds)
       end
     end
   elseif type(cmds) == "table" then
-    for _, c in ipairs(cmds) do fput(c) end
+    for _, c in ipairs(cmds) do
+      if type(c) == "string" then fput(c) end
+    end
   end
 end
 
