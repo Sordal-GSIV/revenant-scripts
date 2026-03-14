@@ -13,7 +13,7 @@ local M = {}
 ---   → { args = {"add", "foo"}, global = true }
 ---
 --- Unknown flags are accepted and stored as-is (permissive parsing).
-function M.parse(input, schema)
+function M.parse(input, _schema)
   local result = { args = {} }
   if not input or input == "" then return result end
 
