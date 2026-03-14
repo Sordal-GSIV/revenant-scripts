@@ -1,0 +1,49 @@
+name: Generate Manifest
+
+on:
+  push:
+    branches: [main, beta, dev]
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine channel
+        id: channel
+        run: |
+          BRANCH="${GITHUB_REF##*/}"
+          if [ "$BRANCH" = "main" ]; then
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          elif [ "$BRANCH" = "beta" ]; then
+            echo "channel=beta" >> "$GITHUB_OUTPUT"
+          elif [ "$BRANCH" = "dev" ]; then
+            echo "channel=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download existing manifest
+        continue-on-error: true
+        run: |
+          curl -fsSL "https://sordal-gsiv.github.io/revenant-scripts/manifest.json" \
+            -o existing-manifest.json || echo '{}' > existing-manifest.json
+
+      - name: Generate manifest
+        run: |
+          python tools/generate-manifest.py \
+            --channel "${{ steps.channel.outputs.channel }}" \
+            --registry-name "revenant-official" \
+            --base-url "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts" \
+            --scripts-dir . \
+            --output manifest.json \
+            --merge existing-manifest.json
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          publish_branch: gh-pages
+          keep_files: true
+          destination_dir: .
