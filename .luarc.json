@@ -13,7 +13,12 @@
       "DownstreamHook",
       "UpstreamHook",
       "Script",
-      "Map"
+      "Map",
+      "Json",
+      "Crypto",
+      "Version",
+      "File",
+      "Http"
     ]
   }
 }
