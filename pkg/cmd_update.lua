@@ -54,6 +54,16 @@ function M.run(positional, flags)
         end
     end
 
+    -- Run map update on bulk updates (no specific target), unless --no-map
+    if not target_name and not flags["no-map"] then
+        local map_regs = registry.get_registries(cfg, { map_only = true })
+        if #map_regs > 0 then
+            respond("")
+            local cmd_map = require("cmd_map")
+            cmd_map.run_update()
+        end
+    end
+
     respond("")
     respond("Update complete: " .. updated .. " updated, " .. current .. " current, " .. errors .. " errors")
 end

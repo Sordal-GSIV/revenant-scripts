@@ -23,6 +23,10 @@ local function show_help()
     respond("  channel [<ch>]     Get/set global channel (stable|beta|dev)")
     respond("  channel <n> <ch>   Set per-script channel override")
     respond("  check              Check for available updates")
+    respond("  browse [terms]     Browse available scripts [--tag=x] [--sort=x] [--page=n]")
+    respond("  map-update         Update map database from mapdb registry")
+    respond("  map-info           Show map database status")
+    respond("  gui                Open graphical package manager")
     respond("  help               Show this help")
 end
 
@@ -61,6 +65,18 @@ elseif cmd == "channel" then
 elseif cmd == "check" then
     local check = require("cmd_check")
     check.run(positional, flags)
+elseif cmd == "browse" then
+    local browse = require("cmd_browse")
+    browse.run(positional, flags)
+elseif cmd == "map-update" then
+    local map = require("cmd_map")
+    map.run({ "update" }, flags)
+elseif cmd == "map-info" then
+    local map = require("cmd_map")
+    map.run({ "info" }, flags)
+elseif cmd == "gui" then
+    local gui = require("gui_browser")
+    gui.run(positional, flags)
 else
     respond("Unknown command: " .. cmd)
     respond("Run ;pkg help for usage")
