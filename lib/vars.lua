@@ -1,6 +1,6 @@
 --- Lich5-compatible Vars module.
 --- Stores arbitrary Lua values as JSON in CharSettings with __v: prefix.
---- Usage: Vars = require("lib/lich_vars")
+--- Usage: require("lib/vars")  -- registers global Vars
 ---   Vars["key"] = {foo = "bar"}   -- stores as JSON
 ---   Vars["key"]                    -- returns {foo = "bar"}
 ---   Vars.my_key = "hello"         -- dot syntax works too
@@ -28,9 +28,14 @@ end
 local Vars = {}
 
 function Vars.list()
-    -- Cannot enumerate CharSettings keys from Lua (no pairs support on metatable).
-    -- Return empty table. Scripts needing full listing should use the ;vars CLI.
-    return {}
+    local entries = CharSettings.list("__v:")
+    local result = {}
+    for _, pair in ipairs(entries) do
+        local key, raw = pair[1], pair[2]
+        local ok, val = pcall(Json.decode, raw)
+        result[key] = ok and val or raw
+    end
+    return result
 end
 
 function Vars.save()
