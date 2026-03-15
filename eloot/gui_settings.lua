@@ -40,6 +40,32 @@ function M.open(state)
     local skin_sheath_input = Gui.input({ text = state.skin_sheath or "" })
 
     Gui.separator()
+
+    -- Sell settings
+    Gui.label("Sell Settings")
+    Gui.label("Sell container:")
+    local sell_container_input = Gui.input({ text = state.sell_container or "" })
+    Gui.label("Sell exclude (comma-sep):")
+    local sell_exclude_input = Gui.input({
+        text = table.concat(state.sell_exclude or {}, ",")
+    })
+    Gui.label("Appraise gemshop min:")
+    local sell_appraise_gemshop_input = Gui.input({ text = tostring(state.sell_appraise_gemshop or "") })
+    Gui.label("Appraise pawnshop min:")
+    local sell_appraise_pawnshop_input = Gui.input({ text = tostring(state.sell_appraise_pawnshop or "") })
+
+    Gui.separator()
+
+    -- Boxes settings
+    Gui.label("Boxes")
+    local locksmith_pool_chk = Gui.checkbox("Use locksmith pool", state.sell_locksmith_pool)
+    local locksmith_chk = Gui.checkbox("Use town locksmith", state.sell_locksmith)
+    local pool_tip_hbox = Gui.hbox()
+    Gui.label("Pool tip:")
+    local locksmith_pool_tip_input = Gui.input({ text = tostring(state.locksmith_pool_tip or "") })
+    local locksmith_pool_tip_percent_chk = Gui.checkbox("Tip as percent", state.locksmith_pool_tip_percent)
+
+    Gui.separator()
     local save_btn = Gui.button("Save & Close")
 
     win:set_root(root)
@@ -49,6 +75,9 @@ function M.open(state)
     defensive_chk:on_change(function(v) state.loot_defensive = v end)
     skin_chk:on_change(function(v) state.skin_enable = v end)
     skin_kneel_chk:on_change(function(v) state.skin_kneel = v end)
+    locksmith_pool_chk:on_change(function(v) state.sell_locksmith_pool = v end)
+    locksmith_chk:on_change(function(v) state.sell_locksmith = v end)
+    locksmith_pool_tip_percent_chk:on_change(function(v) state.locksmith_pool_tip_percent = v end)
 
     save_btn:on_click(function()
         -- Parse comma-separated inputs
@@ -63,6 +92,16 @@ function M.open(state)
         state.overflow_container = overflow_input:get_text() or ""
         state.skin_weapon = skin_weapon_input:get_text() or ""
         state.skin_sheath = skin_sheath_input:get_text() or ""
+        -- Sell settings
+        state.sell_container = sell_container_input:get_text() or ""
+        state.sell_exclude = {}
+        for t in (sell_exclude_input:get_text() or ""):gmatch("[^,]+") do
+            state.sell_exclude[#state.sell_exclude + 1] = t:match("^%s*(.-)%s*$")
+        end
+        state.sell_appraise_gemshop = tonumber(sell_appraise_gemshop_input:get_text()) or 0
+        state.sell_appraise_pawnshop = tonumber(sell_appraise_pawnshop_input:get_text()) or 0
+        -- Boxes settings
+        state.locksmith_pool_tip = tonumber(locksmith_pool_tip_input:get_text()) or 0
         settings.save(state)
         respond("[eloot] Settings saved")
         win:close()
