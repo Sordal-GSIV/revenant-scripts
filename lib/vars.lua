@@ -1,57 +1,59 @@
---- Typed accessor library for UserVars.
----
---- UserVars stores everything as strings (engine serializes via tostring).
---- These helpers coerce on read and supply defaults.
+--- Lich5-compatible Vars module.
+--- Stores arbitrary Lua values as JSON in CharSettings with __v: prefix.
+--- Usage: require("lib/vars")  -- registers global Vars
+---   Vars["key"] = {foo = "bar"}   -- stores as JSON
+---   Vars["key"]                    -- returns {foo = "bar"}
+---   Vars.my_key = "hello"         -- dot syntax works too
+---   Vars.my_key                   -- returns "hello"
+---   Vars["key"] = nil             -- deletes
 
-local M = {}
+local PREFIX = "__v:"
 
---- Get a raw value with optional default.
-function M.get(key, default)
-  local val = UserVars[key]
-  if val == nil then return default end
-  return val
+local function vars_get(key)
+    local raw = CharSettings[PREFIX .. key]
+    if raw == nil then return nil end
+    local ok, val = pcall(Json.decode, raw)
+    if ok and val ~= nil then return val end
+    return raw  -- fallback: return raw string if not valid JSON
 end
 
---- Get as string. Errors if stored value is not a string type.
-function M.get_string(key, default)
-  local val = UserVars[key]
-  if val == nil then return default end
-  if type(val) ~= "string" then
-    error("vars.get_string: '" .. key .. "' is not a string (got " .. type(val) .. ")", 2)
-  end
-  return val
+local function vars_set(key, val)
+    if val == nil then
+        CharSettings[PREFIX .. key] = nil
+    else
+        CharSettings[PREFIX .. key] = Json.encode(val)
+    end
 end
 
---- Get as number. Coerces string representations like "1.5".
---- Errors if the value cannot be converted to a number.
-function M.get_number(key, default)
-  local val = UserVars[key]
-  if val == nil then return default end
-  local n = tonumber(val)
-  if n == nil then
-    error("vars.get_number: '" .. key .. "' cannot be coerced to number (got: " .. tostring(val) .. ")", 2)
-  end
-  return n
+local Vars = {}
+
+function Vars.list()
+    local entries = CharSettings.list("__v:")
+    local result = {}
+    for _, pair in ipairs(entries) do
+        local key, raw = pair[1], pair[2]
+        local ok, val = pcall(Json.decode, raw)
+        result[key] = ok and val or raw
+    end
+    return result
 end
 
---- Get as boolean. Coerces "true"/"false" strings.
---- Errors if the value is not recognisable as boolean.
-function M.get_bool(key, default)
-  local val = UserVars[key]
-  if val == nil then return default end
-  if val == "true" or val == true then return true end
-  if val == "false" or val == false then return false end
-  error("vars.get_bool: '" .. key .. "' cannot be coerced to bool (got: " .. tostring(val) .. ")", 2)
+function Vars.save()
+    -- No-op: CharSettings persists on write
 end
 
---- Set a variable.
-function M.set(key, value)
-  UserVars[key] = value
-end
+local mt = {
+    __index = function(t, key)
+        -- Check for module methods first
+        local method = rawget(Vars, key)
+        if method then return method end
+        return vars_get(key)
+    end,
+    __newindex = function(t, key, val)
+        vars_set(key, val)
+    end,
+}
 
---- Delete a variable.
-function M.unset(key)
-  UserVars[key] = nil
-end
+setmetatable(Vars, mt)
 
-return M
+return Vars

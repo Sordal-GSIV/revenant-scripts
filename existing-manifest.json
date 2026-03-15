@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T04:41:15Z",
+  "generated": "2026-03-15T04:44:49Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -150,9 +150,12 @@
     },
     {
       "name": "version",
-      "author": "unknown",
-      "description": "Check and update the Revenant engine version",
-      "tags": [],
+      "author": "Sordal",
+      "description": "Check/update the Revenant engine and show system diagnostics",
+      "tags": [
+        "system",
+        "diagnostics"
+      ],
       "channels": {
         "dev": {
           "version": "0.1.0",
@@ -161,8 +164,8 @@
           "depends": []
         },
         "stable": {
-          "version": "0.1.0",
-          "sha256": "195bb2c1ef4575908d9429522ccdd1be181a879cf33960e5adab2c2bb3659ba7",
+          "version": "0.2.0",
+          "sha256": "5c75d97a189a95f179272c9701a8d82b206854bcb5721215b8d7e0d860f5e8b1",
           "path": "version.lua",
           "depends": []
         }
