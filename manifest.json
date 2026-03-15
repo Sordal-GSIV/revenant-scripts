@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T05:53:20Z",
+  "generated": "2026-03-15T05:58:54Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -79,6 +79,46 @@
           "depends": [
             "lib/args",
             "lib/table_render"
+          ]
+        }
+      }
+    },
+    {
+      "name": "eherbs",
+      "author": "Sordal",
+      "description": "Self-healing with herbs \u2014 diagnosis, auto-eat/drink, inventory management",
+      "tags": [],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "8f33e66fa4074e982ac825b74616d5c69add92855b460aecf2a37e6d2fd3fdfe",
+          "path": "eherbs/",
+          "depends": [],
+          "files": [
+            {
+              "name": "actions.lua",
+              "sha256": "d6a189d5a6e320cdc6697e5d9cd6bf9ff68bd382df74c86ec74aa5191f9b6fb5"
+            },
+            {
+              "name": "diagnosis.lua",
+              "sha256": "33a17d5ba09426956de01dc006479fd9538f9a79bb1eb5c57064013334c3ec4c"
+            },
+            {
+              "name": "gui_settings.lua",
+              "sha256": "ad58ff09f5a546c3e60e3ac2c27e46b44cc6d8780fb00bea4c019f1a8b65ee72"
+            },
+            {
+              "name": "init.lua",
+              "sha256": "24964c1f9639013f24a22c83e5ac357f09e19b3397fadffb86009d43722b9c05"
+            },
+            {
+              "name": "manifest.lua",
+              "sha256": "739077bf11184ac02ef6b3bac1c0de051d86524af20606a74c2db61526e8b673"
+            },
+            {
+              "name": "settings.lua",
+              "sha256": "38b6d7632ab3fac4f4cd6d25b89222c0a0910d1d1b004aa9d0b0e9f3d27f4df1"
+            }
           ]
         }
       }
