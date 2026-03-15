@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T06:48:22Z",
+  "generated": "2026-03-15T07:24:33Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -70,7 +70,7 @@
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "f00aed85291e8a5b2930daf1521a4cdea1e82a79f7c5e34ee7ae183106a8555b",
+          "sha256": "d5529122d7b6612a30b86a161149d487588e003631e3d97c6cecbbbb37e17ae4",
           "path": "bigshot/",
           "depends": [
             "go2 >= 1.0",
@@ -80,6 +80,10 @@
             {
               "name": "config.lua",
               "sha256": "dfbac1dcd5540c1ae7ac0281908293cbbe60b5da993e585631a6b3e8237efd40"
+            },
+            {
+              "name": "group.lua",
+              "sha256": "6c50881c49daae108fe17177ed2597267f78ac4d51ce0a2d9a60cc86a88f9860"
             },
             {
               "name": "gui_settings.lua",
