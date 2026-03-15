@@ -247,7 +247,8 @@ while retries < max_retries do
         respond("[go2] Moving — " .. #path .. " steps remaining")
     end
 
-    local ok, walk_err = movement.walk(path, state, function(i, total, cmd_str)
+    local walk_fn = (state.typeahead or 0) > 0 and movement.walk_typeahead or movement.walk
+    local ok, walk_err = walk_fn(path, state, function(i, total, cmd_str)
         if state.echo_input then
             respond("[go2] Step " .. i .. "/" .. total .. ": " .. cmd_str)
         end
