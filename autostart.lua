@@ -1,9 +1,7 @@
 --- @revenant-script
 --- name: autostart
---- version: 0.1.0
+--- version: 0.2.0
 --- description: Launch scripts automatically on character connect
-
-local args = require("lib/args")
 
 -- ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -11,91 +9,225 @@ local function load_list(key, store)
   local raw = store[key]
   if not raw then return {} end
   local ok, t = pcall(Json.decode, raw)
-  return (ok and type(t) == "table") and t or {}
+  if not ok or type(t) ~= "table" then return {} end
+  -- Migration: upgrade bare strings to {name, args} objects
+  local migrated = false
+  for i, entry in ipairs(t) do
+    if type(entry) == "string" then
+      t[i] = { name = entry, args = {} }
+      migrated = true
+    end
+  end
+  if migrated then
+    store[key] = Json.encode(t)
+  end
+  return t
 end
 
 local function save_list(key, store, list)
   store[key] = Json.encode(list)
 end
 
--- ── Command mode ─────────────────────────────────────────────────────────────
--- When arguments are present, handle as a management command and exit.
+local function format_entry(entry)
+  if #entry.args > 0 then
+    return entry.name .. " (args: " .. table.concat(entry.args, " ") .. ")"
+  end
+  return entry.name
+end
 
-local input = Script.vars[0] or ""
-local parsed = args.parse(input)
-local cmd    = parsed.args[1]
+local function find_entry(list, name)
+  for i, entry in ipairs(list) do
+    if entry.name == name then return i end
+  end
+  return nil
+end
 
-if cmd then
-  local target    = parsed.args[2]
-  local is_global = (parsed["global"] == true)
+local function show_config()
+  local global_list = load_list("autostart_global", Settings)
+  local char_list   = load_list("autostart", CharSettings)
+  local enabled     = CharSettings["autostart_enabled"] ~= "false"
+  local pkg_update  = CharSettings["autostart_pkg_update"] ~= "false"
+
+  local global_str = "(none)"
+  if #global_list > 0 then
+    local parts = {}
+    for _, e in ipairs(global_list) do parts[#parts + 1] = format_entry(e) end
+    global_str = table.concat(parts, ", ")
+  end
+
+  local char_str = "(none)"
+  if #char_list > 0 then
+    local parts = {}
+    for _, e in ipairs(char_list) do parts[#parts + 1] = format_entry(e) end
+    char_str = table.concat(parts, ", ")
+  end
+
+  respond("Autostart: " .. (enabled and "enabled" or "disabled") .. " | pkg-update: " .. (pkg_update and "on" or "off"))
+  respond("  Global:    " .. global_str)
+  respond("  Character: " .. char_str)
+end
+
+-- ── CLI: add command (manual parsing) ────────────────────────────────────────
+
+local function cmd_add(input)
+  -- Tokenize first, then filter for exact --global match (avoids substring matching)
+  local is_global = false
+  local raw_tokens = {}
+  for token in input:gmatch("%S+") do
+    raw_tokens[#raw_tokens + 1] = token
+  end
+
+  local tokens = {}
+  for _, token in ipairs(raw_tokens) do
+    if token == "--global" then
+      is_global = true
+    elseif token ~= "add" then
+      tokens[#tokens + 1] = token
+    end
+  end
+
+  local script_name = tokens[1]
+  if not script_name then
+    respond("Usage: ;autostart add <script> [args...] [--global]")
+    return
+  end
+
+  -- Validate script exists
+  if not Script.exists(script_name) then
+    respond("Error: script '" .. script_name .. "' does not exist.")
+    return
+  end
+
+  local script_args = {}
+  for i = 2, #tokens do
+    script_args[#script_args + 1] = tokens[i]
+  end
+
   local store_key = is_global and "autostart_global" or "autostart"
   local store     = is_global and Settings or CharSettings
   local scope_lbl = is_global and "global" or "character"
 
-  if cmd == "list" then
-    local global_list = load_list("autostart_global", Settings)
-    local char_list   = load_list("autostart", CharSettings)
-    local enabled     = CharSettings["autostart_enabled"] ~= "false"
-    respond("Autostart: " .. (enabled and "enabled" or "disabled"))
-    respond("  Global:    " .. (#global_list > 0 and table.concat(global_list, ", ") or "(none)"))
-    respond("  Character: " .. (#char_list   > 0 and table.concat(char_list,   ", ") or "(none)"))
+  local list = load_list(store_key, store)
 
-  elseif cmd == "add" then
-    if not target then
-      respond("Usage: ;autostart add <script> [--global]")
-    else
-      local list = load_list(store_key, store)
-      for _, v in ipairs(list) do
-        if v == target then return end  -- silent no-op if already present
-      end
-      list[#list + 1] = target
-      save_list(store_key, store, list)
-      respond("Added " .. target .. " to " .. scope_lbl .. " autostart.")
+  -- Check for duplicates
+  if find_entry(list, script_name) then
+    respond(script_name .. " is already in " .. scope_lbl .. " autostart.")
+    return
+  end
+
+  list[#list + 1] = { name = script_name, args = script_args }
+  save_list(store_key, store, list)
+  respond("Added " .. script_name .. " to " .. scope_lbl .. " autostart.")
+end
+
+-- ── CLI: other commands ──────────────────────────────────────────────────────
+
+local function cmd_remove(input)
+  -- Tokenize and filter for exact --global match
+  local is_global = false
+  local script_name
+
+  for token in input:gmatch("%S+") do
+    if token == "--global" then
+      is_global = true
+    elseif token ~= "remove" and token ~= "rem" and token ~= "delete" and token ~= "del" then
+      script_name = script_name or token
     end
+  end
 
-  elseif cmd == "remove" then
-    if not target then
-      respond("Usage: ;autostart remove <script> [--global]")
-    else
-      local list = load_list(store_key, store)
-      local new, found = {}, false
-      for _, v in ipairs(list) do
-        if v ~= target then new[#new + 1] = v else found = true end
-      end
-      if found then
-        save_list(store_key, store, new)
-        respond("Removed " .. target .. " from " .. scope_lbl .. " autostart.")
-      else
-        respond(target .. " was not in " .. scope_lbl .. " autostart.")
-      end
-    end
+  if not script_name then
+    respond("Usage: ;autostart remove <script> [--global]")
+    return
+  end
 
-  elseif cmd == "enable" then
+  local store_key = is_global and "autostart_global" or "autostart"
+  local store     = is_global and Settings or CharSettings
+  local scope_lbl = is_global and "global" or "character"
+
+  local list = load_list(store_key, store)
+  local idx = find_entry(list, script_name)
+  if idx then
+    table.remove(list, idx)
+    save_list(store_key, store, list)
+    respond("Removed " .. script_name .. " from " .. scope_lbl .. " autostart.")
+  else
+    respond(script_name .. " was not in " .. scope_lbl .. " autostart.")
+  end
+end
+
+local function cmd_pkg_update(val)
+  if val == "true" or val == "on" then
+    CharSettings["autostart_pkg_update"] = "true"
+    respond("Autostart: pkg-update enabled.")
+  elseif val == "false" or val == "off" then
+    CharSettings["autostart_pkg_update"] = "false"
+    respond("Autostart: pkg-update disabled.")
+  else
+    local current = CharSettings["autostart_pkg_update"] ~= "false"
+    respond("Autostart: pkg-update is " .. (current and "on" or "off") .. ".")
+  end
+end
+
+local function show_help()
+  respond("Usage:")
+  respond("  ;autostart                              Show config + start daemon")
+  respond("  ;autostart list                          Show configured scripts")
+  respond("  ;autostart add <script> [args] [--global] Add script to autostart")
+  respond("  ;autostart remove <script> [--global]    Remove script from autostart")
+  respond("  ;autostart enable                        Enable autostart")
+  respond("  ;autostart disable                       Disable autostart")
+  respond("  ;autostart pkg-update [true|false]        Toggle pkg update on connect")
+  respond("  ;autostart help                          Show this help")
+end
+
+-- ── Command routing ──────────────────────────────────────────────────────────
+
+local input = Script.vars[0] or ""
+local first_word = input:match("^%s*(%S+)")
+
+if first_word then
+  if first_word == "list" then
+    show_config()
+
+  elseif first_word == "add" then
+    cmd_add(input)
+
+  elseif first_word == "remove" or first_word == "rem" or first_word == "delete" or first_word == "del" then
+    cmd_remove(input)
+
+  elseif first_word == "enable" then
     CharSettings["autostart_enabled"] = "true"
     respond("Autostart enabled.")
 
-  elseif cmd == "disable" then
+  elseif first_word == "disable" then
     CharSettings["autostart_enabled"] = "false"
     respond("Autostart disabled.")
 
+  elseif first_word == "pkg-update" then
+    local val = input:match("^%s*pkg%-update%s+(%S+)")
+    cmd_pkg_update(val)
+
+  elseif first_word == "help" then
+    show_help()
+
   else
-    respond("Usage: ;autostart [list | add <script> [--global] | remove <script> [--global] | enable | disable]")
+    show_help()
   end
 
   return  -- exit after handling command
 end
 
--- ── Daemon mode ───────────────────────────────────────────────────────────────
--- No arguments: show list, register connect hook, and block indefinitely.
+-- ── Daemon mode ──────────────────────────────────────────────────────────────
+-- No arguments: show config, register connect hook, block indefinitely.
 
-do
-  local global_list = load_list("autostart_global", Settings)
-  local char_list   = load_list("autostart", CharSettings)
-  local enabled     = CharSettings["autostart_enabled"] ~= "false"
-  respond("Autostart: " .. (enabled and "enabled" or "disabled"))
-  respond("  Global:    " .. (#global_list > 0 and table.concat(global_list, ", ") or "(none)"))
-  respond("  Character: " .. (#char_list   > 0 and table.concat(char_list,   ", ") or "(none)"))
-end
+-- TODO: GUI management panel (Gui.window)
+--   - Checkbox list of scripts (toggle on/off)
+--   - Add/remove buttons
+--   - Drag reorder
+--   - Args editing per script
+--   - pkg-update toggle
+
+show_config()
 
 local last_connect_time = 0
 
@@ -109,26 +241,73 @@ DownstreamHook.add("autostart_connect", function(data)
 
   if CharSettings["autostart_enabled"] == "false" then return data end
 
+  -- Step 1: pkg update (if enabled)
+  if CharSettings["autostart_pkg_update"] ~= "false" then
+    local ok, err = pcall(Script.run, "pkg", "update")
+    if ok then
+      -- Wait for pkg to finish (20 second timeout)
+      local waited = 0
+      while Script.running("pkg") and waited < 20 do
+        pause(0.5)
+        waited = waited + 0.5
+      end
+      if waited >= 20 then
+        respond("autostart: pkg update timed out after 20s, continuing.")
+      end
+    else
+      respond("autostart: pkg update failed: " .. tostring(err))
+    end
+  end
+
+  -- TODO: Wait for infomon sync-complete signal
+  -- When infomon sync spec is implemented, replace with:
+  -- local sync_timeout = 30
+  -- local waited = 0
+  -- while not Infomon.synced and waited < sync_timeout do
+  --     pause(0.5)
+  --     waited = waited + 0.5
+  -- end
+  -- if not Infomon.synced then
+  --     respond("autostart: infomon sync timed out, launching scripts anyway")
+  -- end
+
+  -- Step 2: Merge global + character lists (deduplicate by name)
   local global_list = load_list("autostart_global", Settings)
   local char_list   = load_list("autostart", CharSettings)
 
-  -- Merge: global first, then character-specific
   local all = {}
-  for _, v in ipairs(global_list) do all[#all + 1] = v end
-  for _, v in ipairs(char_list)   do all[#all + 1] = v end
+  local seen = {}
+  for _, entry in ipairs(global_list) do
+    if not seen[entry.name] then
+      all[#all + 1] = entry
+      seen[entry.name] = true
+    end
+  end
+  for _, entry in ipairs(char_list) do
+    if not seen[entry.name] then
+      all[#all + 1] = entry
+      seen[entry.name] = true
+    end
+  end
 
+  -- Step 3: Launch scripts
   local started, skipped, failed = 0, 0, {}
 
-  for _, name in ipairs(all) do
-    if Script.running(name) then
+  for _, entry in ipairs(all) do
+    if Script.running(entry.name) then
       skipped = skipped + 1
     else
-      -- pcall catches load-time errors only; runtime errors are not captured
-      local ok, err = pcall(Script.run, name)
+      local args_str = table.concat(entry.args, " ")
+      local ok, err
+      if #args_str > 0 then
+        ok, err = pcall(Script.run, entry.name, args_str)
+      else
+        ok, err = pcall(Script.run, entry.name)
+      end
       if ok then
         started = started + 1
       else
-        failed[#failed + 1] = name .. ": " .. tostring(err)
+        failed[#failed + 1] = entry.name .. ": " .. tostring(err)
       end
     end
   end
@@ -137,11 +316,11 @@ DownstreamHook.add("autostart_connect", function(data)
     "autostart: started %d, skipped %d (already running), failed %d",
     started, skipped, #failed))
 
+  -- Log failures
   if #failed > 0 then
     local timestamp = os.date("%Y-%m-%d %H:%M:%S")
     local lines = { "[" .. timestamp .. "] Connect failures:" }
     for _, f in ipairs(failed) do lines[#lines + 1] = "  " .. f end
-    -- Append to log (write overwrites; for append behaviour, read + concat)
     local existing = File.read("_data/autostart.log") or ""
     File.write("_data/autostart.log", existing .. table.concat(lines, "\n") .. "\n")
   end
@@ -149,5 +328,9 @@ DownstreamHook.add("autostart_connect", function(data)
   return data
 end)
 
-respond("autostart: daemon running. Use ;autostart list to see configured scripts.")
+before_dying(function()
+  DownstreamHook.remove("autostart_connect")
+end)
+
+respond("autostart: daemon running. Use ;autostart help for commands.")
 while true do pause() end
