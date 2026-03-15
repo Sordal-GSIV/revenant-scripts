@@ -155,6 +155,21 @@ function M.run(positional, flags)
     local map_btn = Gui.button(scripts_tab, "Update Map Database")
     local map_progress = Gui.progress(scripts_tab, 0)
 
+    -- Settings section
+    Gui.separator(scripts_tab)
+    local settings_header = Gui.label(scripts_tab, "Settings")
+    local registries_label = Gui.label(scripts_tab, "Registries:")
+    local registries_table = Gui.table(scripts_tab, {
+        columns = { "Name", "Format", "Map", "URL" },
+        rows = {},
+    })
+    local settings_bar = Gui.hbox(scripts_tab)
+    local reg_name_input = Gui.input(settings_bar, { placeholder = "Registry name" })
+    local reg_url_input = Gui.input(settings_bar, { placeholder = "Registry URL" })
+    local reg_add_btn = Gui.button(settings_bar, "Add Registry")
+    local channel_label = Gui.label(scripts_tab, "")
+    local channel_btn = Gui.button(scripts_tab, "Change Channel")
+
     -- Load data
     local cfg = config.load_config()
     local all_scripts, installed = load_script_data()
@@ -178,6 +193,24 @@ function M.run(positional, flags)
     else
         Gui.update(map_status, { text = "Log in to a game to see map status" })
     end
+
+    -- Populate settings
+    local function refresh_registries_table()
+        local current_cfg = config.load_config()
+        local reg_rows = {}
+        for _, reg in ipairs(current_cfg.registries) do
+            reg_rows[#reg_rows + 1] = {
+                reg.name,
+                reg.format or "revenant",
+                reg.map_registry and "yes" or "",
+                reg.url,
+            }
+        end
+        Gui.update(registries_table, { rows = reg_rows })
+        local ch = current_cfg.channel or "stable"
+        Gui.update(channel_label, { text = "Global channel: " .. ch })
+    end
+    refresh_registries_table()
 
     win:show()
 
@@ -232,6 +265,26 @@ function M.run(positional, flags)
                 Gui.update(map_btn, { label = "Updating..." })
                 Gui.update(status_label, { text = "Updating map database..." })
                 Script.run("pkg_worker", { "map-update" })
+            elseif event.widget == reg_add_btn then
+                local rname = Gui.get_text(reg_name_input)
+                local rurl = Gui.get_text(reg_url_input)
+                if rname and rname ~= "" and rurl and rurl ~= "" then
+                    local cmd_repo = require("cmd_repo")
+                    cmd_repo.run({ "add", rname, rurl }, flags or {})
+                    refresh_registries_table()
+                end
+            elseif event.widget == channel_btn then
+                local current_cfg = config.load_config()
+                local ch = current_cfg.channel or "stable"
+                local channels = { "stable", "beta", "dev" }
+                for i, v in ipairs(channels) do
+                    if v == ch then
+                        current_cfg.channel = channels[(i % #channels) + 1]
+                        break
+                    end
+                end
+                config.save_config(current_cfg)
+                refresh_registries_table()
             end
         elseif event.type == "table_row_selected" then
             if event.widget == script_table then
