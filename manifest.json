@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-14T06:56:33Z",
+  "generated": "2026-03-15T00:18:06Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -11,6 +11,12 @@
       "tags": [],
       "channels": {
         "dev": {
+          "version": "0.1.0",
+          "sha256": "45b227405b40287df00e414f24b4973fe37ac78af70ece26cd0f5d0ed6f4a186",
+          "path": "alias.lua",
+          "depends": []
+        },
+        "stable": {
           "version": "0.1.0",
           "sha256": "45b227405b40287df00e414f24b4973fe37ac78af70ece26cd0f5d0ed6f4a186",
           "path": "alias.lua",
@@ -29,6 +35,12 @@
           "sha256": "589d92cf1622241a62775ee7584f0c5f38b1b365fc9c9c8bd9eedeae57c545d6",
           "path": "autostart.lua",
           "depends": []
+        },
+        "stable": {
+          "version": "0.1.0",
+          "sha256": "589d92cf1622241a62775ee7584f0c5f38b1b365fc9c9c8bd9eedeae57c545d6",
+          "path": "autostart.lua",
+          "depends": []
         }
       }
     },
@@ -39,6 +51,12 @@
       "tags": [],
       "channels": {
         "dev": {
+          "version": "0.1.0",
+          "sha256": "05962a211619ab1ad3f1b318ff5341e872d3c0cb162aedc51eb8075d5ce83c24",
+          "path": "go2.lua",
+          "depends": []
+        },
+        "stable": {
           "version": "0.1.0",
           "sha256": "05962a211619ab1ad3f1b318ff5341e872d3c0cb162aedc51eb8075d5ce83c24",
           "path": "go2.lua",
@@ -57,6 +75,12 @@
           "sha256": "12f62f78412385ad749e916be1b06ce13f922beccbd8eaaa183c3c44531a7bb4",
           "path": "vars.lua",
           "depends": []
+        },
+        "stable": {
+          "version": "0.1.0",
+          "sha256": "12f62f78412385ad749e916be1b06ce13f922beccbd8eaaa183c3c44531a7bb4",
+          "path": "vars.lua",
+          "depends": []
         }
       }
     },
@@ -67,6 +91,12 @@
       "tags": [],
       "channels": {
         "dev": {
+          "version": "0.1.0",
+          "sha256": "195bb2c1ef4575908d9429522ccdd1be181a879cf33960e5adab2c2bb3659ba7",
+          "path": "version.lua",
+          "depends": []
+        },
+        "stable": {
           "version": "0.1.0",
           "sha256": "195bb2c1ef4575908d9429522ccdd1be181a879cf33960e5adab2c2bb3659ba7",
           "path": "version.lua",
