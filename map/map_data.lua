@@ -1,0 +1,150 @@
+local M = {}
+
+local function normalize_key(filename)
+    if not filename then return nil end
+    -- Strip extension, trailing -N digits, lowercase
+    local key = filename:gsub("%.[^%.]+$", "")  -- strip extension
+    key = key:gsub("%-[0-9]+$", "")              -- strip trailing -N
+    return key:lower()
+end
+
+function M.build_index()
+    local index = {
+        maps = {},
+        categories = {},
+        all_tags = {},
+        all_locations = {},
+    }
+
+    local tag_set = {}
+    local location_set = {}
+    local room_ids = Map.list()
+
+    for _, room_id in ipairs(room_ids) do
+        local room = Map.find_room(room_id)
+        if room and room.image then
+            local img = room.image
+            -- Initialize map entry if not seen
+            if not index.maps[img] then
+                index.maps[img] = {
+                    name = img,
+                    shortname = nil,
+                    category = "Uncategorized",
+                }
+            end
+
+            -- Extract metadata from tags
+            if room.tags then
+                for _, tag in ipairs(room.tags) do
+                    local mapname = tag:match("^meta:mapname:(.+)$")
+                    if mapname then
+                        index.maps[img].name = mapname
+                    end
+                    local shortname = tag:match("^meta:mapshortname:(.+)$")
+                    if shortname then
+                        index.maps[img].shortname = shortname
+                    end
+                    local category = tag:match("^meta:mapcategory:(.+)$")
+                    if category then
+                        index.maps[img].category = category
+                    end
+                    -- Collect non-meta tags
+                    if not tag:match("^meta:") then
+                        tag_set[tag] = true
+                    end
+                end
+            end
+
+            -- Collect locations
+            if room.location and room.location ~= "" then
+                location_set[room.location] = true
+            end
+        end
+    end
+
+    -- Build category index
+    for img, info in pairs(index.maps) do
+        local cat = info.category
+        if not index.categories[cat] then
+            index.categories[cat] = {}
+        end
+        local list = index.categories[cat]
+        list[#list + 1] = img
+    end
+    -- Sort each category's map list
+    for _, list in pairs(index.categories) do
+        table.sort(list)
+    end
+
+    -- Build sorted tag and location lists
+    for tag in pairs(tag_set) do
+        index.all_tags[#index.all_tags + 1] = tag
+    end
+    table.sort(index.all_tags)
+
+    for loc in pairs(location_set) do
+        index.all_locations[#index.all_locations + 1] = loc
+    end
+    table.sort(index.all_locations)
+
+    return index
+end
+
+function M.image_for_room(room)
+    if room and room.image then
+        return room.image
+    end
+    return nil
+end
+
+function M.room_coords(room)
+    if room and room.image_coords then
+        return room.image_coords
+    end
+    return nil
+end
+
+function M.rooms_with_tag(tag)
+    return Map.tags(tag) or {}
+end
+
+function M.rooms_in_location(location)
+    local result = {}
+    local room_ids = Map.list()
+    for _, room_id in ipairs(room_ids) do
+        local room = Map.find_room(room_id)
+        if room and room.location == location then
+            result[#result + 1] = room_id
+        end
+    end
+    return result
+end
+
+function M.find_room_at(index, current_image, click_x, click_y)
+    local room_ids = Map.list()
+    for _, room_id in ipairs(room_ids) do
+        local room = Map.find_room(room_id)
+        if room and room.image == current_image and room.image_coords then
+            local c = room.image_coords
+            if click_x >= c[1] and click_x <= c[3]
+               and click_y >= c[2] and click_y <= c[4] then
+                return room_id
+            end
+        end
+    end
+    return nil
+end
+
+function M.resolve_image_path(image, game, dark_mode)
+    if dark_mode then
+        -- Check for dark variant (e.g., image-dark.gif or in a dark/ subdir)
+        local dark_name = image:gsub("(%.[^%.]+)$", "-dark%1")
+        local dark_path = "data/" .. game .. "/" .. dark_name
+        if File.exists(dark_path) then
+            return dark_path
+        end
+    end
+    return "data/" .. game .. "/" .. image
+end
+
+return M
