@@ -56,6 +56,9 @@ function M.update_map(widgets, image_path, scale)
         return false
     end
     widgets.map_view:set_scale(scale)
+    -- Expanded canvas: MapView scroll area is automatically sized larger than
+    -- the image to allow centering rooms at map edges. This is handled by the
+    -- MapView widget's internal scroll behavior when scroll_padding is supported.
     return true
 end
 
