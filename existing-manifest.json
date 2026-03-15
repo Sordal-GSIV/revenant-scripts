@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T07:33:23Z",
+  "generated": "2026-03-15T07:43:58Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -55,8 +55,8 @@
           "depends": []
         },
         "stable": {
-          "version": "0.1.0",
-          "sha256": "589d92cf1622241a62775ee7584f0c5f38b1b365fc9c9c8bd9eedeae57c545d6",
+          "version": "0.2.0",
+          "sha256": "6dbab29615ced090f893c40b4c1ef6e7b64b09f8f85b933cc07b9dcbdb4d1fc9",
           "path": "autostart.lua",
           "depends": []
         }
@@ -142,6 +142,56 @@
           "depends": [
             "lib/args",
             "lib/table_render"
+          ]
+        }
+      }
+    },
+    {
+      "name": "ebounty",
+      "author": "elanthia-online (ported to Revenant)",
+      "description": "Adventurer's Guild bounty automation \u2014 culling, gems, herbs, skins, heirlooms, escorts, rescues, bandits",
+      "tags": [],
+      "channels": {
+        "stable": {
+          "version": "2.0.0",
+          "sha256": "a927c2a2c0b989732c0a7062437242a2ec165d0d38fed67ee10297107fc21d5e",
+          "path": "ebounty/",
+          "depends": [
+            "lib/bounty"
+          ],
+          "files": [
+            {
+              "name": "data.lua",
+              "sha256": "345a07cfae960727304e68561125eb1d2d2e9735921dede9d3e263ba0947fdfc"
+            },
+            {
+              "name": "gui_settings.lua",
+              "sha256": "d13290fb60204c1e4104cc5f6957eadaaa4d13634703b90033c9b500a6a102f1"
+            },
+            {
+              "name": "hunting.lua",
+              "sha256": "d7fab834dc60fcf43442eaf518e4a45d68cf5278d49c41c257a9ea139eacc21a"
+            },
+            {
+              "name": "init.lua",
+              "sha256": "881ae0be7e14ea4a9c1c5a63f52af0ff410367efbc8f88bcb7bfe9343bf8246b"
+            },
+            {
+              "name": "manifest.lua",
+              "sha256": "909c4bfc6d3bb1ee1034db87dde1c1a0d03575ccaa17fd25ef70c8b2ba9e6407"
+            },
+            {
+              "name": "settings.lua",
+              "sha256": "b6f386407077109c92de93a7ecac006a9612bd9d8198f7ab7c9b5f2ae0e32058"
+            },
+            {
+              "name": "task.lua",
+              "sha256": "c42a12860a6714279ebd171c8e472a34f9b59b7bebdea2eea534cf0e69b45af3"
+            },
+            {
+              "name": "util.lua",
+              "sha256": "7c546826b46aeb5302a768e840ae06823c39b0d370ed6fcf843943e58f1686fe"
+            }
           ]
         }
       }

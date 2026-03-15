@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T07:43:58Z",
+  "generated": "2026-03-15T08:07:08Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -56,7 +56,7 @@
         },
         "stable": {
           "version": "0.2.0",
-          "sha256": "6dbab29615ced090f893c40b4c1ef6e7b64b09f8f85b933cc07b9dcbdb4d1fc9",
+          "sha256": "1e9e7c477006e72d57db2f17157b0b9274befcce46187eba7259dc45eb8fdb39",
           "path": "autostart.lua",
           "depends": []
         }
