@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T07:24:33Z",
+  "generated": "2026-03-15T07:33:23Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -70,13 +70,25 @@
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "d5529122d7b6612a30b86a161149d487588e003631e3d97c6cecbbbb37e17ae4",
+          "sha256": "ecf8579f5cd89d051a41d43cea927fd63f4d9353b6ad59f66d5d6a61f6c0b5f8",
           "path": "bigshot/",
           "depends": [
             "go2 >= 1.0",
             "eloot >= 1.0"
           ],
           "files": [
+            {
+              "name": "area_rooms.lua",
+              "sha256": "565d01ef5cb71335151de09216cb5097ce1ced3bd304e63c7e2711514a0eeab2"
+            },
+            {
+              "name": "command_check.lua",
+              "sha256": "97ad6713a270161e0e3ae9cc099861fc194b1ebc5d0bf75cc5408b21e03e054e"
+            },
+            {
+              "name": "commands.lua",
+              "sha256": "d3a566a1ea6ff9f65c1af4cd4b4d23cc5218756df2d2f76576df5540bdf7ddd2"
+            },
             {
               "name": "config.lua",
               "sha256": "dfbac1dcd5540c1ae7ac0281908293cbbe60b5da993e585631a6b3e8237efd40"
@@ -91,11 +103,23 @@
             },
             {
               "name": "init.lua",
-              "sha256": "3c5eecd72d73553bb1e555cd32dd1df4eb4ce61b933b3d8c958eb5fdb8e0b2d8"
+              "sha256": "4378e9b3c8b29f775d3f8f5a9d7a1de95b572010e4cdaba4fa75febeaba03474"
             },
             {
               "name": "manifest.lua",
               "sha256": "a7da311e17e780d992f2d6b337d29cc112b46695e8493f371d3bb88342f10d3e"
+            },
+            {
+              "name": "navigation.lua",
+              "sha256": "48f558a7cebf06c073f6749756f0b74dd5f20b233db2bec8e4be9a30bf32a8ee"
+            },
+            {
+              "name": "recovery.lua",
+              "sha256": "640f8e0c70f5ef9a6d5dfb374f5c2df2e16c30c702b4ce34b1b01025982c57a5"
+            },
+            {
+              "name": "state.lua",
+              "sha256": "31cbfefeacaeebef023c3f3a6deda0cd72cdae7fb4a97c0d6b39b05e8375ae91"
             }
           ]
         }
