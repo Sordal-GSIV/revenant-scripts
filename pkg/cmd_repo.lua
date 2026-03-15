@@ -11,17 +11,21 @@ function M.run(positional, flags)
             respond("No registries configured.")
             return
         end
-        respond(string.format("%-20s %s", "Name", "URL"))
-        respond(string.rep("-", 60))
+        respond(string.format("%-20s %-8s %-4s %s", "Name", "Format", "Map", "URL"))
+        respond(string.rep("-", 72))
         for _, reg in ipairs(cfg.registries) do
-            respond(string.format("%-20s %s", reg.name, reg.url))
+            respond(string.format("%-20s %-8s %-4s %s",
+                reg.name,
+                reg.format or "revenant",
+                reg.map_registry and "yes" or "",
+                reg.url))
         end
 
     elseif subcmd == "add" then
         local name = positional[2]
         local url = positional[3]
         if not name or not url then
-            respond("Usage: ;pkg repo add <name> <url>")
+            respond("Usage: ;pkg repo add <name> <url> [--format=jinx] [--map]")
             return
         end
         -- Check for duplicate
@@ -31,9 +35,18 @@ function M.run(positional, flags)
                 return
             end
         end
-        cfg.registries[#cfg.registries + 1] = { name = name, url = url }
+        local format = flags.format or "revenant"
+        local is_map = flags.map or false
+        cfg.registries[#cfg.registries + 1] = {
+            name = name,
+            url = url,
+            format = format,
+            map_registry = is_map,
+        }
         config.save_config(cfg)
-        respond("Added registry: " .. name .. " (" .. url .. ")")
+        respond("Added registry: " .. name .. " (" .. url .. ")"
+            .. (format ~= "revenant" and " [format=" .. format .. "]" or "")
+            .. (is_map and " [map]" or ""))
 
     elseif subcmd == "remove" then
         local name = positional[2]
