@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T05:38:59Z",
+  "generated": "2026-03-15T05:53:20Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -59,6 +59,27 @@
           "sha256": "589d92cf1622241a62775ee7584f0c5f38b1b365fc9c9c8bd9eedeae57c545d6",
           "path": "autostart.lua",
           "depends": []
+        }
+      }
+    },
+    {
+      "name": "ebestiary",
+      "author": "Ramparts (ported to Revenant)",
+      "description": "GemStone IV creature lookup by level, type, or name",
+      "tags": [
+        "hunting",
+        "creatures",
+        "reference"
+      ],
+      "channels": {
+        "stable": {
+          "version": "2.0.0",
+          "sha256": "a5582b02f2a3fe165c477b4bffccd001637ea910ab85f62cac52f45650a25948",
+          "path": "ebestiary.lua",
+          "depends": [
+            "lib/args",
+            "lib/table_render"
+          ]
         }
       }
     },
