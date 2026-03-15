@@ -1,4 +1,5 @@
 local config = require("config")
+local adapter = require("manifest_adapter")
 
 local M = {}
 
@@ -16,7 +17,9 @@ function M.fetch_manifest(registry, use_cache)
                 local cached, read_err = File.read(cache_file)
                 if cached then
                     local data, json_err = Json.decode(cached)
-                    if data then return data end
+                    if data then
+                        return adapter.normalize(data, registry.format)
+                    end
                 end
             end
         end
@@ -30,24 +33,43 @@ function M.fetch_manifest(registry, use_cache)
         return nil
     end
 
-    -- Check manifest version
-    if data.manifest_version and data.manifest_version > SUPPORTED_MANIFEST_VERSION then
+    -- Check manifest version (only for revenant-format registries)
+    local fmt = registry.format or "revenant"
+    if fmt == "revenant" and data.manifest_version
+        and data.manifest_version > SUPPORTED_MANIFEST_VERSION then
         respond("  Warning: " .. registry.name .. " uses manifest version "
             .. data.manifest_version .. " (supported: " .. SUPPORTED_MANIFEST_VERSION
             .. "). Skipping — you may need to update pkg.")
         return nil
     end
 
-    -- Cache it
+    -- Cache the raw data (before normalization)
     local json_str = Json.encode(data)
     File.write(cache_file, json_str)
 
-    return data
+    return adapter.normalize(data, registry.format)
 end
 
-function M.fetch_all_manifests(cfg, use_cache)
+function M.get_registries(cfg, opts)
+    opts = opts or {}
+    local result = {}
+    for _, reg in ipairs(cfg.registries) do
+        local is_map = reg.map_registry or false
+        if opts.map_only and is_map then
+            result[#result + 1] = reg
+        elseif opts.scripts_only and not is_map then
+            result[#result + 1] = reg
+        elseif not opts.map_only and not opts.scripts_only then
+            result[#result + 1] = reg
+        end
+    end
+    return result
+end
+
+function M.fetch_all_manifests(cfg, use_cache, opts)
+    local registries = M.get_registries(cfg, opts)
     local manifests = {}
-    for _, registry in ipairs(cfg.registries) do
+    for _, registry in ipairs(registries) do
         local manifest = M.fetch_manifest(registry, use_cache)
         if manifest then
             manifests[#manifests + 1] = {
