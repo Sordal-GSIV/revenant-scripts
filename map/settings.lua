@@ -9,6 +9,7 @@ local GLOBAL_DEFAULTS = {
     global_scale_enabled = false,
     map_scales = {},
     expanded_canvas = true,
+    dynamic_indicator_size = false,
 }
 
 local CHAR_DEFAULTS = {

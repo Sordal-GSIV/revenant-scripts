@@ -80,6 +80,12 @@ function M.show_tag_markers(widgets, room_ids)
     end
 end
 
+function M.show_location_markers(widgets, room_ids)
+    for _, room_id in ipairs(room_ids) do
+        widgets.map_view:set_marker(room_id, { color = "green", shape = "x" })
+    end
+end
+
 function M.clear_tag_markers(widgets)
     -- Clear all markers, then re-add the current room marker
     -- Caller must re-add room marker after this

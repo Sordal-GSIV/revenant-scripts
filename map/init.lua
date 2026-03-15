@@ -157,8 +157,7 @@ widgets.locations_btn:on_click(function()
             if room then
                 map_window.update_room_marker(widgets, room)
             end
-            -- Show location rooms as blue X markers (same visual as tags)
-            map_window.show_tag_markers(widgets, loc_rooms)
+            map_window.show_location_markers(widgets, loc_rooms)
             respond("Map: showing " .. #loc_rooms .. " rooms in '" .. location .. "'")
             loc_win:close()
         end
