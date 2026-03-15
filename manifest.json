@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T05:58:54Z",
+  "generated": "2026-03-15T06:12:50Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -118,6 +118,52 @@
             {
               "name": "settings.lua",
               "sha256": "38b6d7632ab3fac4f4cd6d25b89222c0a0910d1d1b004aa9d0b0e9f3d27f4df1"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "eloot",
+      "author": "Sordal",
+      "description": "Full loot/sell/hoard pipeline \u2014 looting, skinning, selling, box handling",
+      "tags": [],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "258a21142f9c0f6d7a0007dcc962f5b4b873f5e46bc84c6de07d6f831efc3f71",
+          "path": "eloot/",
+          "depends": [
+            "go2 >= 1.0"
+          ],
+          "files": [
+            {
+              "name": "data.lua",
+              "sha256": "a5135e2d9c304393f881ff007f14d4b9048b59c9624cc505406c05ef470ed231"
+            },
+            {
+              "name": "gui_settings.lua",
+              "sha256": "3c17bd8c92fca75adf866f97f32907743bf569cc8b496834f6d17d6b4b79b602"
+            },
+            {
+              "name": "init.lua",
+              "sha256": "9dc261acc8f1483361ffb603e58d25ebe52accafec0b14707a319e72c444fb9d"
+            },
+            {
+              "name": "inventory.lua",
+              "sha256": "cfd7b16795fb8df58f53e63bd9b178cb07a13e05733c38e1761cfb0aec0c8b17"
+            },
+            {
+              "name": "loot.lua",
+              "sha256": "ae30932df46c3fbb58e4e671b189f0fb2d2fadf0afa6b4cf37a35296d0c5c3a2"
+            },
+            {
+              "name": "manifest.lua",
+              "sha256": "ff145ca9ca388542d667238c5c851cd36fd4eb6fac5523d37c08e16f2643170f"
+            },
+            {
+              "name": "settings.lua",
+              "sha256": "10913071f6c51fa21c9ad8a9ee51ecbf1a19218fabf5c591f4de6072370db2a3"
             }
           ]
         }
