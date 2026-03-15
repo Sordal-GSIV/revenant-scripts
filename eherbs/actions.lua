@@ -66,4 +66,53 @@ function M.restore_hands(stowed)
     end
 end
 
+function M.heal_escort(state)
+    -- Heal an NPC escort's wounds
+    local npcs = GameObj.npcs()
+    local escort = nil
+    for _, npc in ipairs(npcs) do
+        if npc.noun == "child" or npc.noun == "traveller" or npc.noun == "merchant" then
+            escort = npc
+            break
+        end
+    end
+    if not escort then
+        respond("[eherbs] No escort NPC found in room")
+        return
+    end
+    respond("[eherbs] Healing escort: " .. escort.name)
+    -- Use herbs on the escort instead of self
+    -- This requires different commands: tend #id, apply herb to #id, etc.
+    -- Simplified: use basic tend approach
+    fput("tend #" .. escort.id)
+end
+
+function M.heal_dead_player(player_name, full_heal, container_noun, state)
+    -- Heal a dead player's bleeding wounds
+    local pcs = GameObj.pcs()
+    local target = nil
+    for _, pc in ipairs(pcs) do
+        if pc.name:lower():find(player_name:lower(), 1, true) then
+            target = pc
+            break
+        end
+    end
+    if not target then
+        respond("[eherbs] Player not found: " .. player_name)
+        return
+    end
+    respond("[eherbs] Healing " .. target.name .. (full_heal and " (full)" or " (blood only)"))
+
+    -- For dead players, primarily need blood herbs (acantha)
+    local herbs_db = require("lib/herbs")
+    local herb = herbs_db.find_by_type("blood")
+    if herb then
+        waitrt()
+        fput("get my " .. herb.short .. " from my " .. container_noun)
+        fput("give my " .. herb.short .. " to #" .. target.id)
+    else
+        respond("[eherbs] No blood herb available")
+    end
+end
+
 return M

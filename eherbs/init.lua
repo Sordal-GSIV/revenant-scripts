@@ -9,6 +9,8 @@ local settings = require("settings")
 local herbs = require("lib/herbs")
 local diagnosis = require("diagnosis")
 local actions = require("actions")
+local shopping = require("shopping")
+local bundling = require("bundling")
 
 local state = settings.load()
 state.skipped = {}
@@ -36,6 +38,10 @@ local function show_help()
     respond("  setup            Open settings GUI")
     respond("  settings         Show current settings")
     respond("  set <k> <v>      Change a setting")
+    respond("  fill             Buy one of each missing herb type")
+    respond("  stock [filter]   Stock herbs (herbs|potions|combined)")
+    respond("  escort           Heal NPC escort")
+    respond("  bundle           Consolidate herbs in container")
     respond("  help             Show this help")
     respond("")
     respond("Options:")
@@ -88,6 +94,24 @@ elseif cmd == "list" then
 
 elseif cmd == "check" then
     respond("[eherbs] Herb inventory check not yet implemented (Plan 2)")
+    return
+
+elseif cmd == "fill" then
+    shopping.fill_missing(state)
+    return
+
+elseif cmd == "stock" then
+    local filter = parsed.args[2]  -- "herbs", "potions", "combined", or specific type
+    shopping.stock(state, filter)
+    return
+
+elseif cmd == "escort" then
+    local escort_id = parsed.args[2]
+    actions.heal_escort(state)
+    return
+
+elseif cmd == "bundle" then
+    bundling.bundle_all(state.herb_container or "herbsack")
     return
 
 elseif cmd == "blood" then
