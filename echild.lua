@@ -103,7 +103,7 @@ end
 -- Find hostile NPCs (replaces GameObj.targets which does not exist)
 --------------------------------------------------------------------------------
 
-local function get_hostile_npcs(untargetable, guard_pattern)
+local function get_hostile_npcs(untargetable_list, guard_pattern)
     local dominated = {"dead", "prone", "lying down", "stunned", "sleeping", "webbed", "calm", "sitting", "frozen"}
     local npcs = GameObj.npcs()
     local hostiles = {}
@@ -117,7 +117,7 @@ local function get_hostile_npcs(untargetable, guard_pattern)
         end
         if not is_dominated then
             local is_untargetable = false
-            for _, u in ipairs(untargetable) do
+            for _, u in ipairs(untargetable_list) do
                 if npc.name == u then
                     is_untargetable = true
                     break
@@ -689,22 +689,6 @@ local function find_reportee()
         end
     end
     return nil
-end
-
---------------------------------------------------------------------------------
--- Helper: check if any hostile NPCs are present (non-child, non-reportee)
---------------------------------------------------------------------------------
-
-local function hostiles_present()
-    local npcs = get_hostile_npcs(untargetable, nil)
-    -- Filter out the child
-    local real_hostiles = {}
-    for _, npc in ipairs(npcs) do
-        if npc.id ~= child_id then
-            real_hostiles[#real_hostiles + 1] = npc
-        end
-    end
-    return #real_hostiles > 0
 end
 
 --------------------------------------------------------------------------------
