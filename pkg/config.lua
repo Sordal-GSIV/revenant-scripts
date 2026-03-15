@@ -12,6 +12,8 @@ local DEFAULT_CONFIG = {
         {
             name = "revenant-official",
             url = "https://sordal-gsiv.github.io/revenant-scripts/manifest.json",
+            format = "revenant",
+            map_registry = false,
         },
     },
 }
@@ -88,6 +90,37 @@ function M.ensure_dirs()
     end
 end
 
+local MAPDB_SEEDS = {
+    GS3 = { name = "mapdb-gs", url = "https://elanthia-online.github.io/mapdb-backup-gs" },
+    DR = { name = "mapdb-dr", url = "https://elanthia-online.github.io/mapdb-backup-dr" },
+}
+
+function M.seed_mapdb(cfg)
+    -- GameState.game may be nil before login completes — skip silently
+    local game = nil
+    local ok, gs = pcall(function() return GameState and GameState.game end)
+    if ok and gs and gs ~= "" then
+        game = gs
+    end
+    if not game then return end
+
+    local seed = MAPDB_SEEDS[game]
+    if not seed then return end
+
+    -- Check if already present
+    for _, reg in ipairs(cfg.registries) do
+        if reg.name == seed.name then return end
+    end
+
+    cfg.registries[#cfg.registries + 1] = {
+        name = seed.name,
+        url = seed.url,
+        format = "jinx",
+        map_registry = true,
+    }
+    M.save_config(cfg)
+end
+
 function M.load_config()
     M.ensure_dirs()
     local cfg = load_lua_file(CONFIG_FILE)
@@ -95,6 +128,8 @@ function M.load_config()
         cfg = DEFAULT_CONFIG
         M.save_config(cfg)
     end
+    -- Seed mapdb registry if game is known and not already present
+    M.seed_mapdb(cfg)
     return cfg
 end
 
