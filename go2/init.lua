@@ -11,6 +11,14 @@ local resolver = require("resolver")
 
 local args_lib = require("lib/args")
 local parsed = args_lib.parse(Script.vars[0] or "")
+
+local game = GameState.game or "GS3"
+
+-- Load StringProc translations
+local ok_sp, stringproc = pcall(require, "lib/stringproc")
+if ok_sp then
+    stringproc.load_translations(game)
+end
 local cmd = parsed.args[1]
 local state = settings.load()
 
@@ -276,6 +284,27 @@ while retries < max_retries do
     if ok then
         respond("[go2] Arrived at destination")
         break
+    elseif walk_err and walk_err:find("^manual:") then
+        local from_str, to_str = walk_err:match("^manual:(%d+):(%d+)$")
+        local to_id = tonumber(to_str)
+        local dest_room = to_id and Map.find_room(to_id)
+        respond("[go2] Cannot auto-navigate this exit (StringProc, no translation)")
+        respond("[go2] Please walk through manually.")
+        if dest_room then
+            respond("[go2] Target: " .. (dest_room.title or "Room " .. to_id) .. " [" .. to_id .. "]")
+        end
+        respond("[go2] go2 will resume when you reach a mapped room.")
+
+        local prev_room = Map.current_room()
+        while true do
+            pause(0.5)
+            local new_room = Map.current_room()
+            if new_room and new_room ~= prev_room then
+                respond("[go2] Room change detected — resuming navigation")
+                break
+            end
+        end
+        retries = retries + 1
     elseif walk_err == "retry" then
         retries = retries + 1
         if retries < max_retries then
