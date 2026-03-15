@@ -1,5 +1,6 @@
 local config = require("config")
 local registry = require("registry")
+local cmd_map = require("cmd_map")
 
 local M = {}
 
@@ -146,11 +147,37 @@ function M.run(positional, flags)
     local status_label = Gui.label(status_bar, "Loading...")
     local update_all_btn = Gui.button(status_bar, "Update All")
 
+    -- Map section
+    Gui.separator(scripts_tab)
+    local map_header = Gui.label(scripts_tab, "Map Database")
+    local map_status = Gui.label(scripts_tab, "")
+    local map_images = Gui.label(scripts_tab, "")
+    local map_btn = Gui.button(scripts_tab, "Update Map Database")
+    local map_progress = Gui.progress(scripts_tab, 0)
+
     -- Load data
+    local cfg = config.load_config()
     local all_scripts, installed = load_script_data()
     local filtered = filter_and_sort(all_scripts, "", current_filter, current_sort)
     Gui.update(script_table, { rows = build_table_rows(filtered) })
     Gui.update(status_label, { text = #all_scripts .. " scripts across registries" })
+
+    -- Populate map info
+    local game = nil
+    local ok, gs = pcall(function() return GameState and GameState.game end)
+    if ok and gs and gs ~= "" then game = gs end
+    if game then
+        local map_regs = registry.get_registries(cfg, { map_only = true })
+        if #map_regs > 0 then
+            Gui.update(map_status, { text = "Game: " .. game .. " | Registry: " .. map_regs[1].name })
+            -- Count local images would require fetching manifest, skip for initial load
+            Gui.update(map_images, { text = "Run Update to check for new map data" })
+        else
+            Gui.update(map_status, { text = "No map registries configured" })
+        end
+    else
+        Gui.update(map_status, { text = "Log in to a game to see map status" })
+    end
 
     win:show()
 
@@ -200,6 +227,11 @@ function M.run(positional, flags)
                 worker_running = true
                 Gui.update(status_label, { text = "Updating all scripts..." })
                 Script.run("pkg_worker", { "update" })
+            elseif event.widget == map_btn and not worker_running then
+                worker_running = true
+                Gui.update(map_btn, { label = "Updating..." })
+                Gui.update(status_label, { text = "Updating map database..." })
+                Script.run("pkg_worker", { "map-update" })
             end
         elseif event.type == "table_row_selected" then
             if event.widget == script_table then
