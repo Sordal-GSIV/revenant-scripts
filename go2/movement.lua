@@ -27,6 +27,16 @@ function M.step(command, state)
     -- Wait for roundtime
     waitrt()
 
+    -- Drag mode: rewrite command
+    if state and state.drag then
+        local direction = command:match("^(%a+)$")
+        if direction then
+            command = "drag " .. state.drag .. " " .. direction
+        else
+            command = "drag " .. state.drag .. " " .. command
+        end
+    end
+
     -- Execute movement — move() raises on failure, so wrap in pcall
     local ok, err = pcall(move, command)
 

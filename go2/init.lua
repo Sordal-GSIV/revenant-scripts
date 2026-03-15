@@ -38,6 +38,7 @@ local function show_help()
     respond("  --disable-confirm   Skip confirmation prompts")
     respond("  --hide-desc         Hide room descriptions during travel")
     respond("  --hide-titles       Hide room titles during travel")
+    respond("  --drag=<name>       Drag a character while moving (DR)")
 end
 
 local function show_list()
@@ -154,6 +155,7 @@ if parsed.delay then
     local d = tonumber(parsed.delay)
     if d then override("delay", d) end
 end
+if parsed.drag then override("drag", parsed.drag) end
 
 -- Restore overrides on exit
 before_dying(function()
