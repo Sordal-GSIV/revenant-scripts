@@ -259,17 +259,17 @@ DownstreamHook.add("autostart_connect", function(data)
     end
   end
 
-  -- TODO: Wait for infomon sync-complete signal
-  -- When infomon sync spec is implemented, replace with:
-  -- local sync_timeout = 30
-  -- local waited = 0
-  -- while not Infomon.synced and waited < sync_timeout do
-  --     pause(0.5)
-  --     waited = waited + 0.5
-  -- end
-  -- if not Infomon.synced then
-  --     respond("autostart: infomon sync timed out, launching scripts anyway")
-  -- end
+  -- Step 2: Sync infomon data from game server
+  Infomon.sync()
+  local sync_timeout = 30
+  local waited = 0
+  while not Infomon.synced and waited < sync_timeout do
+    pause(0.5)
+    waited = waited + 0.5
+  end
+  if not Infomon.synced then
+    respond("autostart: infomon sync timed out, launching scripts anyway")
+  end
 
   -- Step 2: Merge global + character lists (deduplicate by name)
   local global_list = load_list("autostart_global", Settings)
