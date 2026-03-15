@@ -1,7 +1,9 @@
 --- @revenant-script
 --- name: version
---- version: 0.1.0
---- description: Check and update the Revenant engine version
+--- version: 0.2.0
+--- author: Sordal
+--- description: Check/update the Revenant engine and show system diagnostics
+--- tags: system,diagnostics
 
 local args = require("lib/args")
 local parsed = args.parse(Script.vars[0] or "")
@@ -76,14 +78,18 @@ local function cmd_update()
   end
 
   respond("Downloading engine " .. entry.version .. " ...")
-  local content, dl_err = Http.get(entry.url)
-  if not content then
+  local resp, dl_err = Http.get(entry.url)
+  if not resp then
     respond("Download failed: " .. tostring(dl_err))
+    return
+  end
+  if resp.status ~= 200 then
+    respond("Download failed: HTTP " .. tostring(resp.status))
     return
   end
 
   local tmp = "_pkg/revenant.new"
-  local ok, wr_err = File.write(tmp, content)
+  local ok, wr_err = File.write(tmp, resp.body)
   if not ok then
     respond("Failed to write temp file: " .. tostring(wr_err))
     return
@@ -126,6 +132,122 @@ local function cmd_channel(name)
   respond("Update channel set to: " .. name)
 end
 
+local function cmd_info()
+  respond("════════════════════════════════════════════")
+  respond("  Revenant System Report")
+  respond("════════════════════════════════════════════")
+  respond("")
+
+  -- Engine identity
+  local current = Version.current()
+  local channel = get_channel()
+  respond("Engine version:    " .. current)
+  respond("Engine path:       " .. Version.engine_path())
+  respond("Update channel:    " .. channel)
+  respond("")
+
+  -- Game state
+  local game = GameState.game or "unknown"
+  local charname = GameState.name or "unknown"
+  local lvl = GameState.level or 0
+  respond("Game:              " .. game)
+  respond("Character:         " .. charname)
+  respond("Level:             " .. tostring(lvl))
+  respond("")
+
+  -- Data file timestamps
+  respond("── Data Files ──")
+  local data_files = {
+    {"effect-list.xml",  "data/effect-list.xml"},
+    {"gameobj-data.xml", "data/gameobj-data.xml"},
+  }
+  local game_short = (game:lower():sub(1, 2) == "dr") and "DR" or "GS3"
+  local map_dir = "data/" .. game_short
+  local map_entries = File.list(map_dir)
+  if type(map_entries) == "table" then
+    for _, entry in ipairs(map_entries) do
+      if entry:match("^map%-.*%.json$") then
+        table.insert(data_files, {"Map: " .. entry, map_dir .. "/" .. entry})
+      end
+    end
+  end
+
+  for _, pair in ipairs(data_files) do
+    local label, path = pair[1], pair[2]
+    if File.exists(path) then
+      local mtime = File.mtime(path)
+      local ts = mtime and os.date("%Y-%m-%d %H:%M", mtime) or "unknown"
+      respond("  " .. string.format("%-22s", label) .. ts)
+    else
+      respond("  " .. string.format("%-22s", label) .. "(not found)")
+    end
+  end
+  respond("")
+
+  -- Running scripts
+  respond("── Running Scripts ──")
+  local running = Script.list()
+  if #running == 0 then
+    respond("  (none)")
+  else
+    for _, sname in ipairs(running) do
+      respond("  " .. sname)
+    end
+  end
+  respond("")
+
+  -- Hooks
+  respond("── Downstream Hooks ──")
+  local dh = DownstreamHook.list()
+  if #dh == 0 then
+    respond("  (none)")
+  else
+    for _, hname in ipairs(dh) do
+      respond("  " .. hname)
+    end
+  end
+  respond("")
+
+  respond("── Upstream Hooks ──")
+  local uh = UpstreamHook.list()
+  if #uh == 0 then
+    respond("  (none)")
+  else
+    for _, hname in ipairs(uh) do
+      respond("  " .. hname)
+    end
+  end
+  respond("")
+
+  -- Installed packages
+  respond("── Installed Packages ──")
+  local inst_ok, inst_data = pcall(function()
+    local raw = File.read("_pkg/installed.lua")
+    if not raw then return {} end
+    local fn = load(raw)
+    if not fn then return {} end
+    return fn() or {}
+  end)
+  local installed = inst_ok and inst_data or {}
+
+  if not next(installed) then
+    respond("  (none)")
+  else
+    local names = {}
+    for k in pairs(installed) do names[#names + 1] = k end
+    table.sort(names)
+    for _, k in ipairs(names) do
+      local info = installed[k]
+      local ver = info.version or "?"
+      local ch = info.channel or "?"
+      respond("  " .. string.format("%-20s %-10s (%s)", k, ver, ch))
+    end
+  end
+
+  respond("")
+  respond("════════════════════════════════════════════")
+end
+
 -- Dispatch
 if not cmd or cmd == "check" then
   cmd_check()
@@ -133,6 +255,8 @@ elseif cmd == "update" then
   cmd_update()
 elseif cmd == "channel" then
   cmd_channel(parsed.args[2])
+elseif cmd == "info" or cmd == "all" or cmd == "full" or cmd == "details" then
+  cmd_info()
 else
-  respond("Usage: ;version [check | update | channel <stable|beta|dev>]")
+  respond("Usage: ;version [check | update | info | channel <stable|beta|dev>]")
 end
