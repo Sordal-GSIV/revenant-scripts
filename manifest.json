@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T06:38:51Z",
+  "generated": "2026-03-15T06:48:22Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -200,23 +200,35 @@
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "258a21142f9c0f6d7a0007dcc962f5b4b873f5e46bc84c6de07d6f831efc3f71",
+          "sha256": "d6135bb386cfa67ecf03207138d1b8456f7f3b2320c5ce862ad016f0ad16de24",
           "path": "eloot/",
           "depends": [
             "go2 >= 1.0"
           ],
           "files": [
             {
+              "name": "boxes.lua",
+              "sha256": "3c597c7fa902bfd99590a0e0a3243dacfe1b3f188e64df18b95d4ef38a08de5a"
+            },
+            {
               "name": "data.lua",
               "sha256": "a5135e2d9c304393f881ff007f14d4b9048b59c9624cc505406c05ef470ed231"
             },
             {
+              "name": "disk.lua",
+              "sha256": "a733bfc6d8d04633a93ca17529eca77969b3fc40ff60ea4230f07eb6b9f26dfa"
+            },
+            {
               "name": "gui_settings.lua",
-              "sha256": "3c17bd8c92fca75adf866f97f32907743bf569cc8b496834f6d17d6b4b79b602"
+              "sha256": "66298e7986880348e91a048ea71775bddc9a117533a1d4e571be3a30afd456e1"
+            },
+            {
+              "name": "hoard.lua",
+              "sha256": "15645c7ba4a0046691957991073c554bd4346ebe2b5dc48650f2627803a1b406"
             },
             {
               "name": "init.lua",
-              "sha256": "9dc261acc8f1483361ffb603e58d25ebe52accafec0b14707a319e72c444fb9d"
+              "sha256": "2cdaa3c5853c12c8e40a6994e060cc0b7ea220405a7da04db38d67c1833e2b68"
             },
             {
               "name": "inventory.lua",
@@ -229,6 +241,10 @@
             {
               "name": "manifest.lua",
               "sha256": "ff145ca9ca388542d667238c5c851cd36fd4eb6fac5523d37c08e16f2643170f"
+            },
+            {
+              "name": "sell.lua",
+              "sha256": "69a564cb83cf69140ed98e99608ae9305d1b1c4fee9d93fae14027fa81c867a8"
             },
             {
               "name": "settings.lua",

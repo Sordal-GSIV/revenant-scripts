@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T06:32:05Z",
+  "generated": "2026-03-15T06:38:51Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -148,13 +148,17 @@
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "8f33e66fa4074e982ac825b74616d5c69add92855b460aecf2a37e6d2fd3fdfe",
+          "sha256": "9fae9d15117c79ba626de93f96c3df3c2811af17ce3024f895c3960aa9b3e020",
           "path": "eherbs/",
           "depends": [],
           "files": [
             {
               "name": "actions.lua",
-              "sha256": "d6a189d5a6e320cdc6697e5d9cd6bf9ff68bd382df74c86ec74aa5191f9b6fb5"
+              "sha256": "9a7bed98a66df80a42018fdf452cf4fe70fa8fbc6a543ffe41b3a1c1ea20c295"
+            },
+            {
+              "name": "bundling.lua",
+              "sha256": "587a8c19d42a51cf5a6998b768e1ff597e5b50c7284ca0be6284a192f80a4cb6"
             },
             {
               "name": "diagnosis.lua",
@@ -166,7 +170,7 @@
             },
             {
               "name": "init.lua",
-              "sha256": "24964c1f9639013f24a22c83e5ac357f09e19b3397fadffb86009d43722b9c05"
+              "sha256": "1dbc0e6f1e411af10eccd9b3c7af6a526e1e8204cd70dda30f4241f85f325f63"
             },
             {
               "name": "manifest.lua",
@@ -175,6 +179,14 @@
             {
               "name": "settings.lua",
               "sha256": "38b6d7632ab3fac4f4cd6d25b89222c0a0910d1d1b004aa9d0b0e9f3d27f4df1"
+            },
+            {
+              "name": "shopping.lua",
+              "sha256": "9cf83c6c88d7a8706421977ada93f0d338bfc81567066d6d08b3b371ef4216ef"
+            },
+            {
+              "name": "survival_kit.lua",
+              "sha256": "d63e12b0db24b3b2141b9fbf3ac59f89e320470b508d2a804a7f3008fdff5e61"
             }
           ]
         }
@@ -222,6 +234,26 @@
               "name": "settings.lua",
               "sha256": "10913071f6c51fa21c9ad8a9ee51ecbf1a19218fabf5c591f4de6072370db2a3"
             }
+          ]
+        }
+      }
+    },
+    {
+      "name": "escortgo2",
+      "author": "elanthia-online (ported to Revenant)",
+      "description": "Escort bounty traveller automation with pathfinding and combat support",
+      "tags": [
+        "bounty",
+        "escort"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "d000a03a54c13eefb558c578e5e13b472ca79b18a76afe6642ef94eed4160226",
+          "path": "escortgo2.lua",
+          "depends": [
+            "lib/args",
+            "lib/spell_casting"
           ]
         }
       }
