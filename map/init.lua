@@ -8,10 +8,13 @@
 local map_data = require("map_data")
 local map_window = require("map_window")
 local settings = require("settings")
+local notes = require("notes")
 
 -- State
 local state = settings.load()
 local game = GameState.game or "GS3"
+notes.init(game)
+local all_notes = notes.load()
 local current_room_id = nil
 local current_image = nil
 local active_tag = nil
@@ -249,6 +252,17 @@ widgets.find_btn:on_click(function()
     find_go_btn:on_click(do_find)
     find_input:on_submit(do_find)
     find_win:show()
+end)
+
+-- Notes button — open per-room annotation editor
+widgets.notes_btn:on_click(function()
+    if current_room_id then
+        notes.open_editor(current_room_id, all_notes, function()
+            respond("Map: note saved for room " .. current_room_id)
+        end)
+    else
+        respond("Map: no current room")
+    end
 end)
 
 -- === Room Tracking Hook ===

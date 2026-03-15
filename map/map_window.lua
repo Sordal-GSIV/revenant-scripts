@@ -19,6 +19,7 @@ function M.build(state, map_index)
     local scale_pct = math.floor((state.global_scale or 1.0) * 100)
     local scale_btn = Gui.button("Scale: " .. scale_pct .. "%")
     local find_btn = Gui.button("Find")
+    local notes_btn = Gui.button("Notes")
     local dark_btn = Gui.button(state.dark_mode and "Light" or "Dark")
 
     -- Add toolbar children (order matters for layout)
@@ -44,6 +45,7 @@ function M.build(state, map_index)
         maps_btn = maps_btn,
         scale_btn = scale_btn,
         find_btn = find_btn,
+        notes_btn = notes_btn,
         dark_btn = dark_btn,
         status_label = status_label,
     }
