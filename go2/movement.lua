@@ -1,5 +1,8 @@
 local M = {}
 
+local ok_sp, stringproc = pcall(require, "lib/stringproc")
+if not ok_sp then stringproc = nil end
+
 local function is_swim_or_climb(cmd)
     local c = cmd:lower()
     return c:find("swim") or c:find("dive") or c:find("climb") or c:find("pedal")
@@ -56,6 +59,38 @@ function M.walk(path, state, on_step)
             on_step(i, #path, command)
         end
 
+        -- Check if this edge is a StringProc
+        if stringproc then
+            local from_id = Map.current_room()
+            if from_id then
+                local room = Map.find_room(from_id)
+                if room and room.wayto then
+                    -- Find which destination this command maps to
+                    for dest_str, wayto_val in pairs(room.wayto) do
+                        if stringproc.is_stringproc(wayto_val) then
+                            -- This exit is a StringProc — try translation
+                            local to_id = tonumber(dest_str)
+                            if to_id then
+                                local sp_ok, sp_err = stringproc.execute(from_id, to_id)
+                                if sp_ok then
+                                    error_count = 0
+                                    goto next_step
+                                elseif sp_err == "manual" then
+                                    return false, "manual:" .. from_id .. ":" .. tostring(to_id)
+                                else
+                                    error_count = error_count + 1
+                                    if error_count > 2 then
+                                        return false, "stringproc failed: " .. tostring(sp_err)
+                                    end
+                                    return false, "retry"
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
         local ok, err = M.step(command, state)
         if not ok then
             error_count = error_count + 1
@@ -66,6 +101,8 @@ function M.walk(path, state, on_step)
         else
             error_count = 0
         end
+
+        ::next_step::
     end
 
     return true, nil
