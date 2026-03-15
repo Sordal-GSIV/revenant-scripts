@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T02:58:08Z",
+  "generated": "2026-03-15T03:03:57Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -72,7 +72,7 @@
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "e6e13171abc2937ca1e08afbf599deda9718ac834f3c2686bb2f66390e663a01",
+          "sha256": "261b9efe643adabbf3c43c893d2d27ab602b9fb9c087be286a449e5b458c0fd9",
           "path": "map/",
           "depends": [
             "go2 >= 1.0"
@@ -80,7 +80,7 @@
           "files": [
             {
               "name": "init.lua",
-              "sha256": "8f5bfd464a4f40b209db259569a84ce9b71b26fc0eab7019586b6026250d5518"
+              "sha256": "99c9601e1ba3a01a69dd4367bd69f6666c05e0cd7d1fd4a874a60d30154766dd"
             },
             {
               "name": "manifest.lua",
@@ -91,12 +91,20 @@
               "sha256": "55c03c38dad0f91798f9c85b1e15e8526462b47183f2e28e2409a66e51299927"
             },
             {
+              "name": "map_links.lua",
+              "sha256": "66fb5b898bd256aea74dab4e7e346bc3e973916701b754a2332fd53a490d8a45"
+            },
+            {
               "name": "map_window.lua",
-              "sha256": "23c955fda7176921891119a4194c0b2a90621cba5e60554f585f7ddcf5dffbcf"
+              "sha256": "092d437666bf292a34c3fcf6c5e4d9a802023f1ec1b6707a3d208ebeb50d6e0a"
+            },
+            {
+              "name": "notes.lua",
+              "sha256": "313eab824d1d42df5ce7b647c547eb64eeb1af40b7ffc68cea257a0c061088bc"
             },
             {
               "name": "settings.lua",
-              "sha256": "ac1723835842372037515b8b725e1e8f84de7dc20c6937ef26fed15a832dfee2"
+              "sha256": "abfa4b38356889ccd3736a231e5fcee0a93f54ebe49f6bdc36cb536a794b42e9"
             }
           ]
         }

@@ -19,6 +19,7 @@ function M.build(state, map_index)
     local scale_pct = math.floor((state.global_scale or 1.0) * 100)
     local scale_btn = Gui.button("Scale: " .. scale_pct .. "%")
     local find_btn = Gui.button("Find")
+    local notes_btn = Gui.button("Notes")
     local dark_btn = Gui.button(state.dark_mode and "Light" or "Dark")
 
     -- Add toolbar children (order matters for layout)
@@ -44,6 +45,7 @@ function M.build(state, map_index)
         maps_btn = maps_btn,
         scale_btn = scale_btn,
         find_btn = find_btn,
+        notes_btn = notes_btn,
         dark_btn = dark_btn,
         status_label = status_label,
     }
@@ -56,6 +58,9 @@ function M.update_map(widgets, image_path, scale)
         return false
     end
     widgets.map_view:set_scale(scale)
+    -- Expanded canvas: MapView scroll area is automatically sized larger than
+    -- the image to allow centering rooms at map edges. This is handled by the
+    -- MapView widget's internal scroll behavior when scroll_padding is supported.
     return true
 end
 
@@ -77,6 +82,12 @@ function M.show_tag_markers(widgets, room_ids)
     -- Add blue X markers for each room in the list
     for _, room_id in ipairs(room_ids) do
         widgets.map_view:set_marker(room_id, { color = "blue", shape = "x" })
+    end
+end
+
+function M.show_location_markers(widgets, room_ids)
+    for _, room_id in ipairs(room_ids) do
+        widgets.map_view:set_marker(room_id, { color = "green", shape = "x" })
     end
 end
 
