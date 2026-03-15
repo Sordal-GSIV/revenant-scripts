@@ -196,6 +196,20 @@ function M.run_update(game)
         -- Hot-swap map data
         Map.load(dest)
         respond("Map reloaded.")
+
+        -- Verify StringProc translations against new map data
+        local ok_sp, stringproc = pcall(require, "lib/stringproc")
+        if ok_sp then
+            local result = stringproc.verify_all(game)
+            if result and result.stale and #result.stale > 0 then
+                respond("Warning: " .. #result.stale .. " StringProc translations may be stale")
+                for _, entry in ipairs(result.stale) do
+                    respond("  Room " .. entry.from .. " -> " .. entry.to)
+                end
+            elseif result and result.total > 0 then
+                respond("StringProc translations: " .. result.verified .. "/" .. result.total .. " verified")
+            end
+        end
     end
 
     -- Download missing images
