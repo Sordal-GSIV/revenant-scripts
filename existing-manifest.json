@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T04:44:49Z",
+  "generated": "2026-03-15T05:31:15Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -130,8 +130,8 @@
     },
     {
       "name": "vars",
-      "author": "unknown",
-      "description": "Manage persistent character variables (UserVars)",
+      "author": "Sordal",
+      "description": "User variable editor with GUI",
       "tags": [],
       "channels": {
         "dev": {
@@ -141,10 +141,24 @@
           "depends": []
         },
         "stable": {
-          "version": "0.1.0",
-          "sha256": "12f62f78412385ad749e916be1b06ce13f922beccbd8eaaa183c3c44531a7bb4",
-          "path": "vars.lua",
-          "depends": []
+          "version": "1.0.0",
+          "sha256": "2d73bddc8afb0e67b96340afb13e186fa7c280e5d26683cf1aea0f181d52d110",
+          "path": "vars/",
+          "depends": [],
+          "files": [
+            {
+              "name": "gui_settings.lua",
+              "sha256": "77f73fb2ef492f4868ad42167822dbe320c766a21d86f847d01b77f54caef921"
+            },
+            {
+              "name": "init.lua",
+              "sha256": "6a9a61ecf549c702d723ca5dee4450664995187deef77ce1c5d6c68c8885a866"
+            },
+            {
+              "name": "manifest.lua",
+              "sha256": "bcac3ff4ed2ad29641e8ee23d19008a7082d27b3844506c9fca63ecc0f2a2bc6"
+            }
+          ]
         }
       }
     },

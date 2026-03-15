@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T05:31:15Z",
+  "generated": "2026-03-15T05:31:56Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -65,7 +65,7 @@
     {
       "name": "go2",
       "author": "Sordal",
-      "description": "Room navigation using map pathfinding",
+      "description": "Room-to-room navigation with pathfinding",
       "tags": [],
       "channels": {
         "dev": {
@@ -75,10 +75,40 @@
           "depends": []
         },
         "stable": {
-          "version": "0.1.0",
-          "sha256": "05962a211619ab1ad3f1b318ff5341e872d3c0cb162aedc51eb8075d5ce83c24",
-          "path": "go2.lua",
-          "depends": []
+          "version": "1.0.0",
+          "sha256": "03af06d702a80451210f0f891d5742f5f658b3f7d3d1ffb8d91e7ca9f8b9ace2",
+          "path": "go2/",
+          "depends": [],
+          "files": [
+            {
+              "name": "gui_settings.lua",
+              "sha256": "6c8ed23fa8d64ea3248d9b13e41c727fad77fc21dd718630df37d423bb1b5f1b"
+            },
+            {
+              "name": "init.lua",
+              "sha256": "36cc23e3b2fe8e7f981caccf0a953ee1c7c5cfa9ef5125ccdb68543fba7831fa"
+            },
+            {
+              "name": "manifest.lua",
+              "sha256": "a119fa969b3571fd78a3bbfbfbe90d837cd76b0b7fc8301b7f484a67e7448eb9"
+            },
+            {
+              "name": "movement.lua",
+              "sha256": "4975c3e096299af3578cfb4d501c085ec7df1d2027d927232b3960a8eddfbd48"
+            },
+            {
+              "name": "pathfinder.lua",
+              "sha256": "17775d1841e8b2a53bc8e62b4c3c26b849e3a2957483bd21c52c8ce90e8badc1"
+            },
+            {
+              "name": "resolver.lua",
+              "sha256": "4795778f57a880d5f0eaa07102a3d20e065730ffca31ab8b25f81dcdc522ca09"
+            },
+            {
+              "name": "settings.lua",
+              "sha256": "ba4a4551840a6630eda981f50375b7136a3881ec16f51158e8642d5ef4ec64d0"
+            }
+          ]
         }
       }
     },
