@@ -1,13 +1,13 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T04:20:07Z",
+  "generated": "2026-03-15T04:41:15Z",
   "manifest_version": 1,
   "scripts": [
     {
       "name": "alias",
-      "author": "unknown",
-      "description": "Pattern-based command aliases with Tier 1 (CLI) and Tier 2 (aliases.lua) support",
+      "author": "Sordal",
+      "description": "Pattern-based command aliases with GUI, per-character and global scopes",
       "tags": [],
       "channels": {
         "dev": {
@@ -17,10 +17,28 @@
           "depends": []
         },
         "stable": {
-          "version": "0.1.0",
-          "sha256": "45b227405b40287df00e414f24b4973fe37ac78af70ece26cd0f5d0ed6f4a186",
-          "path": "alias.lua",
-          "depends": []
+          "version": "1.0.0",
+          "sha256": "c24c9be23179d3d25b7c335c865dc3bc08cddc3b10d5565ef5383d56d86aad2d",
+          "path": "alias/",
+          "depends": [],
+          "files": [
+            {
+              "name": "cache.lua",
+              "sha256": "128076ad827594abd08baecc8bbe05e57cd712fa7000bd61d9cdfcc2ff17787d"
+            },
+            {
+              "name": "gui_settings.lua",
+              "sha256": "7fc3f7dd9f7073b9acf374e755faa56ccac919495c0336802c9eba60d9ad302c"
+            },
+            {
+              "name": "init.lua",
+              "sha256": "370705056eb71f0ce64775216ed977a2c1a75cbf2cfe63c0fa3ce71d5678101c"
+            },
+            {
+              "name": "manifest.lua",
+              "sha256": "61d6b7b9ccb67ec0a099b496eae2d6a60162acd6eb4664f21d196c525b1812df"
+            }
+          ]
         }
       }
     },
