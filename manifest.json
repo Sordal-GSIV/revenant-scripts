@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T06:12:50Z",
+  "generated": "2026-03-15T06:24:21Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -63,6 +63,41 @@
       }
     },
     {
+      "name": "bigshot",
+      "author": "Sordal",
+      "description": "Full hunting automation \u2014 combat, navigation, rest, bounty, group",
+      "tags": [],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "f00aed85291e8a5b2930daf1521a4cdea1e82a79f7c5e34ee7ae183106a8555b",
+          "path": "bigshot/",
+          "depends": [
+            "go2 >= 1.0",
+            "eloot >= 1.0"
+          ],
+          "files": [
+            {
+              "name": "config.lua",
+              "sha256": "dfbac1dcd5540c1ae7ac0281908293cbbe60b5da993e585631a6b3e8237efd40"
+            },
+            {
+              "name": "gui_settings.lua",
+              "sha256": "24888ab4f4f29461f3bfeba7af1e7c0355fa3b3e00b8e54f8a5ec839d4342520"
+            },
+            {
+              "name": "init.lua",
+              "sha256": "3c5eecd72d73553bb1e555cd32dd1df4eb4ce61b933b3d8c958eb5fdb8e0b2d8"
+            },
+            {
+              "name": "manifest.lua",
+              "sha256": "a7da311e17e780d992f2d6b337d29cc112b46695e8493f371d3bb88342f10d3e"
+            }
+          ]
+        }
+      }
+    },
+    {
       "name": "ebestiary",
       "author": "Ramparts (ported to Revenant)",
       "description": "GemStone IV creature lookup by level, type, or name",
@@ -79,6 +114,28 @@
           "depends": [
             "lib/args",
             "lib/table_render"
+          ]
+        }
+      }
+    },
+    {
+      "name": "echild",
+      "author": "elanthia-online (ported to Revenant)",
+      "description": "Automate Adventurer's Guild escort-a-child bounty task",
+      "tags": [
+        "bounty",
+        "escort",
+        "adventurers-guild"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.20.3",
+          "sha256": "be3e09e9614a1a71819e378869440fc199374d521f2ed5c3a8c53f69199dcae7",
+          "path": "echild.lua",
+          "depends": [
+            "lib/args",
+            "lib/spell_casting",
+            "lib/watchfor"
           ]
         }
       }
