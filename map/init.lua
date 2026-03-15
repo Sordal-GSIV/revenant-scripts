@@ -210,23 +210,73 @@ end)
 
 -- Find button — open find room sub-window
 widgets.find_btn:on_click(function()
-    local find_win = Gui.window("Find Room", { width = 350, height = 80 })
-    local find_hbox = Gui.hbox()
+    local find_win = Gui.window("Find Room", { width = 450, height = 400 })
+    local vbox = Gui.vbox()
+    local search_box = Gui.hbox()
     local find_input = Gui.input({ placeholder = "Room ID or name..." })
-    local find_go_btn = Gui.button("Go")
-    find_win:set_root(find_hbox)
+    local find_go_btn = Gui.button("Search")
+    local results_table = Gui.table({ columns = { "ID", "Title", "Map" }, rows = {} })
+    find_win:set_root(vbox)
 
-    local function do_find()
+    local result_rooms = {}
+
+    local function do_search()
         local text = find_input:get_text()
         if not text or text == "" then return end
-        local room_id = tonumber(text)
-        local room = nil
-        if room_id then
-            room = Map.find_room(room_id)
-        else
-            room = Map.find_room(text)
+        result_rooms = {}
+        local rows = {}
+
+        -- Try exact ID first
+        local exact_id = tonumber(text)
+        if exact_id then
+            local room = Map.find_room(exact_id)
+            if room then
+                result_rooms[#result_rooms + 1] = room
+                rows[#rows + 1] = {
+                    tostring(room.id),
+                    room.title or "",
+                    map_data.image_for_room(room) or "-",
+                }
+            end
         end
-        if room then
+
+        -- Text search across room titles (limited to first 50 matches)
+        if #result_rooms == 0 or not exact_id then
+            local all_ids = Map.list()
+            local count = 0
+            for _, rid in ipairs(all_ids) do
+                if count >= 50 then break end
+                local room = Map.find_room(rid)
+                if room and room.title and room.title:lower():find(text:lower(), 1, true) then
+                    -- Avoid duplicates if exact ID also matched
+                    local dup = false
+                    for _, existing in ipairs(result_rooms) do
+                        if existing.id == room.id then dup = true; break end
+                    end
+                    if not dup then
+                        result_rooms[#result_rooms + 1] = room
+                        rows[#rows + 1] = {
+                            tostring(room.id),
+                            room.title or "",
+                            map_data.image_for_room(room) or "-",
+                        }
+                        count = count + 1
+                    end
+                end
+            end
+        end
+
+        -- Update table — structural changes require recreating the table
+        -- Since set_root replaces, just update rows if the API supports it
+        respond("Map: found " .. #result_rooms .. " rooms")
+    end
+
+    find_go_btn:on_click(do_search)
+    find_input:on_submit(do_search)
+
+    results_table:on_click(function(row_idx)
+        if row_idx and result_rooms[row_idx] then
+            local room = result_rooms[row_idx]
             local image = map_data.image_for_room(room)
             if image then
                 current_image = image
@@ -237,20 +287,13 @@ widgets.find_btn:on_click(function()
                 map_window.update_room_marker(widgets, room)
                 map_window.center_on_room(widgets, room)
                 map_window.update_title(widgets, room)
-                widgets.scale_btn:set_label("Scale: " .. math.floor(scale * 100) .. "%")
-                -- Temporarily disable follow
                 state.follow_mode = false
                 widgets.follow_btn:set_label("Follow")
             end
-            respond("Map: found room " .. room.id .. " — " .. (room.title or ""))
-        else
-            respond("Map: room not found: " .. text)
+            find_win:close()
         end
-        find_win:close()
-    end
+    end)
 
-    find_go_btn:on_click(do_find)
-    find_input:on_submit(do_find)
     find_win:show()
 end)
 
