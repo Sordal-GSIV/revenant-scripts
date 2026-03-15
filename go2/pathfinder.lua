@@ -50,4 +50,25 @@ function M.clear_blacklist()
     blacklisted = {}
 end
 
+function M.estimate_silver_cost(from_id, to_id)
+    local path = Map.find_path(from_id, to_id)
+    if not path then return 0 end
+
+    local total = 0
+    local current = from_id
+    for _, cmd in ipairs(path) do
+        local room = Map.find_room(current)
+        if room and room.tags then
+            for _, tag in ipairs(room.tags) do
+                local cost_str = tag:match("^silver%-cost:%d+:(%d+)$")
+                if cost_str then
+                    total = total + tonumber(cost_str)
+                end
+            end
+        end
+    end
+
+    return total
+end
+
 return M

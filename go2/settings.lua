@@ -8,6 +8,7 @@ local DEFAULTS = {
     echo_input = true,
     stop_for_dead = false,
     disable_confirm = false,
+    vaalor_shortcut = false,
 }
 
 function M.load()

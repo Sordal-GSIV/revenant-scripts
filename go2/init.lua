@@ -38,6 +38,7 @@ local function show_help()
     respond("  --disable-confirm   Skip confirmation prompts")
     respond("  --hide-desc         Hide room descriptions during travel")
     respond("  --hide-titles       Hide room titles during travel")
+    respond("  --drag=<name>       Drag a character while moving (DR)")
 end
 
 local function show_list()
@@ -154,6 +155,7 @@ if parsed.delay then
     local d = tonumber(parsed.delay)
     if d then override("delay", d) end
 end
+if parsed.drag then override("drag", parsed.drag) end
 
 -- Restore overrides on exit
 before_dying(function()
@@ -188,6 +190,18 @@ if state.hide_room_titles then
         return line
     end)
     before_dying(function() DownstreamHook.remove("go2_hide_title") end)
+end
+
+-- Stop-for-dead: pause when dead bodies are detected
+local go2_see_dead = false
+if state.stop_for_dead then
+    DownstreamHook.add("go2_dead_watch", function(line)
+        if line:find("the body of") then
+            go2_see_dead = true
+        end
+        return line
+    end)
+    before_dying(function() DownstreamHook.remove("go2_dead_watch") end)
 end
 
 -- Resolve target
@@ -247,7 +261,13 @@ while retries < max_retries do
         respond("[go2] Moving — " .. #path .. " steps remaining")
     end
 
-    local ok, walk_err = movement.walk(path, state, function(i, total, cmd_str)
+    local walk_fn = (state.typeahead or 0) > 0 and movement.walk_typeahead or movement.walk
+    local ok, walk_err = walk_fn(path, state, function(i, total, cmd_str)
+        if go2_see_dead then
+            respond("[go2] Dead body detected — pausing. ;unpause go2 to continue")
+            go2_see_dead = false
+            pause(999999)
+        end
         if state.echo_input then
             respond("[go2] Step " .. i .. "/" .. total .. ": " .. cmd_str)
         end

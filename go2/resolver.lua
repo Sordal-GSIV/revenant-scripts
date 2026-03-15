@@ -92,6 +92,19 @@ function M.resolve(target, current_room_id)
         end
     end
 
+    -- 4b. Guild / guild shop
+    if target:lower() == "guild" or target:lower() == "guild shop" then
+        local prof = Stats.profession
+        if prof then
+            local guild_tag = prof:lower() .. " guild"
+            local result = Map.find_nearest_by_tag(guild_tag)
+            if result and result.id then
+                return result.id, false, nil
+            end
+        end
+        -- Fall through to tag match if guild tag not found
+    end
+
     -- 5. Tag match
     local tag_result = Map.find_nearest_by_tag(target)
     if tag_result and tag_result.id then
