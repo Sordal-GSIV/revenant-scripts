@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-15T05:31:56Z",
+  "generated": "2026-03-15T05:38:59Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -155,6 +155,20 @@
               "sha256": "abfa4b38356889ccd3736a231e5fcee0a93f54ebe49f6bdc36cb536a794b42e9"
             }
           ]
+        }
+      }
+    },
+    {
+      "name": "move2",
+      "author": "Sordal",
+      "description": "One-step map-aware movement with path caching and retry",
+      "tags": [],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "6fc6e5895a181bc3cc5fb8577b0a28ad127a58002b748b8bf70760bf0d26ae3e",
+          "path": "move2.lua",
+          "depends": []
         }
       }
     },
