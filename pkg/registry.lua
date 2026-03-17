@@ -5,7 +5,79 @@ local M = {}
 
 local SUPPORTED_MANIFEST_VERSION = 1
 
+local function parse_github_url(url)
+    local owner, repo = url:match("github%.com/([^/]+)/([^/]+)")
+    if not owner then return nil, nil end
+    repo = repo:gsub("%.git$", "")
+    return owner, repo
+end
+
+local function fetch_github_manifest(reg, use_cache)
+    local cache_file = config.CACHE_DIR .. "/manifest_" .. reg.name .. ".json"
+
+    -- Check cache
+    if use_cache and File.exists(cache_file) then
+        local mtime = File.mtime(cache_file)
+        if mtime and (os.time() - mtime) < config.CACHE_TTL then
+            local cached = File.read(cache_file)
+            if cached then
+                local data = Json.decode(cached)
+                if data then return data end
+            end
+        end
+    end
+
+    local owner, repo = parse_github_url(reg.url)
+    if not owner then
+        respond("  Warning: could not parse GitHub URL: " .. reg.url)
+        return nil
+    end
+
+    local branch = reg.github_branch or "main"
+    local api_url = "https://api.github.com/repos/" .. owner .. "/" .. repo
+        .. "/git/trees/" .. branch .. "?recursive=1"
+
+    respond("Fetching file list from " .. reg.name .. "...")
+    local data, err = Http.get_json(api_url)
+    if not data or not data.tree then
+        respond("  Warning: could not fetch " .. reg.name .. ": " .. tostring(err))
+        return nil
+    end
+
+    local prefix = reg.github_path or ""
+    if prefix ~= "" and not prefix:match("/$") then
+        prefix = prefix .. "/"
+    end
+
+    local scripts = {}
+    for _, entry in ipairs(data.tree) do
+        if entry.type == "blob" and entry.path:sub(1, #prefix) == prefix then
+            local filename = entry.path:match("[^/]+$") or ""
+            if filename:match("%.png$") or filename:match("%.jpg$") or filename:match("%.gif$") then
+                scripts[#scripts + 1] = {
+                    name = filename,
+                    path = entry.path,
+                    type = "map_image",
+                    hash = nil,
+                    hash_type = "none",
+                }
+            end
+        end
+    end
+
+    local manifest = { scripts = scripts }
+
+    -- Cache the result
+    File.write(cache_file, Json.encode(manifest))
+
+    return manifest
+end
+
 function M.fetch_manifest(registry, use_cache)
+    if registry.format == "github" then
+        return fetch_github_manifest(registry, use_cache)
+    end
+
     local cache_file = config.CACHE_DIR .. "/manifest_" .. registry.name .. ".json"
 
     -- Check cache
@@ -117,6 +189,14 @@ function M.build_download_url(base_url, channel, path)
     -- Remove trailing slash from base_url
     base_url = base_url:gsub("/$", "")
     return base_url .. "/" .. branch .. "/" .. path
+end
+
+function M.build_github_download_url(registry, path)
+    local owner, repo = parse_github_url(registry.url)
+    if not owner then return nil end
+    local branch = registry.github_branch or "main"
+    return "https://raw.githubusercontent.com/" .. owner .. "/" .. repo
+        .. "/" .. branch .. "/" .. path
 end
 
 return M
