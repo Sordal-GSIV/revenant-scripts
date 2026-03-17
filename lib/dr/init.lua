@@ -20,7 +20,7 @@ DRStats   = require("lib/dr/stats")
 DRSpells  = require("lib/dr/spells")
 DRBanking = require("lib/dr/banking")
 DRRoom    = require("lib/dr/room")
-Flags     = require("lib/flags")
+DRExpMon  = require("lib/dr/expmonitor")
 
 -- DR Common utility modules (ported from Lich5 dr-scripts commons)
 DRC    = require("lib/dr/common")            -- Base utilities (bput, retreat, etc.)
