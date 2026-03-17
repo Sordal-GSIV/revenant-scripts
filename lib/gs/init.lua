@@ -63,4 +63,10 @@ require("lib/gs/spell_casting")
 -- Society parser (extends Rust-registered Society global with hook)
 require("lib/society")
 
+-- Elemental Confluence zone navigation
+Confluence = require("lib/gs/confluence")
+
+-- Minotaur Maze solver
+Maze = require("lib/gs/maze")
+
 respond("[gsinfomon] GemStone IV modules loaded")
