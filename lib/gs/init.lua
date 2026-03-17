@@ -51,4 +51,7 @@ CritRanks = require("lib/gs/critranks")
 -- Spell casting engine (patches Spell metatable)
 require("lib/gs/spell_casting")
 
+-- Society parser (extends Rust-registered Society global with hook)
+require("lib/society")
+
 respond("[gsinfomon] GemStone IV modules loaded")

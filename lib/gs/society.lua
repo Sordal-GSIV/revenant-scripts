@@ -4,7 +4,7 @@
 Society.membership = nil
 Society.rank = nil
 
-hook.add("downstream", "society_parser", function(text)
+DownstreamHook.add("__society_parser", function(text)
     -- Voln: "You are a Master in the Order of Voln."
     local voln_rank = text:match("You are an? (.+) in the Order of Voln")
     if voln_rank then

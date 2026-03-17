@@ -7,6 +7,7 @@
 Flags = require("lib/flags")
 Watchfor = require("lib/watchfor")
 Messaging = require("lib/messaging")
+require("lib/group")  -- registers DownstreamHook for GROUP verb parsing
 
 -- ── Game-specific module loading ────────────────────────────────────────────
 if GameState.game == "DR" then
