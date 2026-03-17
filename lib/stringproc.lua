@@ -655,6 +655,337 @@ add_translator("start_script", function(code)
 end)
 
 -------------------------------------------------------------------------------
+-- TRANSLATOR: Map[N].wayto['N'].call — delegation to another room's wayto
+-- Resolves known delegation targets to dedicated handlers
+-------------------------------------------------------------------------------
+
+add_translator("delegation", function(code)
+    -- Rogue Guild password door: Map[12421].wayto['14089'].call
+    if code:find("Map%[12421%]") and code:find("14089") then
+        return [[
+            local pw = UserVars.rogue_password
+            if not pw or pw == "" then
+                echo("No Rogue Guild password set. Use: ;vars set rogue_password=kick, slap, turn, scratch, kick, slap")
+                return
+            end
+            fput("lean door")
+            for verb in pw:gmatch("[^,]+") do
+                fput(verb:match("^%s*(.-)%s*$") .. " door")
+            end
+            fput("go door")
+        ]]
+    end
+    -- Krolvin warship brig door: Map[18700].wayto['18250'].call
+    if code:find("Map%[18700%]") and code:find("18250") then
+        return [[
+            local loot = GameObj.loot()
+            local has_ruined = false
+            for _, o in ipairs(loot) do
+                if o.name and o.name:find("ruined cell door") then has_ruined = true; break end
+            end
+            if has_ruined then
+                move("go door")
+            else
+                echo("BATTERing door with weapon...")
+                local r
+                repeat
+                    r = dothistimeout("batter door", 5, "ineffective|destroyed")
+                until r and r:find("destroyed")
+                move("go door")
+            end
+        ]]
+    end
+    -- FWI trinket delegation: Map[7].wayto['3668'].call (handled by fwi_trinket translator via prefix)
+    if code:find("Map%[7%]") and code:find("3668") then
+        return 'if FWI then FWI.use_trinket() else respond("[mapdb] FWI trinket module not loaded") end'
+    end
+    -- Generic Map[N].wayto['N'].call — warn
+    if code:find("Map%[%d+%]%.wayto%[") and code:find("%.call") then
+        local room_id = code:match("Map%[(%d+)%]")
+        local dest_id = code:match("wayto%['(%d+)'%]")
+        return 'respond("[mapdb] delegation to Room ' .. (room_id or "?") .. ' wayto ' .. (dest_id or "?") .. ' — not yet translated")'
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: wait_while/wait_until room change (rapids, rivers, currents)
+-------------------------------------------------------------------------------
+
+add_translator("wait_room_change", function(code)
+    -- wait_while { Room.current.id == N } or wait_while{Map.current.id == N}
+    local room_id = code:match("wait_while%s*{%s*[RM][ao][op]m?%.current%.id%s*==%s*(%d+)")
+    if room_id then
+        return 'while Map.current_room() == ' .. room_id .. ' do pause(0.5) end'
+    end
+    -- wait_until { Map.current.id != N }
+    room_id = code:match("wait_until%s*{%s*[RM][ao][op]m?%.current%.id%s*!=%s*(%d+)")
+    if room_id then
+        return 'while Map.current_room() == ' .. room_id .. ' do pause(0.5) end'
+    end
+    -- $go2_restart variant
+    if code:find("wait_while") and code:find("Map%.current%.id") and code:find("go2_restart") then
+        local rid = code:match("Map%.current%.id%s*==%s*(%d+)")
+        if rid then
+            return 'while Map.current_room() == ' .. rid .. ' do pause(0.5) end'
+        end
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Group tracking + climb/move (Glo'antern, Thanatoph, etc.)
+-- These parse "X followed" to track group, then move. We skip group tracking.
+-------------------------------------------------------------------------------
+
+add_translator("group_climb", function(code)
+    if not (code:find("group_members") or code:find("$group_members")) then return nil end
+    if not (code:find("move ") or code:find("climb") or code:find("jump") or code:find("go ")) then return nil end
+    -- Extract the actual movement command
+    local parts = {}
+    -- empty_hands before move
+    if code:find("empty_hands") or code:find("empty_hand") then
+        parts[#parts + 1] = "fput('stow right'); fput('stow left')"
+    end
+    -- Find the move command
+    local move_cmd = code:match("move%s*'([^']+)'") or code:match("move%s*%(s*'([^']+)'%s*%)")
+    if move_cmd then
+        parts[#parts + 1] = 'move("' .. move_cmd .. '")'
+    end
+    -- fput 'stand' after
+    if code:find("fput 'stand'") or code:find("standing?") then
+        parts[#parts + 1] = 'if not standing() then fput("stand") end'
+    end
+    -- waitrt
+    if code:find("waitrt") then
+        parts[#parts + 1] = "waitrt()"
+    end
+    -- fill_hands after
+    if code:find("fill_hands") then
+        -- No direct equivalent, skip
+    end
+    if #parts > 0 then
+        return table.concat(parts, "; ")
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Maaghara Labyrinth (fixed-path navigation)
+-------------------------------------------------------------------------------
+
+add_translator("maaghara", function(code)
+    if not code:find("next_exit") then return nil end
+    if not code:find("9823") then return nil end  -- signature room ID
+    -- This is a fixed-path maze. Extract directions per entry room and follow them.
+    return [[
+        local paths = {
+            [9823] = {"southeast","southwest","southwest","east","southwest","southeast","south"},
+            [9818] = {"east","southwest","west","west","northeast","northeast","northwest"},
+            [9808] = {"east","east","east","northeast","west"},
+            [9788] = {"southwest","southeast","southwest"},
+            [9784] = {"southeast","south","northeast","north","west","west","west"},
+        }
+        local dirs = paths[Map.current_room()]
+        if dirs then
+            for _, d in ipairs(dirs) do move(d) end
+        else
+            respond("[mapdb] Maaghara: unknown entry room " .. tostring(Map.current_room()))
+        end
+    ]]
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Simple put commands (go field, tap globe, search)
+-------------------------------------------------------------------------------
+
+add_translator("simple_put", function(code)
+    -- Match: put 'cmd' or put "cmd" sequences
+    if not code:match("^put ") and not code:match("^put%(") then return nil end
+    local parts = {}
+    for cmd in code:gmatch("put%s*['\"]([^'\"]+)['\"]") do
+        parts[#parts + 1] = 'put("' .. cmd .. '")'
+    end
+    if #parts > 0 then
+        return table.concat(parts, "; ")
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: .each movement sequences
+-- Pattern: ['w','w','nw'].each{|d| move(d)}
+-------------------------------------------------------------------------------
+
+add_translator("each_move", function(code)
+    -- Find array.each{|var| move(var)} patterns
+    local dirs = code:match("%[([^%]]+)%]%.each%s*{%s*|%w+|%s*move")
+    if not dirs then return nil end
+    -- Extract direction strings
+    local parts = {}
+    for dir in dirs:gmatch("'([^']+)'") do
+        parts[#parts + 1] = 'move("' .. dir .. '")'
+    end
+    -- Also handle fput commands between .each blocks
+    for cmd in code:gmatch("fput%s*'([^']+)'") do
+        parts[#parts + 1] = 'fput("' .. cmd .. '")'
+    end
+    if #parts > 0 then
+        return table.concat(parts, "; ")
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Color barrier (Atoll room 30850)
+-------------------------------------------------------------------------------
+
+add_translator("color_barrier", function(code)
+    if not code:find("color_moves") then return nil end
+    return [=[
+        local color_paths = {
+            blue = {"n","sw","sw"},
+            black = {"n","sw","sw","sw","s","se"},
+            red = {"n","se","se"},
+            yellow = {"n","se","se","se","s","sw"},
+        }
+        local descs = GameObj.room_desc()
+        local color = nil
+        for _, o in ipairs(descs) do
+            local c = o.name and Regex.match("(blue|black|yellow|red) barrier", o.name)
+            if c then color = c; break end
+        end
+        if not color then respond("[mapdb] Could not detect barrier color"); return end
+        local path = color_paths[color]
+        if not path then respond("[mapdb] Unknown barrier color: " .. color); return end
+        local reverse_map = {n="s",s="n",e="w",w="e",ne="sw",sw="ne",se="nw",nw="se"}
+        for _, d in ipairs(path) do move(d) end
+        move("go grotto")
+        fput("touch crystal")
+        move("out")
+        for i = #path, 1, -1 do move(reverse_map[path[i]] or path[i]) end
+        move("go portal")
+    ]=]
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Smuggling Tunnels mural puzzle (room 6897)
+-------------------------------------------------------------------------------
+
+add_translator("mural_puzzle", function(code)
+    if not code:find("touch mural") then return nil end
+    if not code:find("Andelas") then return nil end
+    return [[
+        put("touch mural")
+        local gods = {}
+        while true do
+            local line = get()
+            if Regex.test("black cat|crimson claw|mice will play|claws that spread|smile.*predator", line) then
+                gods[#gods+1] = "Andelas"
+            elseif Regex.test("sea's tempestuous|ship is saved|lost in Charl|great Charl's domain", line) then
+                gods[#gods+1] = "Charl"
+            elseif Regex.test("Eorgina|dark goddess|shadow queen", line) then
+                gods[#gods+1] = "Eorgina"
+            elseif Regex.test("Ivas|love|passion|desire", line) then
+                gods[#gods+1] = "Ivas"
+            elseif Regex.test("Mularos|pain|suffering|agony", line) then
+                gods[#gods+1] = "Mularos"
+            elseif Regex.test("Sheru|nightmare|terror|fear", line) then
+                gods[#gods+1] = "Sheru"
+            elseif Regex.test("V'tull|war|battle|blood|rage", line) then
+                gods[#gods+1] = "V'tull"
+            elseif line:find("Which god") or line:find("answer") then
+                break
+            end
+        end
+        if #gods > 0 then
+            fput("say " .. gods[#gods])
+        end
+    ]]
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Bleaklands storm (room 34509) — go2 through UID rooms
+-------------------------------------------------------------------------------
+
+add_translator("bleaklands", function(code)
+    if not code:find("bleak_rooms") then return nil end
+    return 'respond("[mapdb] Bleaklands storm navigation requires manual go2 through UID rooms")'
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Search + go (room 22349 dark alley, room 22443)
+-------------------------------------------------------------------------------
+
+add_translator("search_go", function(code)
+    if not code:find("search") then return nil end
+    if code:find("trapdoor") then
+        return [[
+            put("search")
+            while true do
+                local line = get()
+                if line:find("trapdoor") then put("go trapdoor"); break
+                elseif Regex.test("dead rat|silver hair|broken lockpick|tarnished coin", line) then put("search")
+                end
+            end
+        ]]
+    end
+    -- Simple search + go
+    local go_cmd = code:match("put%s*'go ([^']+)'")
+    if go_cmd then
+        return 'put("search"); fput("go ' .. go_cmd .. '")'
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: River wait (room 24239)
+-------------------------------------------------------------------------------
+
+add_translator("river_wait", function(code)
+    if code:find("sturdy ladder") then
+        return 'echo("Waiting for current..."); waitfor("sturdy ladder")'
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Forest Path room list (room 18243)
+-------------------------------------------------------------------------------
+
+add_translator("room_list_nav", function(code)
+    -- %w(...) creates a Ruby word array — this is a room list for navigation
+    if code:find("%%w%(") then
+        return 'respond("[mapdb] Room list navigation — use go2 directly")'
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: Stronghold shaman wedge puzzle (room 8373)
+-------------------------------------------------------------------------------
+
+add_translator("wedge_puzzle", function(code)
+    if not code:find("wedge_list") then return nil end
+    return [[
+        local wedges = {
+            northern = "a large thick torus surrounded by nine tiny circles",
+            eastern = "two crossed upside-down hammers circumscribed by a rounded arc",
+            western = "a jagged triangular arch bisected by a vertical line",
+            southern = "three pairs of obliquely intersecting parallel lines",
+        }
+        for direction, position in pairs(wedges) do
+            while true do
+                local result = dothistimeout("look " .. direction .. " wedge", 3, position .. "|does not match")
+                if result and result:find(position) then break end
+                fput("turn " .. direction .. " wedge")
+            end
+        end
+        fput("push altar")
+    ]]
+end)
+
+-------------------------------------------------------------------------------
 -- TRANSLATOR (catch-all): Generic Ruby→Lua
 -- Handles: move+waitrt, fput, dothistimeout, if/else/end blocks, etc.
 -- These are already mostly valid Lua after ruby_to_lua transformation.
