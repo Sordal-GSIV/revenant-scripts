@@ -51,7 +51,4 @@ CritRanks = require("lib/gs/critranks")
 -- Spell casting engine (patches Spell metatable)
 require("lib/gs/spell_casting")
 
--- Messaging utilities
-Messaging = require("lib/messaging")
-
 respond("[gsinfomon] GemStone IV modules loaded")

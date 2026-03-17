@@ -6,6 +6,7 @@
 -- ── Game-agnostic module loading ────────────────────────────────────────────
 Flags = require("lib/flags")
 Watchfor = require("lib/watchfor")
+Messaging = require("lib/messaging")
 
 -- ── Game-specific module loading ────────────────────────────────────────────
 if GameState.game == "DR" then
