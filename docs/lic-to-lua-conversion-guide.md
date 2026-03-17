@@ -481,6 +481,7 @@ These have no Lich5 equivalent:
 | `File.is_dir("path")` | Check if directory |
 | `File.mtime("path")` | File modification time (unix) |
 | `File.replace(src, dst)` | Rename/move file |
+| `Crypto.md5(string)` | MD5 hash (hex) |
 | `Crypto.sha256(string)` | SHA-256 hash |
 | `Crypto.sha256_file(path)` | SHA-256 of file contents |
 | `Version.parse("1.2.3")` | Parse semver → table |
@@ -495,20 +496,78 @@ These have no Lich5 equivalent:
 
 Revenant includes a widget-based GUI system (compiled with `--features monitor`). No Lich5 equivalent exists.
 
+### Windows
+
 | Revenant Lua | Description |
 |-------------|-------------|
 | `Gui.window(title, opts)` | Create window (`width`, `height`, `resizable`) |
-| `Gui.label(text)` | Text label widget |
-| `Gui.button(label)` | Clickable button |
-| `Gui.checkbox(label, checked)` | Toggle checkbox |
-| `Gui.input(opts)` | Text input field (`placeholder`, `text`) |
-| `Gui.progress(value)` | Progress bar (0.0–1.0) |
+| `window:show()` / `hide()` / `close()` | Window visibility |
+| `window:set_title(title)` | Update title |
+| `window:set_root(widget)` | Set root widget (entry point) |
+| `window:on_close(func)` | Close callback |
+
+### Basic Widgets
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.label(text)` | Text label (`:set_text()`) |
+| `Gui.button(label)` | Clickable button (`:set_text()`, `:on_click()`) |
+| `Gui.checkbox(label, checked)` | Checkbox (`:set_checked()`, `:get_checked()`, `:on_change()`) |
+| `Gui.input(opts)` | Text input — `placeholder`, `text` (`:set_text()`, `:get_text()`, `:on_change()`, `:on_submit()`) |
+| `Gui.progress(value)` | Progress bar 0.0–1.0 (`:set_value()`) |
 | `Gui.separator()` | Visual separator |
-| `Gui.table(opts)` | Data table (`columns` array) |
-| `Gui.vbox()` / `Gui.hbox()` | Vertical/horizontal container |
+| `Gui.section_header(text)` | Styled section header |
+| `Gui.metric(label, value, opts)` | Metric display — optional `unit`, `trend` (f32), `icon` (char) |
+| `Gui.table(opts)` | Data table — `columns` array (`:add_row(cells)`, `:clear()`) |
+
+### Layout Containers
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.vbox()` / `Gui.hbox()` | Vertical/horizontal container (`:add(child)`) |
 | `Gui.scroll(child)` | Scrollable wrapper |
-| `Gui.map_view(opts)` | Map visualization widget |
-| `Gui.wait(target, event)` | Async wait for GUI event |
+| `Gui.card(opts)` | Card container — optional `title` (`:add(child)`) |
+| `Gui.split_view(opts)` | Resizable split — `direction`, `fraction`, `min`, `max` (`:set_first(w)`, `:set_second(w)`) |
+
+### Advanced Widgets
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.badge(text, opts)` | Badge/tag — `color`, `outlined` (`:on_click()`) |
+| `Gui.toggle(label, checked)` | Toggle switch (`:set_checked()`, `:get_checked()`, `:on_change()`) |
+| `Gui.tab_bar(tabs)` | Tab bar — array of names (`:set_tab_content(idx, widget)`, `:on_change()`) |
+| `Gui.side_tab_bar(tabs, opts)` | Side tab bar — optional `tab_width` (`:set_tab_content(idx, widget)`, `:on_change()`) |
+| `Gui.editable_combo(opts)` | Editable dropdown — `text`, `hint`, `options` (`:get_text()`, `:set_text()`, `:set_options()`, `:on_change()`) |
+| `Gui.password_meter()` | Password strength meter (`:set_password(str)`) |
+| `Gui.tree_view(opts)` | Tree view — `columns`, `rows` (recursive) (`:set_rows()`, `:get_selected()`, `:on_click()`, `:on_double_click()`) |
+| `Gui.map_view(opts)` | Map widget — `width`, `height` (`:load_image()`, `:set_marker()`, `:clear_markers()`, `:set_scale()`, `:center_on()`, `:on_click()`) |
+
+### Theming & Events
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.palette()` | Current theme colors — returns table with `base`, `panel`, `surface`, `accent`, `text_primary`, etc. (each `{r,g,b,a}`) |
+| `Gui.wait(target, event)` | Async event wait — `"close"`, `"click"`, `"change"`, `"submit"` |
+
+### GUI Example: Simple Window
+
+```lua
+local win = Gui.window("My Tool", { width = 300, height = 200 })
+local root = Gui.vbox()
+
+local label = Gui.label("Hello!")
+root:add(label)
+
+local btn = Gui.button("Click Me")
+btn:on_click(function()
+    label:set_text("Clicked!")
+end)
+root:add(btn)
+
+win:set_root(root)
+win:show()
+Gui.wait(win, "close")
+```
 
 ---
 

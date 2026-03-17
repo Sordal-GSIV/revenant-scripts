@@ -370,6 +370,7 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `File.is_dir(path)` | Directory check |
 | `File.mtime(path)` | Modification time (unix timestamp) |
 | `File.replace(src, dst)` | Rename/move file |
+| `Crypto.md5(string)` | MD5 hash (hex) |
 | `Crypto.sha256(string)` | SHA-256 hash |
 | `Crypto.sha256_file(path)` | SHA-256 of file |
 | `Version.parse(str)` | Parse semver string |
@@ -379,24 +380,63 @@ Legend: **Implemented**, ~~Not Implemented~~
 
 ## GUI (Revenant-only, feature: monitor)
 
+### Windows
+
 | Revenant Lua | Description |
 |-------------|-------------|
-| `Gui.window(title, opts)` | Create window (width, height, resizable) |
+| `Gui.window(title, opts)` | Create window (`width`, `height`, `resizable`) |
 | `window:show()` / `hide()` / `close()` | Window visibility |
 | `window:set_title(title)` | Update title |
-| `window:set_root(widget)` | Set root widget |
+| `window:set_root(widget)` | Set root widget (entry point for layout) |
 | `window:on_close(func)` | Close callback |
+
+### Basic Widgets
+
+| Revenant Lua | Description |
+|-------------|-------------|
 | `Gui.label(text)` | Text label (`:set_text()`) |
-| `Gui.button(label)` | Button (`:on_click()`) |
+| `Gui.button(label)` | Button (`:set_text()`, `:on_click()`) |
 | `Gui.checkbox(label, checked)` | Checkbox (`:set_checked()`, `:get_checked()`, `:on_change()`) |
-| `Gui.input(opts)` | Text input (`:set_text()`, `:get_text()`, `:on_change()`, `:on_submit()`) |
-| `Gui.progress(value)` | Progress bar 0.0-1.0 (`:set_value()`) |
+| `Gui.input(opts)` | Text input with `placeholder`, `text` (`:set_text()`, `:get_text()`, `:on_change()`, `:on_submit()`) |
+| `Gui.progress(value)` | Progress bar 0.0–1.0 (`:set_value()`) |
 | `Gui.separator()` | Visual divider |
-| `Gui.table(opts)` | Data table (`:add_row()`, `:clear()`) |
-| `Gui.vbox()` / `Gui.hbox()` | Layout containers (`:add()`) |
+| `Gui.section_header(text)` | Styled section header |
+| `Gui.metric(label, value, opts)` | Metric display with optional `unit`, `trend` (f32), `icon` (char) |
+| `Gui.table(opts)` | Data table with `columns` array (`:add_row(cells)`, `:clear()`) |
+
+### Layout Containers
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.vbox()` / `Gui.hbox()` | Vertical/horizontal layout (`:add(child)`) |
 | `Gui.scroll(child)` | Scrollable wrapper |
-| `Gui.map_view(opts)` | Map widget (`:load_image()`, `:set_marker()`, `:center_on()`, etc.) |
-| `Gui.wait(target, event)` | Async event wait (events: "close", "click", "change", "submit") |
+| `Gui.card(opts)` | Card container with optional `title` (`:add(child)`) |
+| `Gui.split_view(opts)` | Resizable split pane — `direction` ("horizontal"/"vertical"), `fraction`, `min`, `max` (`:set_first(w)`, `:set_second(w)`) |
+
+### Advanced Widgets
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.badge(text, opts)` | Badge/tag — `color` ("success"/"error"/"warning"/"info"/"accent"), `outlined` (`:on_click()`) |
+| `Gui.toggle(label, checked)` | Toggle switch (`:set_checked()`, `:get_checked()`, `:on_change()`) |
+| `Gui.tab_bar(tabs)` | Tab bar from array of names (`:set_tab_content(index, widget)`, `:on_change()`) |
+| `Gui.side_tab_bar(tabs, opts)` | Side-oriented tab bar — optional `tab_width` (`:set_tab_content(index, widget)`, `:on_change()`) |
+| `Gui.editable_combo(opts)` | Editable dropdown — `text`, `hint`, `options` array (`:get_text()`, `:set_text()`, `:set_options()`, `:on_change()`) |
+| `Gui.password_meter()` | Password strength meter (`:set_password(str)`) — built-in strength rules |
+| `Gui.tree_view(opts)` | Tree view — `columns` (array of `{label, width, sortable}`), `rows` (recursive `{cells, children, expanded}`) (`:set_rows()`, `:get_selected()`, `:on_click()`, `:on_double_click()`) |
+
+### Map Widget
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.map_view(opts)` | Map display — `width`, `height` (`:load_image(path)`, `:set_marker(room_id, opts)`, `:clear_markers()`, `:set_scale(f)`, `:set_scroll_offset(x,y)`, `:center_on(room_id)`, `:on_click()`) |
+
+### Theming & Events
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gui.palette()` | Returns current theme colors: `base`, `panel`, `surface`, `elevated`, `accent`, `accent_hover`, `success`, `error`, `warning`, `info`, `text_primary`, `text_secondary`, `text_muted`, `border`, `border_subtle` — each `{r, g, b, a}` |
+| `Gui.wait(target, event)` | Async event wait — events: `"close"`, `"click"`, `"change"`, `"submit"` |
 
 ## Remaining: Not Yet Implemented
 
