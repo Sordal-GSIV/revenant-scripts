@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T10:47:29Z",
+  "generated": "2026-03-17T11:11:49Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -56,7 +56,7 @@
         },
         "stable": {
           "version": "0.2.0",
-          "sha256": "f8775ba30680bd0d79635ebb5681e566727a5ccb4004c2484bf354618e94368e",
+          "sha256": "0a887afd6b14f80695ad60c84292eec78888ed38af0152222b3cdea7fb02dc6a",
           "path": "autostart.lua",
           "depends": []
         }
@@ -515,6 +515,20 @@
           "version": "0.2.0",
           "sha256": "ae598a59fc0ebb508d0f281c38b8595dbc371d0f5848b5071677b9f711768d0a",
           "path": "version.lua",
+          "depends": []
+        }
+      }
+    },
+    {
+      "name": "webhooks",
+      "author": "unknown",
+      "description": "Webhook notification management (Discord, Slack, Telegram, raw HTTP)",
+      "tags": [],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "e065e943bffc764b173bbbe1be6daae73848e3e59ce4beb198013d32cc452741",
+          "path": "webhooks.lua",
           "depends": []
         }
       }
