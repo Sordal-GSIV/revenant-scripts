@@ -83,11 +83,39 @@ elseif cmd == "set" then
 
 elseif cmd == "list" then
     local filter = parsed.args[2]
+    -- Build set of wound types the player currently has
+    local needed = {}
+    local parts = {"head","neck","back","chest","abdomen","left_eye","right_eye",
+        "left_arm","right_arm","left_hand","right_hand","left_leg","right_leg",
+        "left_foot","right_foot","nsys"}
+    for _, part in ipairs(parts) do
+        if (Wounds[part] or 0) > 0 or (Scars[part] or 0) > 0 then
+            -- Map body part to herb wound type (head wound, neck wound, etc.)
+            local wound_type = part:gsub("_", " ") .. " wound"
+            needed[wound_type] = true
+            local scar_type = part:gsub("_", " ") .. " scar"
+            needed[scar_type] = true
+        end
+    end
+    if (Wounds.nsys or 0) > 0 or (Scars.nsys or 0) > 0 then
+        needed["nerve wound"] = true
+        needed["nerve scar"] = true
+    end
+    local has_wounds = next(needed) ~= nil
+    if has_wounds then
+        respond("[eherbs] Highlighted entries indicate herbs needed for current wounds.")
+    end
     respond("[eherbs] Known herbs:")
     for _, herb in ipairs(herbs.database) do
         if not filter or herb.type:find(filter, 1, true) or herb.name:find(filter, 1, true) then
-            respond(string.format("  %-30s  %-25s  %s",
-                herb.name, herb.type, herb.drinkable and "drink" or "eat"))
+            local line = string.format("  %-30s  %-25s  %s",
+                herb.name, herb.type, herb.drinkable and "drink" or "eat")
+            if has_wounds and needed[herb.type] then
+                -- Highlight with info preset (matches Lich5 v2.1.11)
+                Messaging.msg("info", line)
+            else
+                respond(line)
+            end
         end
     end
     return
