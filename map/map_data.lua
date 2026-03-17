@@ -135,16 +135,42 @@ function M.find_room_at(index, current_image, click_x, click_y)
     return nil
 end
 
-function M.resolve_image_path(image, game, dark_mode)
-    if dark_mode then
-        -- Check for dark variant (e.g., image-dark.gif or in a dark/ subdir)
-        local dark_name = image:gsub("(%.[^%.]+)$", "-dark%1")
-        local dark_path = "data/" .. game .. "/" .. dark_name
-        if File.exists(dark_path) then
-            return dark_path
+--- Resolve a map image path using the theme set by `pkg map-theme`.
+--- Falls back: themed dir → standard maps/ dir.
+--- @param image string  The image filename (e.g., "town_square.png")
+--- @param game string   Game identifier (e.g., "gs" or "dr")
+--- @param theme string|nil  Theme name (from Settings.map_theme), nil for default
+--- @return string  The resolved path for map_view:load_image()
+function M.resolve_image_path(image, game, theme)
+    -- Check themed directory first (maps-dark/, maps-light/, etc.)
+    if theme and theme ~= "" then
+        local themed = "data/" .. game .. "/maps-" .. theme .. "/" .. image
+        if File.exists(themed) then return themed end
+    end
+    -- Fall back to standard maps/ directory
+    local standard = "data/" .. game .. "/maps/" .. image
+    if File.exists(standard) then return standard end
+    -- Final fallback: old flat structure (pre-migration)
+    return "data/" .. game .. "/" .. image
+end
+
+--- List available map themes by scanning for maps-*/ directories.
+--- @param game string  Game identifier
+--- @return table  Array of theme names (e.g., {"dark", "light"})
+function M.available_themes(game)
+    local themes = {}
+    local base = "data/" .. game .. "/"
+    local entries = File.list(base)
+    if entries then
+        for _, entry in ipairs(entries) do
+            local theme_name = entry:match("^maps%-(.+)$")
+            if theme_name and File.is_dir(base .. entry) then
+                themes[#themes + 1] = theme_name
+            end
         end
     end
-    return "data/" .. game .. "/" .. image
+    table.sort(themes)
+    return themes
 end
 
 return M

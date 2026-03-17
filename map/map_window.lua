@@ -20,7 +20,8 @@ function M.build(state, map_index)
     local scale_btn = Gui.button("Scale: " .. scale_pct .. "%")
     local find_btn = Gui.button("Find")
     local notes_btn = Gui.button("Notes")
-    local dark_btn = Gui.button(state.dark_mode and "Light" or "Dark")
+    local theme_label = state.theme and ("Theme: " .. state.theme) or "Theme: default"
+    local dark_btn = Gui.button(theme_label)
 
     -- Add toolbar children
     toolbar:add(follow_btn)
