@@ -1,4 +1,4 @@
-local herbs_db = require("lib/herbs")
+local herbs_db = require("lib/gs/herbs")
 
 local M = {}
 

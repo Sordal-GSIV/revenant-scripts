@@ -4,7 +4,7 @@
 --- author: elanthia-online (ported to Revenant)
 --- description: Adventurer's Guild bounty automation — culling, gems, herbs, skins, heirlooms, escorts, rescues, bandits
 
-require("lib/bounty")
+require("lib/gs/bounty")
 
 local settings_mod = require("settings")
 local util = require("util")

@@ -1,4 +1,4 @@
-local herbs = require("lib/herbs")
+local herbs = require("lib/gs/herbs")
 
 local M = {}
 
@@ -104,7 +104,7 @@ function M.heal_dead_player(player_name, full_heal, container_noun, state)
     respond("[eherbs] Healing " .. target.name .. (full_heal and " (full)" or " (blood only)"))
 
     -- For dead players, primarily need blood herbs (acantha)
-    local herbs_db = require("lib/herbs")
+    local herbs_db = require("lib/gs/herbs")
     local herb = herbs_db.find_by_type("blood")
     if herb then
         waitrt()

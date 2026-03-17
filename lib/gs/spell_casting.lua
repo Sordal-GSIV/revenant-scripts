@@ -1,9 +1,9 @@
 --- Spell casting engine for Revenant (Lich5 compatible).
 --- Provides spell:cast(), spell:channel(), spell:putup(), spell:putdown(), etc.
 ---
---- Usage: require("lib/spell_casting") -- patches Spell metatable globally
+--- Usage: require("lib/gs/spell_casting") -- patches Spell metatable globally
 
-local SpellEval = require("lib/spell_eval")
+local SpellEval = require("lib/gs/spell_eval")
 
 -- Cast lock: only one script can cast at a time
 local _cast_lock = nil  -- script name holding lock, or nil

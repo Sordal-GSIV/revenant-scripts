@@ -6,7 +6,7 @@
 
 local args_lib = require("lib/args")
 local settings = require("settings")
-local herbs = require("lib/herbs")
+local herbs = require("lib/gs/herbs")
 local diagnosis = require("diagnosis")
 local actions = require("actions")
 local shopping = require("shopping")
