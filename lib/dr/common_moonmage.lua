@@ -81,7 +81,7 @@ M.MOON_DROP_MESSAGES = {
 function M.is_moon_weapon(item)
   if not item then return false end
   item = item:lower()
-  if item:match("^black moon") or item:match("^red%-hot moon") or item:match("^blue%-white moon") then
+  if Regex.test("^(black|red-hot|blue-white) moon", item) then
     return true
   end
   return false
@@ -252,7 +252,7 @@ end
 -- @param target string Target to center on
 function M.center_telescope(target)
   local result = DRC.bput("center telescope on " .. target, unpack(M.CENTER_TELESCOPE_MESSAGES))
-  if result:find("pain is too much") or result:find("can't see the sky") then
+  if Regex.test("pain is too much|can't see the sky", result) then
     respond("[DRCMM] Planet " .. target .. " not visible.")
   elseif result:find("open it") then
     fput("open my telescope")
@@ -372,9 +372,9 @@ function M.visible_moons()
   -- For now, use observe heavens to check
   local result = M.observe("heavens")
   local moons = {}
-  if result:find("katamba") or result:find("Katamba") then moons[#moons + 1] = "katamba" end
-  if result:find("yavash") or result:find("Yavash") then moons[#moons + 1] = "yavash" end
-  if result:find("xibar") or result:find("Xibar") then moons[#moons + 1] = "xibar" end
+  if Regex.test("(?i)katamba", result) then moons[#moons + 1] = "katamba" end
+  if Regex.test("(?i)yavash", result) then moons[#moons + 1] = "yavash" end
+  if Regex.test("(?i)xibar", result) then moons[#moons + 1] = "xibar" end
   return moons
 end
 

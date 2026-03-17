@@ -472,10 +472,11 @@ local function find_best_disabler(skip_can_cast)
         candidates = filtered
 
         -- Multi-target filtering: exclude 410 for specific critter types
+        local immune_410_re = Regex.new("\\b(?:glacei|wraith|elemental|cold guardian)\\b")
         local all_npcs = GameObj.npcs()
         local has_immune_410 = false
         for _, npc in ipairs(all_npcs) do
-            if npc.name:find("glacei") or npc.name:find("wraith") or npc.name:find("elemental") or npc.name:find("cold guardian") then
+            if immune_410_re:test(npc.name) then
                 has_immune_410 = true
                 break
             end
@@ -498,9 +499,16 @@ local function find_best_disabler(skip_can_cast)
         local npc = npcs[1]
         local name = npc.name or ""
 
-        -- Single target filtering
-        local function filter_out(spell_num, pattern)
-            if name:find(pattern) then
+        -- Single target filtering with compiled regex patterns
+        local immune_501_re = Regex.new("\\b(?:glacei|corpse|wraith|elemental|ghost)\\b")
+        local immune_505_re = Regex.new("\\b(?:glacei|elemental|wraith)\\b")
+        local immune_410_single_re = Regex.new("\\b(?:glacei|griffin|grifflet|elemental)\\b")
+        local immune_709_re = Regex.new("\\b(?:glacei|griffin|grifflet|elemental)\\b")
+        local immune_706_re = Regex.new("\\b(?:glacei|construct|elemental|brawler|protector|psionicist|fanatic)\\b")
+        local immune_201_re = Regex.new("\\b(?:grimswarm|construct)\\b")
+
+        local function filter_out_re(spell_num, re)
+            if re:test(name) then
                 local f = {}
                 for _, c in ipairs(candidates) do
                     if c.num ~= spell_num then f[#f + 1] = c end
@@ -509,36 +517,12 @@ local function find_best_disabler(skip_can_cast)
             end
         end
 
-        filter_out(501, "glacei")
-        filter_out(501, "corpse")
-        filter_out(501, "wraith")
-        filter_out(501, "elemental")
-        filter_out(501, "ghost")
-
-        filter_out(505, "glacei")
-        filter_out(505, "elemental")
-        filter_out(505, "wraith")
-
-        filter_out(410, "glacei")
-        filter_out(410, "griffin")
-        filter_out(410, "grifflet")
-        filter_out(410, "elemental")
-
-        filter_out(709, "glacei")
-        filter_out(709, "griffin")
-        filter_out(709, "grifflet")
-        filter_out(709, "elemental")
-
-        filter_out(706, "glacei")
-        filter_out(706, "construct")
-        filter_out(706, "elemental")
-        filter_out(706, "brawler")
-        filter_out(706, "protector")
-        filter_out(706, "psionicist")
-        filter_out(706, "fanatic")
-
-        filter_out(201, "grimswarm")
-        filter_out(201, "construct")
+        filter_out_re(501, immune_501_re)
+        filter_out_re(505, immune_505_re)
+        filter_out_re(410, immune_410_single_re)
+        filter_out_re(709, immune_709_re)
+        filter_out_re(706, immune_706_re)
+        filter_out_re(201, immune_201_re)
     end
 
     -- Sort by mana cost (ascending)
@@ -658,7 +642,7 @@ add_home("Ta'Vaalor",            14100047)
 add_home("Wehnimer's Landing",   7120)
 add_home("Kharag 'doth Dzulthu", 13006016)
 
-local reportee = "sergeant|guard|purser|Belle|Luthrek"
+local reportee_re = Regex.new("sergeant|guard|purser|Belle|Luthrek")
 
 --------------------------------------------------------------------------------
 -- Determine destination
@@ -781,7 +765,7 @@ end
 
 local function find_reportee()
     for _, npc in ipairs(GameObj.npcs()) do
-        if npc.name and npc.name:find(reportee) then
+        if npc.name and reportee_re:test(npc.name) then
             return npc
         end
     end

@@ -102,7 +102,7 @@ function M.get_crafting_item(name, bag, bag_items, belt, skip_exit)
       if name:find(item, 1, true) or item:find(name, 1, true) then
         local result = DRC.bput("untie my " .. name .. " from my " .. belt.name,
           M.BELT_UNTIE_SUCCESS, "You are already", M.BELT_UNTIE_NOT_FOUND, M.BELT_UNTIE_WOUNDED)
-        if result:find("You remove") or result:find("You are already") then
+        if Regex.test("You remove|You are already", result) then
           return true
         elseif result:find("wounds hinder") then
           -- TODO: safe-room recovery
@@ -129,7 +129,7 @@ function M.get_crafting_item(name, bag, bag_items, belt, skip_exit)
     M.GET_SUCCESS, M.GET_ALREADY, "What do you", M.GET_NOT_FOUND,
     M.GET_PICKUP, M.GET_HEAVY, M.GET_TIED)
 
-  if result:find("What") or result:find("referring") then
+  if Regex.test("What|referring", result) then
     pause(2)
     if DRCI and DRCI.in_hands and DRCI.in_hands(name) then return true end
     respond("[DRCC] Missing crafting item: " .. name)
@@ -173,7 +173,7 @@ function M.stow_crafting_item(name, bag, belt)
     M.PUT_BAG_TOO_BIG, "Weirdly", M.PUT_BAG_NO_ROOM,
     "You can't put that there", M.PUT_BAG_COMBINE)
 
-  if result:find("too .* to fit") or result:find("Weirdly") or result:find("no room") then
+  if Regex.test("too .* to fit|Weirdly|no room", result) then
     fput("stow my " .. name)
   elseif result:find("can't put that there") then
     fput("put my " .. name .. " in my other " .. bag)
@@ -446,7 +446,7 @@ function M.get_adjust_tongs(usage, bag, bag_items, belt, adjustable_tongs)
     end
     local result = DRC.bput("adjust my tongs",
       M.ADJUST_TONGS_SHOVEL, M.ADJUST_TONGS_TONGS, M.ADJUST_TONGS_CANNOT, M.ADJUST_TONGS_UNKNOWN)
-    if result:find("cannot") or result:find("no idea") then
+    if Regex.test("cannot|no idea", result) then
       respond("[DRCC] Tongs are not adjustable.")
       M.stow_crafting_item("tongs", bag, belt)
       return false
@@ -465,7 +465,7 @@ function M.get_adjust_tongs(usage, bag, bag_items, belt, adjustable_tongs)
     if not adjustable_tongs then return false end
     local result = DRC.bput("adjust my tongs",
       M.ADJUST_TONGS_SHOVEL, M.ADJUST_TONGS_TONGS, M.ADJUST_TONGS_CANNOT, M.ADJUST_TONGS_UNKNOWN)
-    if result:find("cannot") or result:find("no idea") then
+    if Regex.test("cannot|no idea", result) then
       respond("[DRCC] Tongs are not adjustable.")
       return false
     elseif result:find("lock") then
@@ -495,13 +495,13 @@ function M.logbook_item(logbook, noun, container)
     M.BUNDLE_SUCCESS, M.BUNDLE_EXPIRED, M.BUNDLE_QUALITY,
     M.BUNDLE_WRONG_TYPE, M.BUNDLE_NOT_HOLDING)
 
-  if result:find("expired") or result:find("quality") or result:find("correct type") then
+  if Regex.test("expired|quality|correct type", result) then
     if DRCI and DRCI.dispose_trash then DRCI.dispose_trash(noun) end
   elseif result:find("holding") then
     if DRCI and DRCI.get_item and DRCI.get_item(noun, container) then
       local r2 = DRC.bput("bundle my " .. noun .. " with my logbook",
         M.BUNDLE_SUCCESS, M.BUNDLE_EXPIRED, M.BUNDLE_QUALITY, M.BUNDLE_WRONG_TYPE)
-      if r2:find("expired") or r2:find("quality") or r2:find("correct type") then
+      if Regex.test("expired|quality|correct type", r2) then
         if DRCI and DRCI.dispose_trash then DRCI.dispose_trash(noun) end
       end
     end

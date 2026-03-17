@@ -299,9 +299,7 @@ end
 
 function M.is_drinkable(noun)
     local n = noun:lower()
-    return n:find("potion") or n:find("tincture") or n:find("elixir")
-        or n:find("tea") or n:find("ale") or n:find("soup")
-        or n:find("brew") or n:find("porter") or n:find("flagon")
+    return Regex.test("potion|tincture|elixir|tea|ale|soup|brew|porter|flagon", n)
 end
 
 function M.list_types()

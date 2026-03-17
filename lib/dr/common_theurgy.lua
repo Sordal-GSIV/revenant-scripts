@@ -338,7 +338,7 @@ function M.parse_commune_sense_lines(lines)
     if line:find("will not be able to open another divine conduit") then
       commune_ready = false
     end
-    if line:find("Tamsine's benevolent eyes") or line:find("miracle of Tamsine") then
+    if Regex.test("Tamsine's benevolent eyes|miracle of Tamsine", line) then
       active[#active + 1] = "Tamsine"
     elseif line:find("auspices of Kertigen") then
       active[#active + 1] = "Kertigen"

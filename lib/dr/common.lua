@@ -189,11 +189,7 @@ function M.bput(message, ...)
         put(message)
         start = os.time()
       -- Auto-stand recovery
-      elseif line:match("You must be standing")
-          or line:match("You should stand up first")
-          or line:match("You can't do that while sitting")
-          or line:match("You can't do that while kneeling")
-          or line:match("You can't do that while lying") then
+      elseif Regex.test("You must be standing|You should stand up first|You can't do that while sitting|You can't do that while kneeling|You can't do that while lying", line) then
         M.fix_standing()
         if waitrt then waitrt() end
         put(message)
@@ -214,8 +210,7 @@ function M.bput(message, ...)
         put(message)
         start = os.time()
       -- Playing instrument recovery
-      elseif line:match("You are a bit too busy performing")
-          or line:match("You should stop playing before you do that") then
+      elseif Regex.test("You are a bit too busy performing|You should stop playing before you do that", line) then
         put("stop play")
         put(message)
         start = os.time()
@@ -305,11 +300,7 @@ function M.retreat(ignored_npcs)
       "retreat",
       "sneak")
 
-    if result:find("already as far")
-        or result:find("retreat from combat")
-        or result:find("sneak back out")
-        or result:find("Retreat to where")
-        or result:find("no place to retreat") then
+    if Regex.test("already as far|retreat from combat|sneak back out|Retreat to where|no place to retreat", result) then
       return true
     end
     -- Otherwise, fix standing and retry
@@ -495,7 +486,7 @@ function M.rummage(parameter, container)
     M.release_invisibility()
     return M.rummage(parameter, container)
   end
-  if result:find("nothing in there") or result:find("closed") or result:find("don't know") or result:find("accomplish nothing") then
+  if Regex.test("nothing in there|closed|don't know|accomplish nothing", result) then
     return {}
   end
   local text = result:match("looking for .* and see (.*)%.")

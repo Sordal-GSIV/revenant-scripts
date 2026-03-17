@@ -348,17 +348,14 @@ local AMBUSH_HOOK_NAME = "ego2_ambush_" .. (Script.name or "escortgo2")
 
 DownstreamHook.add(AMBUSH_HOOK_NAME, function(line)
     -- Room change: reset ambush state
-    if line:find("<pushStream id='room'") or line:find('<pushStream id="room"') then
+    if Regex.test([=[<pushStream id=['"]room['"]]=], line) then
         my_ambush = false
         staggered_ambush = false
     end
     -- Ambush triggers
     -- Staggered ambush NPCs arrive via <compass> element (e.g. "A bandit quickly approaches")
     local compass_ambush = line:find("<compass>")
-        and (line:find("quickly approaches")
-            or line:find("suddenly leaps from")
-            or line:find("leaps out of")
-            or line:find("suddenly jumps out of the shadows"))
+        and Regex.test("quickly approaches|suddenly leaps from|leaps out of|suddenly jumps out of the shadows", line)
     if (escort_id and line:find(escort_id) and line:find("fearfully exclaims"))
        or compass_ambush
        or line:find("carefully concealed metal jaws")
@@ -561,7 +558,7 @@ local function check_room()
                 wait_while(function() return running(attack_script) end)
                 local lines = clear()
                 for _, l in ipairs(lines) do
-                    if l:find("Be at peace my child") or l:find("Spells of War cannot be cast") then
+                    if Regex.test("Be at peace my child|Spells of War cannot be cast", l) then
                         sanct_count = GameState.room_count
                         break
                     end
@@ -1200,7 +1197,7 @@ for _, npc in ipairs(GameObj.npcs()) do
             npc.noun .. ' says to you, "But I already am!"',
             npc.noun .. " says to you, \"The guild didn't hire you",
             "gives you a strange look")
-        if result and (result:find("nods and says to you") or result:find("But I already am")) then
+        if result and Regex.test("nods and says to you|But I already am", result) then
             escort_id = npc.id
             break
         end
@@ -1241,7 +1238,7 @@ if not escort_id then
                     npc.noun .. ' says to you, "But I already am!"',
                     npc.noun .. " says to you, \"The guild didn't hire you",
                     "gives you a strange look")
-                if result and (result:find("nods and says to you") or result:find("But I already am")) then
+                if result and Regex.test("nods and says to you|But I already am", result) then
                     escort_id = npc.id
                     break
                 end
