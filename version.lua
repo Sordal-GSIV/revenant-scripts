@@ -157,9 +157,10 @@ local function cmd_info()
 
   -- Data file timestamps
   respond("── Data Files ──")
+  local game_data_dir = (game:lower():sub(1, 2) == "dr") and "dr" or "gs"
   local data_files = {
-    {"effect-list.xml",  "data/effect-list.xml"},
-    {"gameobj-data.xml", "data/gameobj-data.xml"},
+    {"effect-list.xml",  "data/" .. game_data_dir .. "/effect-list.xml"},
+    {"gameobj-data.xml", "data/" .. game_data_dir .. "/gameobj-data.xml"},
   }
   local game_short = (game:lower():sub(1, 2) == "dr") and "DR" or "GS3"
   local map_dir = "data/" .. game_short

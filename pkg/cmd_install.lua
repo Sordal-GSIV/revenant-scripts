@@ -9,11 +9,28 @@ local installing = {}
 -- Compute the local install path for a single-file entry.
 -- If the entry path starts with lib/, preserve that prefix so library files
 -- land in scripts/lib/ rather than scripts/.
--- lib/ dependencies in entry.depends go through the same registry lookup and
--- download flow as regular scripts — the lib/ path convention is sufficient.
-local function install_path(entry_path)
+-- If game is specified ("gs" or "dr"), route to the game-specific subdirectory:
+--   lib/X.lua → lib/{game}/X.lua
+--   data/X → data/{game}/X
+--   script.lua → {game}/script.lua
+local function install_path(entry_path, game)
     if entry_path:match("^lib/") then
-        return "lib/" .. entry_path:match("^lib/(.+)$")
+        local rest = entry_path:match("^lib/(.+)$")
+        -- Don't double-nest if already game-qualified
+        if game and not rest:match("^gs/") and not rest:match("^dr/") then
+            return "lib/" .. game .. "/" .. rest
+        end
+        return "lib/" .. rest
+    end
+    if entry_path:match("^data/") then
+        local rest = entry_path:match("^data/(.+)$")
+        if game and not rest:match("^gs/") and not rest:match("^dr/") then
+            return "data/" .. game .. "/" .. rest
+        end
+        return "data/" .. rest
+    end
+    if game then
+        return game .. "/" .. entry_path
     end
     return entry_path
 end
@@ -169,6 +186,8 @@ function M.run(positional, flags)
         -- Download
         respond("Installing " .. name .. " " .. channel_info.version .. " (" .. channel .. ")...")
         local base_url = match.manifest.url
+        -- Game-specific routing: script or channel can declare game = "gs" or "dr"
+        local script_game = channel_info.game or match.script.game
 
         if is_package(channel_info) then
             local files, dl_err = download_package(base_url, channel, match.script, channel_info)
@@ -190,9 +209,10 @@ function M.run(positional, flags)
                 end
             end
 
-            File.mkdir(name)
+            local pkg_dir = script_game and (script_game .. "/" .. name) or name
+            File.mkdir(pkg_dir)
             for _, f in ipairs(files) do
-                File.write(name .. "/" .. f.name, f.content)
+                File.write(pkg_dir .. "/" .. f.name, f.content)
             end
 
             installed[name] = {
@@ -202,6 +222,7 @@ function M.run(positional, flags)
                 sha256 = channel_info.sha256 or "",
                 installed_at = os.date("!%Y-%m-%dT%H:%M:%SZ"),
                 type = "package",
+                game = script_game,
             }
         else
             local path = channel_info.path or (name .. ".lua")
@@ -221,10 +242,11 @@ function M.run(positional, flags)
             end
 
             local raw_dest = path:match("%.lua$") and path or (name .. ".lua")
-            local dest = install_path(raw_dest)
-            -- Ensure lib/ subdirectory exists for library files
-            if dest:match("^lib/") then
-                File.mkdir("lib")
+            local dest = install_path(raw_dest, script_game)
+            -- Ensure subdirectories exist
+            local dir_part = dest:match("^(.+)/[^/]+$")
+            if dir_part then
+                File.mkdir(dir_part)
             end
             File.write(dest, content)
 
@@ -236,6 +258,7 @@ function M.run(positional, flags)
                 installed_at = os.date("!%Y-%m-%dT%H:%M:%SZ"),
                 type = "single",
                 path = dest,
+                game = script_game,
             }
         end
 

@@ -1,0 +1,2370 @@
+{
+  "Bresnahanini rolton": {
+    "level": 3,
+    "link": "/Bresnahanini_rolton"
+  },
+  "Illoke elder": {
+    "level": 86,
+    "link": "/Illoke_elder"
+  },
+  "Illoke jarl": {
+    "level": 89,
+    "link": "/Illoke_jarl"
+  },
+  "Illoke mystic": {
+    "level": 62,
+    "link": "/Illoke_mystic"
+  },
+  "Illoke shaman": {
+    "level": 67,
+    "link": "/Illoke_shaman"
+  },
+  "Ilvari pixie": {
+    "level": 74,
+    "link": "/Ilvari_pixie"
+  },
+  "Ilvari sprite": {
+    "level": 73,
+    "link": "/Ilvari_sprite"
+  },
+  "Ithzir adept": {
+    "level": 96,
+    "link": "/Ithzir_adept"
+  },
+  "Ithzir champion": {
+    "level": 102,
+    "link": "/Ithzir_champion"
+  },
+  "Ithzir herald": {
+    "level": 93,
+    "link": "/Ithzir_herald"
+  },
+  "Ithzir initiate": {
+    "level": 91,
+    "link": "/Ithzir_initiate"
+  },
+  "Ithzir janissary": {
+    "level": 92,
+    "link": "/Ithzir_janissary"
+  },
+  "Ithzir scout": {
+    "level": 89,
+    "link": "/Ithzir_scout"
+  },
+  "Ithzir seer": {
+    "level": 97,
+    "link": "/Ithzir_seer"
+  },
+  "Mistydeep siren": {
+    "level": 2,
+    "link": "/Mistydeep_siren"
+  },
+  "Neartofar orc": {
+    "level": 11,
+    "link": "/Neartofar_orc"
+  },
+  "Sheruvian harbinger": {
+    "level": 63,
+    "link": "/Sheruvian_harbinger"
+  },
+  "Sheruvian initiate": {
+    "level": 37,
+    "link": "/Sheruvian_initiate"
+  },
+  "Sheruvian monk": {
+    "level": 41,
+    "link": "/Sheruvian_monk"
+  },
+  "Vvrael destroyer": {
+    "level": 108,
+    "link": "/Vvrael_destroyer"
+  },
+  "Vvrael warlock": {
+    "level": 84,
+    "link": "/Vvrael_warlock"
+  },
+  "Vvrael witch": {
+    "level": 80,
+    "link": "/Vvrael_witch"
+  },
+  "agresh bear": {
+    "level": 16,
+    "link": "/Agresh_bear"
+  },
+  "agresh troll chieftain": {
+    "level": 20,
+    "link": "/Agresh_troll_chieftain"
+  },
+  "agresh troll scout": {
+    "level": 14,
+    "link": "/Agresh_troll_scout"
+  },
+  "agresh troll warrior": {
+    "level": 16,
+    "link": "/Agresh_troll_warrior"
+  },
+  "aivren": {
+    "level": 86,
+    "link": "/Aivren"
+  },
+  "albino tomb spider": {
+    "level": 8,
+    "link": "/Albino_tomb_spider"
+  },
+  "algae-draped merrow oracle": {
+    "level": 115,
+    "link": "/Algae-draped_merrow_oracle"
+  },
+  "amaranthine kraken tentacle": {
+    "level": 113,
+    "link": "/Amaranthine_kraken_tentacle"
+  },
+  "ancient ghoul master": {
+    "level": 21,
+    "link": "/Ancient_ghoul_master"
+  },
+  "animated slush": {
+    "level": 54,
+    "link": "/Animated_slush"
+  },
+  "arachne acolyte": {
+    "level": 23,
+    "link": "/Arachne_acolyte"
+  },
+  "arachne priest": {
+    "level": 26,
+    "link": "/Arachne_priest"
+  },
+  "arachne priestess": {
+    "level": 26,
+    "link": "/Arachne_priestess"
+  },
+  "arachne servant": {
+    "level": 21,
+    "link": "/Arachne_servant"
+  },
+  "arch wight": {
+    "level": 20,
+    "link": "/Arch_wight"
+  },
+  "arctic manticore": {
+    "level": 29,
+    "link": "/Arctic_manticore"
+  },
+  "arctic puma": {
+    "level": 15,
+    "link": "/Arctic_puma"
+  },
+  "arctic titan": {
+    "level": 36,
+    "link": "/Arctic_titan"
+  },
+  "arctic wolverine": {
+    "level": 24,
+    "link": "/Arctic_wolverine"
+  },
+  "ash guardian": {
+    "level": 87,
+    "link": "/Ash_guardian"
+  },
+  "ash hag": {
+    "level": 31,
+    "link": "/Ash_hag"
+  },
+  "ashen patrician vampire": {
+    "level": 107,
+    "link": "/Ashen_patrician_vampire"
+  },
+  "athletic dark-eyed incubus": {
+    "level": 68,
+    "link": "/Athletic_dark-eyed_incubus"
+  },
+  "baesrukha": {
+    "level": 42,
+    "link": "/Baesrukha"
+  },
+  "banded rattlesnake": {
+    "level": 16,
+    "link": "/Banded_rattlesnake"
+  },
+  "banshee": {
+    "level": 50,
+    "link": "/Banshee"
+  },
+  "barghest": {
+    "level": 35,
+    "link": "/Barghest"
+  },
+  "behemothic gorefrost golem": {
+    "level": 104,
+    "link": "/Behemothic_gorefrost_golem"
+  },
+  "bent being": {
+    "level": 82,
+    "link": "/Bent_being"
+  },
+  "big ugly kobold": {
+    "level": 2,
+    "link": "/Big_ugly_kobold"
+  },
+  "bighorn sheep": {
+    "level": 18,
+    "link": "/Bighorn_sheep"
+  },
+  "black bear": {
+    "level": 16,
+    "link": "/Black_bear"
+  },
+  "black boar": {
+    "level": 14,
+    "link": "/Black_boar"
+  },
+  "black forest ogre": {
+    "level": 60,
+    "link": "/Black_forest_ogre"
+  },
+  "black forest viper": {
+    "level": 59,
+    "link": "/Black_forest_viper"
+  },
+  "black leopard": {
+    "level": 15,
+    "link": "/Black_leopard"
+  },
+  "black panther": {
+    "level": 17,
+    "link": "/Black_panther"
+  },
+  "black rolton": {
+    "level": 1,
+    "link": "/Black_rolton"
+  },
+  "black urgh": {
+    "level": 4,
+    "link": "/Black_urgh"
+  },
+  "black-winged daggerbeak": {
+    "level": 1,
+    "link": "/Black-winged_daggerbeak"
+  },
+  "blackened decaying tumbleweed": {
+    "level": 39,
+    "link": "/Blackened_decaying_tumbleweed"
+  },
+  "blazing red phoenix": {
+    "level": 90,
+    "link": "/Blazing_red_phoenix"
+  },
+  "bloated kiramon broodtender": {
+    "level": 112,
+    "link": "/Bloated_kiramon_broodtender"
+  },
+  "blood eagle": {
+    "level": 7,
+    "link": "/Blood_eagle"
+  },
+  "bloody halfling cannibal": {
+    "level": 101,
+    "link": "/Bloody_halfling_cannibal"
+  },
+  "blubbery humpbacked merrow": {
+    "level": 111,
+    "link": "/Blubbery_humpbacked_merrow"
+  },
+  "bobcat": {
+    "level": 5,
+    "link": "/Bobcat"
+  },
+  "bog spectre": {
+    "level": 47,
+    "link": "/Bog_spectre"
+  },
+  "bog troll": {
+    "level": 35,
+    "link": "/Bog_troll"
+  },
+  "bog wight": {
+    "level": 44,
+    "link": "/Bog_wight"
+  },
+  "bog wraith": {
+    "level": 41,
+    "link": "/Bog_wraith"
+  },
+  "bone golem": {
+    "level": 8,
+    "link": "/Bone_golem"
+  },
+  "bony Tenthsworn occultist": {
+    "level": 59,
+    "link": "/Bony_Tenthsworn_occultist"
+  },
+  "brackish bilge mass": {
+    "level": 104,
+    "link": "/Brackish_bilge_mass"
+  },
+  "brawny gigas shield-maiden": {
+    "level": 106,
+    "link": "/Brawny_gigas_shield-maiden"
+  },
+  "bristly black tapir": {
+    "level": 29,
+    "link": "/Bristly_black_tapir"
+  },
+  "brown boar": {
+    "level": 14,
+    "link": "/Brown_boar"
+  },
+  "brown gak": {
+    "level": 2,
+    "link": "/Brown_gak"
+  },
+  "brown spinner": {
+    "level": 9,
+    "link": "/Brown_spinner"
+  },
+  "burly reiver": {
+    "level": 24,
+    "link": "/Burly_reiver"
+  },
+  "cadaverous tatterdemalion ghast": {
+    "level": 101,
+    "link": "/Cadaverous_tatterdemalion_ghast"
+  },
+  "caedera": {
+    "level": 82,
+    "link": "/Caedera"
+  },
+  "carceris": {
+    "level": 25,
+    "link": "/Carceris"
+  },
+  "caribou": {
+    "level": 32,
+    "link": "/Caribou"
+  },
+  "carrion worm": {
+    "level": 1,
+    "link": "/Carrion_worm"
+  },
+  "cave bear": {
+    "level": 21,
+    "link": "/Cave_bear"
+  },
+  "cave gnoll": {
+    "level": 3,
+    "link": "/Cave_gnoll"
+  },
+  "cave gnome": {
+    "level": 2,
+    "link": "/Cave_gnome"
+  },
+  "cave lizard": {
+    "level": 18,
+    "link": "/Cave_lizard"
+  },
+  "cave nipper": {
+    "level": 3,
+    "link": "/Cave_nipper"
+  },
+  "cave troll": {
+    "level": 16,
+    "link": "/Cave_troll"
+  },
+  "cave worm": {
+    "level": 10,
+    "link": "/Cave_worm"
+  },
+  "centaur": {
+    "level": 23,
+    "link": "/Centaur"
+  },
+  "centaur ranger": {
+    "level": 23,
+    "link": "/Centaur_ranger"
+  },
+  "chitinous kiramon myrmidon": {
+    "level": 102,
+    "link": "/Chitinous_kiramon_myrmidon"
+  },
+  "cinder wasp": {
+    "level": 46,
+    "link": "/Cinder_wasp"
+  },
+  "cinereous chthonian sybil": {
+    "level": 120,
+    "link": "/Cinereous_chthonian_sybil"
+  },
+  "cloud sprite bully": {
+    "level": 32,
+    "link": "/Cloud_sprite_bully"
+  },
+  "cloud sprite meddler": {
+    "level": 27,
+    "link": "/Cloud_sprite_meddler"
+  },
+  "cobra": {
+    "level": 4,
+    "link": "/Cobra"
+  },
+  "cockatrice": {
+    "level": 6,
+    "link": "/Cockatrice"
+  },
+  "coconut crab": {
+    "level": 2,
+    "link": "/Coconut_crab"
+  },
+  "cold guardian": {
+    "level": 34,
+    "link": "/Cold_guardian"
+  },
+  "colossal boreal undansormr": {
+    "level": 111,
+    "link": "/Colossal_boreal_undansormr"
+  },
+  "colossus vulture": {
+    "level": 34,
+    "link": "/Colossus_vulture"
+  },
+  "cook's assistant": {
+    "level": 28,
+    "link": "/Cook%27s_assistant"
+  },
+  "corpulent kresh ravager": {
+    "level": 106,
+    "link": "/Corpulent_kresh_ravager"
+  },
+  "cougar": {
+    "level": 22,
+    "link": "/Cougar"
+  },
+  "coyote": {
+    "level": 5,
+    "link": "/Coyote"
+  },
+  "crackling lightning fiend": {
+    "level": 79,
+    "link": "/Crackling_lightning_fiend"
+  },
+  "crazed zombie": {
+    "level": 23,
+    "link": "/Crazed_zombie"
+  },
+  "crested basilisk": {
+    "level": 22,
+    "link": "/Crested_basilisk"
+  },
+  "crocodile": {
+    "level": 9,
+    "link": "/Crocodile"
+  },
+  "crystal crab": {
+    "level": 8,
+    "link": "/Crystal_crab"
+  },
+  "crystal golem": {
+    "level": 12,
+    "link": "/Crystal_golem"
+  },
+  "csetairi": {
+    "level": 81,
+    "link": "/Csetairi"
+  },
+  "cyclops": {
+    "level": 27,
+    "link": "/Cyclops"
+  },
+  "dark apparition": {
+    "level": 5,
+    "link": "/Dark_apparition"
+  },
+  "dark frosty plant": {
+    "level": 45,
+    "link": "/Dark_frosty_plant"
+  },
+  "dark orc": {
+    "level": 12,
+    "link": "/Dark_orc"
+  },
+  "dark panther": {
+    "level": 22,
+    "link": "/Dark_panther"
+  },
+  "dark shambler": {
+    "level": 17,
+    "link": "/Dark_shambler"
+  },
+  "dark vortece": {
+    "level": 42,
+    "link": "/Dark_vortece"
+  },
+  "dark vysan": {
+    "level": 3,
+    "link": "/Dark_vysan"
+  },
+  "darken": {
+    "level": 28,
+    "link": "/Darken"
+  },
+  "darkly inked fetish master": {
+    "level": 104,
+    "link": "/Darkly_inked_fetish_master"
+  },
+  "darkwoode": {
+    "level": 13,
+    "link": "/Darkwoode"
+  },
+  "death dirge": {
+    "level": 9,
+    "link": "/Death_dirge"
+  },
+  "deathsworn fanatic": {
+    "level": 98,
+    "link": "/Deathsworn_fanatic"
+  },
+  "decaying Citadel guardsman": {
+    "level": 56,
+    "link": "/Decaying_Citadel_guardsman"
+  },
+  "deranged sentry": {
+    "level": 13,
+    "link": "/Deranged_sentry"
+  },
+  "desiccated half-krolvin strigoi": {
+    "level": 61,
+    "link": "/Desiccated_half-krolvin_strigoi"
+  },
+  "dhu goleras": {
+    "level": 78,
+    "link": "/Dhu_goleras"
+  },
+  "direbear": {
+    "level": 64,
+    "link": "/Direbear"
+  },
+  "disfigured hive thrall": {
+    "level": 104,
+    "link": "/Disfigured_hive_thrall"
+  },
+  "dobrem": {
+    "level": 28,
+    "link": "/Dobrem"
+  },
+  "dreadnought raptor": {
+    "level": 43,
+    "link": "/Dreadnought_raptor"
+  },
+  "dust beetle": {
+    "level": 36,
+    "link": "/Dust_beetle"
+  },
+  "dybbuk": {
+    "level": 48,
+    "link": "/Dybbuk"
+  },
+  "earth elemental": {
+    "level": 82,
+    "link": "/Earth_elemental"
+  },
+  "eidolon": {
+    "level": 55,
+    "link": "/Eidolon"
+  },
+  "elder ghoul master": {
+    "level": 18,
+    "link": "/Elder_ghoul_master"
+  },
+  "elder tree spirit": {
+    "level": 30,
+    "link": "/Elder_tree_spirit"
+  },
+  "emaciated hierophant": {
+    "level": 66,
+    "link": "/Emaciated_hierophant"
+  },
+  "enormous mosquito": {
+    "level": 22,
+    "link": "/Enormous_mosquito"
+  },
+  "enormous rift crawler": {
+    "level": 103,
+    "link": "/Enormous_rift_crawler"
+  },
+  "ethereal mage apprentice": {
+    "level": 54,
+    "link": "/Ethereal_mage_apprentice"
+  },
+  "ethereal triton psionicist": {
+    "level": 103,
+    "link": "/Ethereal_triton_psionicist"
+  },
+  "ethereal triton sentry": {
+    "level": 103,
+    "link": "/Ethereal_triton_sentry"
+  },
+  "eyeless black valravn": {
+    "level": 112,
+    "link": "/Eyeless_black_valravn"
+  },
+  "fallen crusader": {
+    "level": 97,
+    "link": "/Fallen_crusader"
+  },
+  "fanged goblin": {
+    "level": 2,
+    "link": "/Fanged_goblin"
+  },
+  "fanged rodent": {
+    "level": 1,
+    "link": "/Fanged_rodent"
+  },
+  "fanged viper": {
+    "level": 4,
+    "link": "/Fanged_viper"
+  },
+  "farlook": {
+    "level": 77,
+    "link": "/Farlook"
+  },
+  "fenghai": {
+    "level": 23,
+    "link": "/Fenghai"
+  },
+  "festering taint": {
+    "level": 86,
+    "link": "/Festering_taint"
+  },
+  "fire ant": {
+    "level": 1,
+    "link": "/Fire_ant"
+  },
+  "fire cat": {
+    "level": 18,
+    "link": "/Fire_cat"
+  },
+  "fire elemental": {
+    "level": 60,
+    "link": "/Fire_elemental"
+  },
+  "fire giant": {
+    "level": 36,
+    "link": "/Fire_giant"
+  },
+  "fire guardian": {
+    "level": 16,
+    "link": "/Fire_guardian"
+  },
+  "fire mage": {
+    "level": 71,
+    "link": "/Fire_mage"
+  },
+  "fire ogre": {
+    "level": 28,
+    "link": "/Fire_ogre"
+  },
+  "fire rat": {
+    "level": 16,
+    "link": "/Fire_rat"
+  },
+  "fire salamander": {
+    "level": 3,
+    "link": "/Fire_salamander"
+  },
+  "fire sprite": {
+    "level": 64,
+    "link": "/Fire_sprite"
+  },
+  "firebird": {
+    "level": 85,
+    "link": "/Firebird"
+  },
+  "firephantom": {
+    "level": 6,
+    "link": "/Firephantom"
+  },
+  "firethorn shoot": {
+    "level": 44,
+    "link": "/Firethorn_shoot"
+  },
+  "flayed gigas disciple": {
+    "level": 113,
+    "link": "/Flayed_gigas_disciple"
+  },
+  "flesh golem": {
+    "level": 50,
+    "link": "/Flesh_golem"
+  },
+  "flickering mist-wreathed banshee": {
+    "level": 102,
+    "link": "/Flickering_mist-wreathed_banshee"
+  },
+  "forest bendith": {
+    "level": 40,
+    "link": "/Forest_bendith"
+  },
+  "forest ogre": {
+    "level": 17,
+    "link": "/Forest_ogre"
+  },
+  "forest trali": {
+    "level": 44,
+    "link": "/Forest_trali"
+  },
+  "forest trali shaman": {
+    "level": 46,
+    "link": "/Forest_trali_shaman"
+  },
+  "forest troll": {
+    "level": 14,
+    "link": "/Forest_troll"
+  },
+  "frenzied monk": {
+    "level": 27,
+    "link": "/Frenzied_monk"
+  },
+  "frost giant": {
+    "level": 38,
+    "link": "/Frost_giant"
+  },
+  "frostborne lich": {
+    "level": 110,
+    "link": "/Lich"
+  },
+  "frozen corpse": {
+    "level": 42,
+    "link": "/Frozen_corpse"
+  },
+  "fulminating stormborn primordial": {
+    "level": 109,
+    "link": "/Fulminating_stormborn_primordial"
+  },
+  "garish revenant buccaneer": {
+    "level": 108,
+    "link": "/Garish_revenant_buccaneer"
+  },
+  "gaudy phantasmic conjurer": {
+    "level": 106,
+    "link": "/Gaudy_phantasmic_conjurer"
+  },
+  "gaunt feral selkie": {
+    "level": 57,
+    "link": "/Gaunt_feral_selkie"
+  },
+  "gaunt spectral servant": {
+    "level": 44,
+    "link": "/Gaunt_spectral_servant"
+  },
+  "ghost": {
+    "level": 2,
+    "link": "/Ghost"
+  },
+  "ghost wolf": {
+    "level": 16,
+    "link": "/Ghost_wolf"
+  },
+  "ghostly mara": {
+    "level": 32,
+    "link": "/Ghostly_mara"
+  },
+  "ghostly pooka": {
+    "level": 33,
+    "link": "/Ghostly_pooka"
+  },
+  "ghostly warrior": {
+    "level": 18,
+    "link": "/Ghostly_warrior"
+  },
+  "ghoul master": {
+    "level": 16,
+    "link": "/Ghoul_master"
+  },
+  "giant albino scorpion": {
+    "level": 24,
+    "link": "/Giant_albino_scorpion"
+  },
+  "giant albino tomb spider": {
+    "level": 30,
+    "link": "/Giant_albino_tomb_spider"
+  },
+  "giant ant": {
+    "level": 1,
+    "link": "/Giant_ant"
+  },
+  "giant fog beetle": {
+    "level": 32,
+    "link": "/Giant_fog_beetle"
+  },
+  "giant hawk-owl": {
+    "level": 28,
+    "link": "/Giant_hawk-owl"
+  },
+  "giant marmot": {
+    "level": 10,
+    "link": "/Giant_marmot"
+  },
+  "giant rat": {
+    "level": 1,
+    "link": "/Giant_rat"
+  },
+  "giant veaba": {
+    "level": 17,
+    "link": "/Giant_veaba"
+  },
+  "giant weasel": {
+    "level": 14,
+    "link": "/Giant_weasel"
+  },
+  "gigantic lightning whelk": {
+    "level": 107,
+    "link": "/Gigantic_lightning_whelk"
+  },
+  "glacial morph": {
+    "level": 56,
+    "link": "/Glacial_morph"
+  },
+  "glistening cerebralite": {
+    "level": 100,
+    "link": "/Glistening_cerebralite"
+  },
+  "gnarled being": {
+    "level": 82,
+    "link": "/Gnarled_being"
+  },
+  "gnoll guard": {
+    "level": 17,
+    "link": "/Gnoll_guard"
+  },
+  "gnoll jarl": {
+    "level": 25,
+    "link": "/Gnoll_jarl"
+  },
+  "gnoll priest": {
+    "level": 20,
+    "link": "/Gnoll_priest"
+  },
+  "gnoll ranger": {
+    "level": 15,
+    "link": "/Gnoll_ranger"
+  },
+  "gnoll thief": {
+    "level": 13,
+    "link": "/Gnoll_thief"
+  },
+  "gnoll worker": {
+    "level": 10,
+    "link": "/Gnoll_worker"
+  },
+  "goblin": {
+    "level": 2,
+    "link": "/Goblin"
+  },
+  "great boar": {
+    "level": 10,
+    "link": "/Great_boar"
+  },
+  "great brown bear": {
+    "level": 14,
+    "link": "/Great_brown_bear"
+  },
+  "great stag": {
+    "level": 13,
+    "link": "/Great_stag"
+  },
+  "greater bog troll": {
+    "level": 39,
+    "link": "/Greater_bog_troll"
+  },
+  "greater burrow orc": {
+    "level": 8,
+    "link": "/Greater_burrow_orc"
+  },
+  "greater construct": {
+    "level": 96,
+    "link": "/Greater_construct"
+  },
+  "greater earth elemental": {
+    "level": 88,
+    "link": "/Greater_earth_elemental"
+  },
+  "greater faeroth": {
+    "level": 50,
+    "link": "/Greater_faeroth"
+  },
+  "greater fetid corpse": {
+    "level": 42,
+    "link": "/Greater_fetid_corpse"
+  },
+  "greater ghoul": {
+    "level": 3,
+    "link": "/Greater_ghoul"
+  },
+  "greater ice giant": {
+    "level": 46,
+    "link": "/Greater_ice_giant"
+  },
+  "greater ice spider": {
+    "level": 3,
+    "link": "/Greater_ice_spider"
+  },
+  "greater kappa": {
+    "level": 7,
+    "link": "/Greater_kappa"
+  },
+  "greater krynch": {
+    "level": 84,
+    "link": "/Greater_krynch"
+  },
+  "greater moor wight": {
+    "level": 39,
+    "link": "/Greater_moor_wight"
+  },
+  "greater orc": {
+    "level": 8,
+    "link": "/Greater_orc"
+  },
+  "greater skayl": {
+    "level": 81,
+    "link": "/Greater_skayl"
+  },
+  "greater spider": {
+    "level": 8,
+    "link": "/Greater_spider"
+  },
+  "greater vruul": {
+    "level": 75,
+    "link": "/Greater_vruul"
+  },
+  "greater water elemental": {
+    "level": 105,
+    "link": "/Greater_water_elemental"
+  },
+  "greenwing hornet": {
+    "level": 18,
+    "link": "/Greenwing_hornet"
+  },
+  "gremlock": {
+    "level": 84,
+    "link": "/Gremlock"
+  },
+  "grey orc": {
+    "level": 14,
+    "link": "/Grey_orc"
+  },
+  "grey-plumed steelwing harpy": {
+    "level": 111,
+    "link": "/Grey-plumed_steelwing_harpy"
+  },
+  "grifflet": {
+    "level": 64,
+    "link": "/Grifflet"
+  },
+  "grim gigas skald": {
+    "level": 105,
+    "link": "/Grim_gigas_skald"
+  },
+  "grisly corpse hulk": {
+    "level": 55,
+    "link": "/Grisly_corpse_hulk"
+  },
+  "grizzly bear": {
+    "level": 38,
+    "link": "/Grizzly_bear"
+  },
+  "grutik savage": {
+    "level": 27,
+    "link": "/Grutik_savage"
+  },
+  "grutik shaman": {
+    "level": 29,
+    "link": "/Grutik_shaman"
+  },
+  "haggard Veiki herald": {
+    "level": 85,
+    "link": "/Haggard_Veiki_herald"
+  },
+  "hapless charmed corsair": {
+    "level": 105,
+    "link": "/Hapless_charmed_corsair"
+  },
+  "heavily armored battle mastodon": {
+    "level": 102,
+    "link": "/Heavily_armored_battle_mastodon"
+  },
+  "hill troll": {
+    "level": 16,
+    "link": "/Hill_troll"
+  },
+  "hisskra chieftain": {
+    "level": 34,
+    "link": "/Hisskra_chieftain"
+  },
+  "hisskra shaman": {
+    "level": 33,
+    "link": "/Hisskra_shaman"
+  },
+  "hisskra warrior": {
+    "level": 30,
+    "link": "/Hisskra_warrior"
+  },
+  "hobgoblin": {
+    "level": 3,
+    "link": "/Hobgoblin"
+  },
+  "hobgoblin acolyte": {
+    "level": 7,
+    "link": "/Hobgoblin_acolyte"
+  },
+  "hobgoblin shaman": {
+    "level": 7,
+    "link": "/Hobgoblin_shaman"
+  },
+  "hooded figure": {
+    "level": 30,
+    "link": "/Hooded_figure"
+  },
+  "horned basalt grotesque": {
+    "level": 105,
+    "link": "/Horned_basalt_grotesque"
+  },
+  "horned vor'taz": {
+    "level": 48,
+    "link": "/Horned_vor%27taz"
+  },
+  "huge air elemental": {
+    "level": 95,
+    "link": "/Huge_air_elemental"
+  },
+  "huge earth elemental": {
+    "level": 95,
+    "link": "/Huge_earth_elemental"
+  },
+  "huge fire elemental": {
+    "level": 99,
+    "link": "/Huge_fire_elemental"
+  },
+  "huge ice elemental": {
+    "level": 95,
+    "link": "/Huge_ice_elemental"
+  },
+  "huge jungle toad": {
+    "level": 25,
+    "link": "/Huge_jungle_toad"
+  },
+  "huge lava elemental": {
+    "level": 100,
+    "link": "/Huge_lava_elemental"
+  },
+  "huge lightning elemental": {
+    "level": 100,
+    "link": "/Huge_lightning_elemental"
+  },
+  "huge mein golem": {
+    "level": 37,
+    "link": "/Huge_mein_golem"
+  },
+  "huge steam elemental": {
+    "level": 99,
+    "link": "/Huge_steam_elemental"
+  },
+  "huge water elemental": {
+    "level": 95,
+    "link": "/Huge_water_elemental"
+  },
+  "hulking forest ape": {
+    "level": 31,
+    "link": "/Hulking_forest_ape"
+  },
+  "humpbacked puma": {
+    "level": 15,
+    "link": "/Humpbacked_puma"
+  },
+  "hunch-backed dogmatist": {
+    "level": 70,
+    "link": "/Hunch-backed_dogmatist"
+  },
+  "hunter troll": {
+    "level": 30,
+    "link": "/Hunter_troll"
+  },
+  "ice elemental": {
+    "level": 63,
+    "link": "/Ice_elemental"
+  },
+  "ice golem": {
+    "level": 53,
+    "link": "/Ice_golem"
+  },
+  "ice hound": {
+    "level": 24,
+    "link": "/Ice_hound"
+  },
+  "ice skeleton": {
+    "level": 3,
+    "link": "/Ice_skeleton"
+  },
+  "ice troll": {
+    "level": 29,
+    "link": "/Ice_troll"
+  },
+  "ice wraith": {
+    "level": 45,
+    "link": "/Ice_wraith"
+  },
+  "immense gold-bristled hinterboar": {
+    "level": 102,
+    "link": "/Immense_gold-bristled_hinterboar"
+  },
+  "infernal death knight": {
+    "level": 104,
+    "link": "/Infernal_death_knight"
+  },
+  "infernal lich": {
+    "level": 110,
+    "link": "/Lich"
+  },
+  "jungle feyling": {
+    "level": 24,
+    "link": "/Jungle_feyling"
+  },
+  "jungle troll": {
+    "level": 26,
+    "link": "/Jungle_troll"
+  },
+  "jungle troll chieftain": {
+    "level": 30,
+    "link": "/Jungle_troll_chieftain"
+  },
+  "kelp-tangled coral golem": {
+    "level": 109,
+    "link": "/Kelp-tangled_coral_golem"
+  },
+  "ki-lin": {
+    "level": 28,
+    "link": "/Ki-lin"
+  },
+  "kiramon defender": {
+    "level": 46,
+    "link": "/Kiramon_defender"
+  },
+  "kiramon worker": {
+    "level": 40,
+    "link": "/Kiramon_worker"
+  },
+  "kobold": {
+    "level": 1,
+    "link": "/Kobold"
+  },
+  "kobold shepherd": {
+    "level": 3,
+    "link": "/Kobold_shepherd"
+  },
+  "krag dweller": {
+    "level": 72,
+    "link": "/Krag_dweller"
+  },
+  "krag yeti": {
+    "level": 70,
+    "link": "/Krag_yeti"
+  },
+  "krolvin corsair": {
+    "level": 38,
+    "link": "/Krolvin_corsair"
+  },
+  "krolvin mercenary": {
+    "level": 17,
+    "link": "/Krolvin_mercenary"
+  },
+  "krolvin slaver": {
+    "level": 36,
+    "link": "/Krolvin_slaver"
+  },
+  "krolvin warfarer": {
+    "level": 25,
+    "link": "/Krolvin_warfarer"
+  },
+  "krolvin warrior": {
+    "level": 19,
+    "link": "/Krolvin_warrior"
+  },
+  "krynch": {
+    "level": 31,
+    "link": "/Krynch"
+  },
+  "large ogre": {
+    "level": 15,
+    "link": "/Large_ogre"
+  },
+  "large ring-tailed lemur": {
+    "level": 20,
+    "link": "/Large_ring-tailed_lemur"
+  },
+  "large thorned shrub": {
+    "level": 48,
+    "link": "/Large_thorned_shrub"
+  },
+  "lava golem": {
+    "level": 56,
+    "link": "/Lava_golem"
+  },
+  "lava troll": {
+    "level": 34,
+    "link": "/Lava_troll"
+  },
+  "leaper": {
+    "level": 6,
+    "link": "/Leaper"
+  },
+  "lesser burrow orc": {
+    "level": 7,
+    "link": "/Lesser_burrow_orc"
+  },
+  "lesser construct": {
+    "level": 83,
+    "link": "/Lesser_construct"
+  },
+  "lesser faeroth": {
+    "level": 46,
+    "link": "/Lesser_faeroth"
+  },
+  "lesser fetid corpse": {
+    "level": 33,
+    "link": "/Lesser_fetid_corpse"
+  },
+  "lesser frost shade": {
+    "level": 2,
+    "link": "/Lesser_frost_shade"
+  },
+  "lesser ghoul": {
+    "level": 1,
+    "link": "/Lesser_ghoul"
+  },
+  "lesser griffin": {
+    "level": 69,
+    "link": "/Lesser_griffin"
+  },
+  "lesser ice elemental": {
+    "level": 53,
+    "link": "/Lesser_ice_elemental"
+  },
+  "lesser ice giant": {
+    "level": 41,
+    "link": "/Lesser_ice_giant"
+  },
+  "lesser minotaur": {
+    "level": 74,
+    "link": "/Lesser_minotaur"
+  },
+  "lesser moor wight": {
+    "level": 37,
+    "link": "/Lesser_moor_wight"
+  },
+  "lesser mummy": {
+    "level": 6,
+    "link": "/Lesser_mummy"
+  },
+  "lesser orc": {
+    "level": 6,
+    "link": "/Lesser_orc"
+  },
+  "lesser red orc": {
+    "level": 7,
+    "link": "/Lesser_red_orc"
+  },
+  "lesser shade": {
+    "level": 2,
+    "link": "/Lesser_shade"
+  },
+  "lesser stone gargoyle": {
+    "level": 27,
+    "link": "/Lesser_stone_gargoyle"
+  },
+  "lesser vruul": {
+    "level": 45,
+    "link": "/Lesser_vruul"
+  },
+  "lesser wood sprite": {
+    "level": 30,
+    "link": "/Lesser_wood_sprite"
+  },
+  "lich qyn'arj": {
+    "level": 84,
+    "link": "/Lich_qyn%27arj"
+  },
+  "lithe veiled sentinel": {
+    "level": 96,
+    "link": "/Lithe_veiled_sentinel"
+  },
+  "lost soul": {
+    "level": 91,
+    "link": "/Lost_soul"
+  },
+  "luminous arachnid": {
+    "level": 15,
+    "link": "/Luminous_arachnid"
+  },
+  "luminous spectre": {
+    "level": 34,
+    "link": "/Luminous_spectre"
+  },
+  "magna vereri": {
+    "level": 72,
+    "link": "/Magna_vereri"
+  },
+  "magru": {
+    "level": 37,
+    "link": "/Magru"
+  },
+  "major glacei": {
+    "level": 47,
+    "link": "/Major_glacei"
+  },
+  "major spider": {
+    "level": 20,
+    "link": "/Major_spider"
+  },
+  "mammoth arachnid": {
+    "level": 30,
+    "link": "/Mammoth_arachnid"
+  },
+  "manticore": {
+    "level": 9,
+    "link": "/Manticore"
+  },
+  "martial eagle": {
+    "level": 28,
+    "link": "/Martial_eagle"
+  },
+  "massive black boar": {
+    "level": 59,
+    "link": "/Massive_black_boar"
+  },
+  "massive grahnk": {
+    "level": 20,
+    "link": "/Massive_grahnk"
+  },
+  "massive pyrothag": {
+    "level": 58,
+    "link": "/Massive_pyrothag"
+  },
+  "massive troll king": {
+    "level": 63,
+    "link": "/Massive_troll_king"
+  },
+  "mastodonic leopard": {
+    "level": 44,
+    "link": "/Mastodonic_leopard"
+  },
+  "maw spore": {
+    "level": 33,
+    "link": "/Maw_spore"
+  },
+  "mezic": {
+    "level": 33,
+    "link": "/Mezic"
+  },
+  "milky-eyed drowned mariner": {
+    "level": 106,
+    "link": "/Milky-eyed_drowned_mariner"
+  },
+  "minor glacei": {
+    "level": 42,
+    "link": "/Minor_glacei"
+  },
+  "minotaur magi": {
+    "level": 78,
+    "link": "/Minotaur_magi"
+  },
+  "minotaur warrior": {
+    "level": 76,
+    "link": "/Minotaur_warrior"
+  },
+  "mist wraith": {
+    "level": 5,
+    "link": "/Mist_wraith"
+  },
+  "moaning phantom": {
+    "level": 2,
+    "link": "/Moaning_phantom"
+  },
+  "moaning spirit": {
+    "level": 28,
+    "link": "/Moaning_spirit"
+  },
+  "monastic lich": {
+    "level": 27,
+    "link": "/Monastic_lich"
+  },
+  "mongrel hobgoblin": {
+    "level": 5,
+    "link": "/Mongrel_hobgoblin"
+  },
+  "mongrel kobold": {
+    "level": 4,
+    "link": "/Mongrel_kobold"
+  },
+  "mongrel troll": {
+    "level": 16,
+    "link": "/Mongrel_troll"
+  },
+  "mongrel wolfhound": {
+    "level": 16,
+    "link": "/Mongrel_wolfhound"
+  },
+  "monkey": {
+    "level": 6,
+    "link": "/Monkey"
+  },
+  "monstrous direwolf": {
+    "level": 67,
+    "link": "/Monstrous_direwolf"
+  },
+  "moor eagle": {
+    "level": 35,
+    "link": "/Moor_eagle"
+  },
+  "moor hound": {
+    "level": 33,
+    "link": "/Moor_hound"
+  },
+  "moor witch": {
+    "level": 34,
+    "link": "/Moor_witch"
+  },
+  "mottled thrak": {
+    "level": 8,
+    "link": "/Mottled_thrak"
+  },
+  "moulis": {
+    "level": 75,
+    "link": "/Moulis"
+  },
+  "mountain goat": {
+    "level": 17,
+    "link": "/Mountain_goat"
+  },
+  "mountain lion": {
+    "level": 18,
+    "link": "/Mountain_lion"
+  },
+  "mountain ogre": {
+    "level": 16,
+    "link": "/Mountain_ogre"
+  },
+  "mountain rolton": {
+    "level": 1,
+    "link": "/Mountain_rolton"
+  },
+  "mountain snowcat": {
+    "level": 3,
+    "link": "/Mountain_snowcat"
+  },
+  "mountain troll": {
+    "level": 17,
+    "link": "/Mountain_troll"
+  },
+  "mud wasp": {
+    "level": 38,
+    "link": "/Mud_wasp"
+  },
+  "murky soul siphon": {
+    "level": 106,
+    "link": "/Murky_soul_siphon"
+  },
+  "muscular supplicant": {
+    "level": 67,
+    "link": "/Muscular_supplicant"
+  },
+  "myklian": {
+    "level": 40,
+    "link": "/Myklian"
+  },
+  "n'ecare": {
+    "level": 87,
+    "link": "/N%27ecare"
+  },
+  "naisirc": {
+    "level": 75,
+    "link": "/Naisirc"
+  },
+  "nasty little gremlin": {
+    "level": 5,
+    "link": "/Nasty_little_gremlin"
+  },
+  "neartofar troll": {
+    "level": 15,
+    "link": "/Neartofar_troll"
+  },
+  "necrotic snake": {
+    "level": 48,
+    "link": "/Necrotic_snake"
+  },
+  "nedum vereri": {
+    "level": 18,
+    "link": "/Nedum_vereri"
+  },
+  "night golem": {
+    "level": 5,
+    "link": "/Night_golem"
+  },
+  "night hound": {
+    "level": 24,
+    "link": "/Night_hound"
+  },
+  "night mare": {
+    "level": 43,
+    "link": "/Night_mare"
+  },
+  "nightmare steed": {
+    "level": 55,
+    "link": "/Nightmare_steed"
+  },
+  "niirsha": {
+    "level": 23,
+    "link": "/Niirsha"
+  },
+  "niveous giant warg": {
+    "level": 104,
+    "link": "/Niveous_giant_warg"
+  },
+  "nonomino": {
+    "level": 23,
+    "link": "/Nonomino"
+  },
+  "ogre warrior": {
+    "level": 20,
+    "link": "/Ogre_warrior"
+  },
+  "pale crab": {
+    "level": 2,
+    "link": "/Pale_crab"
+  },
+  "pale scaled shaper": {
+    "level": 102,
+    "link": "/Pale_scaled_shaper"
+  },
+  "pallid fog-cloaked kelpie": {
+    "level": 112,
+    "link": "/Pallid_fog-cloaked_kelpie"
+  },
+  "panther": {
+    "level": 15,
+    "link": "/Panther"
+  },
+  "patchwork flesh monstrosity": {
+    "level": 97,
+    "link": "/Patchwork_flesh_monstrosity"
+  },
+  "phantasma": {
+    "level": 42,
+    "link": "/Phantasma"
+  },
+  "phantasmal bestial swordsman": {
+    "level": 62,
+    "link": "/Phantasmal_bestial_swordsman"
+  },
+  "phantom": {
+    "level": 2,
+    "link": "/Phantom"
+  },
+  "phosphorescent worm": {
+    "level": 16,
+    "link": "/Phosphorescent_worm"
+  },
+  "plains lion": {
+    "level": 18,
+    "link": "/Plains_lion"
+  },
+  "plains ogre": {
+    "level": 17,
+    "link": "/Plains_ogre"
+  },
+  "plains orc chieftain": {
+    "level": 21,
+    "link": "/Plains_orc_chieftain"
+  },
+  "plains orc scout": {
+    "level": 17,
+    "link": "/Plains_orc_scout"
+  },
+  "plains orc shaman": {
+    "level": 18,
+    "link": "/Plains_orc_shaman"
+  },
+  "plains orc warrior": {
+    "level": 16,
+    "link": "/Plains_orc_warrior"
+  },
+  "plumed cockatrice": {
+    "level": 13,
+    "link": "/Plumed_cockatrice"
+  },
+  "polar bear": {
+    "level": 44,
+    "link": "/Polar_bear"
+  },
+  "pra'eda": {
+    "level": 29,
+    "link": "/Pra%27eda"
+  },
+  "puma": {
+    "level": 15,
+    "link": "/Puma"
+  },
+  "putrefied Citadel herald": {
+    "level": 60,
+    "link": "/Putrefied_Citadel_herald"
+  },
+  "quivering sanguine ooze": {
+    "level": 107,
+    "link": "/Quivering_sanguine_ooze"
+  },
+  "rabid guard dog": {
+    "level": 10,
+    "link": "/Rabid_guard_dog"
+  },
+  "rabid squirrel": {
+    "level": 2,
+    "link": "/Rabid_squirrel"
+  },
+  "raider orc": {
+    "level": 10,
+    "link": "/Raider_orc"
+  },
+  "raving lunatic": {
+    "level": 77,
+    "link": "/Raving_lunatic"
+  },
+  "red bear": {
+    "level": 16,
+    "link": "/Red_bear"
+  },
+  "red tsark": {
+    "level": 66,
+    "link": "/Red_tsark"
+  },
+  "red-scaled thrak": {
+    "level": 48,
+    "link": "/Red-scaled_thrak"
+  },
+  "reiver": {
+    "level": 24,
+    "link": "/Reiver"
+  },
+  "relnak": {
+    "level": 3,
+    "link": "/Relnak"
+  },
+  "revenant": {
+    "level": 4,
+    "link": "/Revenant"
+  },
+  "ridge orc": {
+    "level": 4,
+    "link": "/Ridge_orc"
+  },
+  "ridgeback boar": {
+    "level": 15,
+    "link": "/Ridgeback_boar"
+  },
+  "roa'ter": {
+    "level": 41,
+    "link": "/Roa%27ter"
+  },
+  "roa'ter wormling": {
+    "level": 24,
+    "link": "/Roa%27ter_wormling"
+  },
+  "rock troll zombie": {
+    "level": 34,
+    "link": "/Rock_troll_zombie"
+  },
+  "roiling crimson angargeist": {
+    "level": 110,
+    "link": "/Roiling_crimson_angargeist"
+  },
+  "rolton": {
+    "level": 1,
+    "link": "/Rolton"
+  },
+  "rotting Citadel arbalester": {
+    "level": 58,
+    "link": "/Rotting_Citadel_arbalester"
+  },
+  "rotting chimera": {
+    "level": 46,
+    "link": "/Rotting_chimera"
+  },
+  "rotting corpse": {
+    "level": 32,
+    "link": "/Rotting_corpse"
+  },
+  "rotting farmhand": {
+    "level": 32,
+    "link": "/Rotting_farmhand"
+  },
+  "rotting krolvin pirate": {
+    "level": 18,
+    "link": "/Rotting_krolvin_pirate"
+  },
+  "rotting woodsman": {
+    "level": 23,
+    "link": "/Rotting_woodsman"
+  },
+  "sabre-tooth tiger": {
+    "level": 53,
+    "link": "/Sabre-tooth_tiger"
+  },
+  "sacristan spirit": {
+    "level": 25,
+    "link": "/Sacristan_spirit"
+  },
+  "sand beetle": {
+    "level": 33,
+    "link": "/Sand_beetle"
+  },
+  "sand devil": {
+    "level": 48,
+    "link": "/Sand_devil"
+  },
+  "savage fork-tongued wendigo": {
+    "level": 105,
+    "link": "/Savage_fork-tongued_wendigo"
+  },
+  "scaly burgee": {
+    "level": 29,
+    "link": "/Scaly_burgee"
+  },
+  "scaly needle-toothed trenchling": {
+    "level": 107,
+    "link": "/Scaly_needle-toothed_trenchling"
+  },
+  "sea nymph": {
+    "level": 2,
+    "link": "/Sea_nymph"
+  },
+  "seeker": {
+    "level": 52,
+    "link": "/Seeker"
+  },
+  "seething pestilent vision": {
+    "level": 70,
+    "link": "/Seething_pestilent_vision"
+  },
+  "seraceris": {
+    "level": 78,
+    "link": "/Seraceris"
+  },
+  "shadow mare": {
+    "level": 37,
+    "link": "/Shadow_mare"
+  },
+  "shadow steed": {
+    "level": 38,
+    "link": "/Shadow_steed"
+  },
+  "shadowy spectre": {
+    "level": 14,
+    "link": "/Shadowy_spectre"
+  },
+  "shambling lurk": {
+    "level": 97,
+    "link": "/Shambling_lurk"
+  },
+  "shan bardess": {
+    "level": 62,
+    "link": "/Shan_bardess"
+  },
+  "shan cleric": {
+    "level": 42,
+    "link": "/Shan_cleric"
+  },
+  "shan empath": {
+    "level": 60,
+    "link": "/Shan_empath"
+  },
+  "shan ranger": {
+    "level": 42,
+    "link": "/Shan_ranger"
+  },
+  "shan rogue": {
+    "level": 66,
+    "link": "/Shan_rogue"
+  },
+  "shan shaman": {
+    "level": 64,
+    "link": "/Shan_shaman"
+  },
+  "shan sorceress": {
+    "level": 58,
+    "link": "/Shan_sorceress"
+  },
+  "shan warrior": {
+    "level": 42,
+    "link": "/Shan_warrior"
+  },
+  "shan wizard": {
+    "level": 42,
+    "link": "/Shan_wizard"
+  },
+  "shelfae chieftain": {
+    "level": 11,
+    "link": "/Shelfae_chieftain"
+  },
+  "shelfae guard": {
+    "level": 7,
+    "link": "/Shelfae_guard"
+  },
+  "shelfae soldier": {
+    "level": 7,
+    "link": "/Shelfae_soldier"
+  },
+  "shelfae warlord": {
+    "level": 18,
+    "link": "/Shelfae_warlord"
+  },
+  "shimmering fungus": {
+    "level": 35,
+    "link": "/Shimmering_fungus"
+  },
+  "shining winged disir": {
+    "level": 114,
+    "link": "/Shining_winged_disir"
+  },
+  "shrickhen": {
+    "level": 76,
+    "link": "/Shrickhen"
+  },
+  "shriveled icy creeper": {
+    "level": 50,
+    "link": "/Shriveled_icy_creeper"
+  },
+  "silver-scaled cold wyrm": {
+    "level": 120,
+    "link": "/Silver-scaled_cold_wyrm"
+  },
+  "silverback orc": {
+    "level": 14,
+    "link": "/Silverback_orc"
+  },
+  "siren": {
+    "level": 96,
+    "link": "/Siren"
+  },
+  "siren lizard": {
+    "level": 42,
+    "link": "/Siren_lizard"
+  },
+  "skayl": {
+    "level": 54,
+    "link": "/Skayl"
+  },
+  "skeletal giant": {
+    "level": 33,
+    "link": "/Skeletal_giant"
+  },
+  "skeletal ice troll": {
+    "level": 31,
+    "link": "/Skeletal_ice_troll"
+  },
+  "skeletal lord": {
+    "level": 41,
+    "link": "/Skeletal_lord"
+  },
+  "skeletal soldier": {
+    "level": 34,
+    "link": "/Skeletal_soldier"
+  },
+  "skeletal warhorse": {
+    "level": 37,
+    "link": "/Skeletal_warhorse"
+  },
+  "skeleton": {
+    "level": 1,
+    "link": "/Skeleton"
+  },
+  "sleek black kiramon stalker": {
+    "level": 108,
+    "link": "/Sleek_black_kiramon_stalker"
+  },
+  "slimy little grub": {
+    "level": 1,
+    "link": "/Slimy_little_grub"
+  },
+  "smouldering skeletal dreadsteed": {
+    "level": 103,
+    "link": "/Smouldering_skeletal_dreadsteed"
+  },
+  "snow crone": {
+    "level": 36,
+    "link": "/Snow_crone"
+  },
+  "snow leopard": {
+    "level": 27,
+    "link": "/Snow_leopard"
+  },
+  "snow madrinol": {
+    "level": 52,
+    "link": "/Snow_madrinol"
+  },
+  "snow spectre": {
+    "level": 9,
+    "link": "/Snow_spectre"
+  },
+  "snowy cockatrice": {
+    "level": 6,
+    "link": "/Snowy_cockatrice"
+  },
+  "soul golem": {
+    "level": 63,
+    "link": "/Soul_golem"
+  },
+  "spectral black warhorse": {
+    "level": 35,
+    "link": "/Spectral_black_warhorse"
+  },
+  "spectral fisherman": {
+    "level": 6,
+    "link": "/Spectral_fisherman"
+  },
+  "spectral lord": {
+    "level": 36,
+    "link": "/Spectral_lord"
+  },
+  "spectral miner": {
+    "level": 40,
+    "link": "/Spectral_miner"
+  },
+  "spectral monk": {
+    "level": 25,
+    "link": "/Spectral_monk"
+  },
+  "spectral shade": {
+    "level": 35,
+    "link": "/Spectral_shade"
+  },
+  "spectral triton defender": {
+    "level": 98,
+    "link": "/Spectral_triton_defender"
+  },
+  "spectral triton protector": {
+    "level": 98,
+    "link": "/Spectral_triton_protector"
+  },
+  "spectral warrior": {
+    "level": 34,
+    "link": "/Spectral_warrior"
+  },
+  "spectral woodsman": {
+    "level": 35,
+    "link": "/Spectral_woodsman"
+  },
+  "spectre": {
+    "level": 14,
+    "link": "/Spectre"
+  },
+  "spiked cavern urchin": {
+    "level": 17,
+    "link": "/Spiked_cavern_urchin"
+  },
+  "spotted gak": {
+    "level": 2,
+    "link": "/Spotted_gak"
+  },
+  "spotted gnarp": {
+    "level": 1,
+    "link": "/Spotted_gnarp"
+  },
+  "spotted leaper": {
+    "level": 4,
+    "link": "/Spotted_leaper"
+  },
+  "spotted lynx": {
+    "level": 6,
+    "link": "/Spotted_lynx"
+  },
+  "spotted velnalin": {
+    "level": 3,
+    "link": "/Spotted_velnalin"
+  },
+  "squamous reptilian mutant": {
+    "level": 109,
+    "link": "/Squamous_reptilian_mutant"
+  },
+  "steam dervish": {
+    "level": 84,
+    "link": "/Steam_dervish"
+  },
+  "steel golem": {
+    "level": 20,
+    "link": "/Steel_golem"
+  },
+  "stone gargoyle": {
+    "level": 39,
+    "link": "/Stone_gargoyle"
+  },
+  "stone giant": {
+    "level": 58,
+    "link": "/Stone_giant"
+  },
+  "stone mastiff": {
+    "level": 62,
+    "link": "/Stone_mastiff"
+  },
+  "stone sentinel": {
+    "level": 53,
+    "link": "/Stone_sentinel"
+  },
+  "stone troll": {
+    "level": 55,
+    "link": "/Stone_troll"
+  },
+  "stooped being": {
+    "level": 82,
+    "link": "/Stooped_being"
+  },
+  "stooped titan stormcaller": {
+    "level": 81,
+    "link": "/Stooped_titan_stormcaller"
+  },
+  "storm giant": {
+    "level": 39,
+    "link": "/Storm_giant"
+  },
+  "storm griffin": {
+    "level": 73,
+    "link": "/Storm_griffin"
+  },
+  "storm hound": {
+    "level": 24,
+    "link": "/Storm_hound"
+  },
+  "striped gak": {
+    "level": 3,
+    "link": "/Striped_gak"
+  },
+  "striped relnak": {
+    "level": 3,
+    "link": "/Striped_relnak"
+  },
+  "striped warcat": {
+    "level": 20,
+    "link": "/Striped_warcat"
+  },
+  "stunted halfling bloodspeaker": {
+    "level": 103,
+    "link": "/Stunted_halfling_bloodspeaker"
+  },
+  "supple Ivasian inciter": {
+    "level": 66,
+    "link": "/Supple_Ivasian_inciter"
+  },
+  "swamp hag": {
+    "level": 42,
+    "link": "/Swamp_hag"
+  },
+  "swamp troll": {
+    "level": 14,
+    "link": "/Swamp_troll"
+  },
+  "swirling spectre": {
+    "level": 37,
+    "link": "/Swirling_spectre"
+  },
+  "tattooed gigas berserker": {
+    "level": 103,
+    "link": "/Tattooed_gigas_berserker"
+  },
+  "tawny brindlecat": {
+    "level": 13,
+    "link": "/Tawny_brindlecat"
+  },
+  "tegursh sentry": {
+    "level": 30,
+    "link": "/Tegursh_sentry"
+  },
+  "tenebrific wraith shark": {
+    "level": 110,
+    "link": "/Tenebrific_wraith_shark"
+  },
+  "thrak": {
+    "level": 8,
+    "link": "/Thrak"
+  },
+  "three-toed tegu": {
+    "level": 33,
+    "link": "/Three-toed_tegu"
+  },
+  "thunder troll": {
+    "level": 18,
+    "link": "/Thunder_troll"
+  },
+  "thyril": {
+    "level": 2,
+    "link": "/Thyril"
+  },
+  "titan tempest tyrant": {
+    "level": 83,
+    "link": "/Titan_tempest_tyrant"
+  },
+  "tomb troll": {
+    "level": 52,
+    "link": "/Tomb_troll"
+  },
+  "tomb troll necromancer": {
+    "level": 54,
+    "link": "/Tomb_troll_necromancer"
+  },
+  "tomb wight": {
+    "level": 15,
+    "link": "/Tomb_wight"
+  },
+  "translucent kiramon strandweaver": {
+    "level": 110,
+    "link": "/Translucent_kiramon_strandweaver"
+  },
+  "tree spirit": {
+    "level": 26,
+    "link": "/Tree_spirit"
+  },
+  "tree viper": {
+    "level": 24,
+    "link": "/Tree_viper"
+  },
+  "treekin druid": {
+    "level": 83,
+    "link": "/Treekin_druid"
+  },
+  "treekin warrior": {
+    "level": 80,
+    "link": "/Treekin_warrior"
+  },
+  "triton assassin": {
+    "level": 96,
+    "link": "/Triton_assassin"
+  },
+  "triton brawler": {
+    "level": 98,
+    "link": "/Triton_brawler"
+  },
+  "triton combatant": {
+    "level": 98,
+    "link": "/Triton_combatant"
+  },
+  "triton dissembler": {
+    "level": 94,
+    "link": "/Triton_dissembler"
+  },
+  "triton executioner": {
+    "level": 96,
+    "link": "/Triton_executioner"
+  },
+  "triton fanatic": {
+    "level": 100,
+    "link": "/Triton_fanatic"
+  },
+  "triton magus": {
+    "level": 102,
+    "link": "/Triton_magus"
+  },
+  "triton radical": {
+    "level": 100,
+    "link": "/Triton_radical"
+  },
+  "triton warden": {
+    "level": 102,
+    "link": "/Triton_warden"
+  },
+  "triton warlock": {
+    "level": 94,
+    "link": "/Triton_warlock"
+  },
+  "troglodyte": {
+    "level": 3,
+    "link": "/Troglodyte"
+  },
+  "troll chieftain": {
+    "level": 27,
+    "link": "/Troll_chieftain"
+  },
+  "troll wraith": {
+    "level": 35,
+    "link": "/Troll_wraith"
+  },
+  "tundra giant": {
+    "level": 34,
+    "link": "/Tundra_giant"
+  },
+  "tusked ursian": {
+    "level": 37,
+    "link": "/Tusked_ursian"
+  },
+  "twisted being": {
+    "level": 82,
+    "link": "/Twisted_being"
+  },
+  "undertaker bat": {
+    "level": 36,
+    "link": "/Undertaker_bat"
+  },
+  "urgh": {
+    "level": 4,
+    "link": "/Urgh"
+  },
+  "vaespilon": {
+    "level": 93,
+    "link": "/Vaespilon"
+  },
+  "vapor hound": {
+    "level": 24,
+    "link": "/Vapor_hound"
+  },
+  "velnalin": {
+    "level": 3,
+    "link": "/Velnalin"
+  },
+  "vesperti": {
+    "level": 38,
+    "link": "/Vesperti"
+  },
+  "veteran reiver": {
+    "level": 24,
+    "link": "/Veteran_reiver"
+  },
+  "vourkha": {
+    "level": 39,
+    "link": "/Vourkha"
+  },
+  "waern": {
+    "level": 49,
+    "link": "/Waern"
+  },
+  "wall guardian": {
+    "level": 11,
+    "link": "/Wall_guardian"
+  },
+  "war griffin": {
+    "level": 100,
+    "link": "/War_griffin"
+  },
+  "war troll": {
+    "level": 18,
+    "link": "/War_troll"
+  },
+  "warped tree spirit": {
+    "level": 68,
+    "link": "/Warped_tree_spirit"
+  },
+  "warrior shade": {
+    "level": 48,
+    "link": "/Warrior_shade"
+  },
+  "warthog": {
+    "level": 22,
+    "link": "/Warthog"
+  },
+  "wasp nest": {
+    "level": 43,
+    "link": "/Wasp_nest"
+  },
+  "water elemental": {
+    "level": 92,
+    "link": "/Water_elemental"
+  },
+  "water hound": {
+    "level": 24,
+    "link": "/Water_hound"
+  },
+  "water moccasin": {
+    "level": 4,
+    "link": "/Water_moccasin"
+  },
+  "water witch": {
+    "level": 5,
+    "link": "/Water_witch"
+  },
+  "water wyrd": {
+    "level": 35,
+    "link": "/Water_wyrd"
+  },
+  "werebear": {
+    "level": 10,
+    "link": "/Werebear"
+  },
+  "whiptail": {
+    "level": 4,
+    "link": "/Whiptail"
+  },
+  "white vysan": {
+    "level": 3,
+    "link": "/White_vysan"
+  },
+  "wild hound": {
+    "level": 31,
+    "link": "/Wild_hound"
+  },
+  "wind witch": {
+    "level": 16,
+    "link": "/Wind_witch"
+  },
+  "wind wraith": {
+    "level": 61,
+    "link": "/Wind_wraith"
+  },
+  "winged viper": {
+    "level": 60,
+    "link": "/Winged_viper"
+  },
+  "withered shadow-cloaked draugr": {
+    "level": 108,
+    "link": "/Withered_shadow-cloaked_draugr"
+  },
+  "wolfshade": {
+    "level": 15,
+    "link": "/Wolfshade"
+  },
+  "wolverine": {
+    "level": 24,
+    "link": "/Wolverine"
+  },
+  "wood sprite": {
+    "level": 38,
+    "link": "/Wood_sprite"
+  },
+  "wood wight": {
+    "level": 20,
+    "link": "/Wood_wight"
+  },
+  "wooly mammoth": {
+    "level": 52,
+    "link": "/Wooly_mammoth"
+  },
+  "wraith": {
+    "level": 15,
+    "link": "/Wraith"
+  },
+  "writhing frost-glazed vine": {
+    "level": 40,
+    "link": "/Writhing_frost-glazed_vine"
+  },
+  "writhing icy bush": {
+    "level": 36,
+    "link": "/Writhing_icy_bush"
+  },
+  "yeti": {
+    "level": 67,
+    "link": "/Yeti"
+  },
+  "young grass snake": {
+    "level": 1,
+    "link": "/Young_grass_snake"
+  },
+  "zombie": {
+    "level": 23,
+    "link": "/Zombie"
+  },
+  "zombie rolton": {
+    "level": 1,
+    "link": "/Zombie_rolton"
+  }
+}

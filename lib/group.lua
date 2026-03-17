@@ -1,7 +1,7 @@
 -- Group composition parser
 -- Parses GROUP verb output to populate Group.members and Group.leader
 
-hook.add("downstream", "group_parser", function(text)
+DownstreamHook.add("__group_parser", function(text)
     -- Pattern: "Your group: You (leader), Frodo, Samwise"
     -- Pattern: "Gandalf's group: Gandalf (leader), Frodo, Samwise"
     local group_line = text:match("group:%s+(.+)")
@@ -16,11 +16,11 @@ hook.add("downstream", "group_parser", function(text)
         if is_leader then
             name = name:match("^%s*(.-)%s*$")
             if name == "You" then
-                leader = "You"
+                leader = GameState.name
             else
                 leader = name
             end
-            members[#members + 1] = name
+            members[#members + 1] = name == "You" and GameState.name or name
         else
             if entry ~= "" then
                 members[#members + 1] = entry
