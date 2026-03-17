@@ -11,6 +11,12 @@ local function strip_path(file_path)
     return file_path:match("[^/]+$") or file_path
 end
 
+local function url_decode(str)
+    return str:gsub("%%(%x%x)", function(hex)
+        return string.char(tonumber(hex, 16))
+    end)
+end
+
 local function classify_type(original_type, filename)
     if original_type == "data" and filename == "mapdb.json" then
         return "map"
@@ -21,7 +27,7 @@ local function classify_type(original_type, filename)
 end
 
 local function normalize_jinx_entry(entry)
-    local filename = strip_path(entry.file or "")
+    local filename = url_decode(strip_path(entry.file or ""))
     local hash = entry.md5
     local hash_type = "md5"
     if not hash or hash == "" then
@@ -44,7 +50,7 @@ end
 function M.normalize(raw, format)
     format = format or M.detect_format(raw)
 
-    if format == "revenant" or format == "unknown" then
+    if format == "revenant" or format == "github" or format == "unknown" then
         -- Pass through unchanged
         return raw
     end
