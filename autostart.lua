@@ -7,6 +7,8 @@
 Flags = require("lib/flags")
 Watchfor = require("lib/watchfor")
 Messaging = require("lib/messaging")
+MapHelpers = require("lib/map_helpers")
+TableRender = require("lib/table_render")
 require("lib/group")  -- registers DownstreamHook for GROUP verb parsing
 
 -- ── Game-specific module loading ────────────────────────────────────────────
