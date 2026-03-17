@@ -9,26 +9,39 @@ function M.open(cache)
     local char_btn = Gui.button("* Character")
     local global_btn = Gui.button("Global")
     local current_scope = "char"  -- "char" or "global"
+    scope_bar:add(char_btn)
+    scope_bar:add(global_btn)
+    root:add(scope_bar)
 
     -- Alias table
-    local alias_table = Gui.table({ columns = { "Name", "Pattern", "Replacement" }, rows = {} })
+    local alias_table = Gui.table({ columns = { "Name", "Pattern", "Replacement" } })
+    root:add(alias_table)
 
-    Gui.separator()
+    root:add(Gui.separator())
 
     -- Add form
     local add_bar = Gui.hbox()
     local name_input = Gui.input({ placeholder = "name" })
     local pattern_input = Gui.input({ placeholder = "pattern" })
     local repl_input = Gui.input({ placeholder = "replacement" })
+    add_bar:add(name_input)
+    add_bar:add(pattern_input)
+    add_bar:add(repl_input)
+    root:add(add_bar)
 
     -- Actions
     local action_bar = Gui.hbox()
     local add_btn = Gui.button("Add")
     local delete_btn = Gui.button("Delete Selected")
     local enabled_chk = Gui.checkbox("Enabled", CharSettings["alias_enabled"] ~= "false")
+    action_bar:add(add_btn)
+    action_bar:add(delete_btn)
+    action_bar:add(enabled_chk)
+    root:add(action_bar)
 
-    Gui.separator()
+    root:add(Gui.separator())
     local save_btn = Gui.button("Save & Close")
+    root:add(save_btn)
 
     win:set_root(root)
 
@@ -44,12 +57,10 @@ function M.open(cache)
 
     local function refresh_table()
         local list = get_active_list()
-        local rows = {}
+        alias_table:clear()
         for _, e in ipairs(list) do
-            rows[#rows + 1] = { e.name, e.pattern, tostring(e.replacement) }
+            alias_table:add_row({ e.name, e.pattern, tostring(e.replacement) })
         end
-        -- Table row update depends on Gui API support
-        respond("[alias] " .. #list .. " aliases in " .. current_scope .. " scope")
     end
 
     refresh_table()
@@ -57,15 +68,15 @@ function M.open(cache)
     -- Callbacks
     char_btn:on_click(function()
         current_scope = "char"
-        char_btn:set_label("* Character")
-        global_btn:set_label("Global")
+        char_btn:set_text("* Character")
+        global_btn:set_text("Global")
         refresh_table()
     end)
 
     global_btn:on_click(function()
         current_scope = "global"
-        char_btn:set_label("Character")
-        global_btn:set_label("* Global")
+        char_btn:set_text("Character")
+        global_btn:set_text("* Global")
         refresh_table()
     end)
 

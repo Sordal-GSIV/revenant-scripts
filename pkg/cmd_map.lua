@@ -174,10 +174,17 @@ function M.run_update(game)
         end
 
         -- Verify hash on in-memory body
-        if map_entry.hash_type == "sha1_base64" and map_entry.hash then
-            local computed = Crypto.sha1_base64(resp.body)
-            if computed ~= map_entry.hash then
-                respond("Error: SHA1 mismatch (expected " .. map_entry.hash .. ", got " .. computed .. ")")
+        if map_entry.hash and map_entry.hash_type ~= "none" then
+            local computed
+            if map_entry.hash_type == "md5" then
+                computed = Crypto.md5(resp.body)
+            elseif map_entry.hash_type == "sha1_base64" then
+                computed = Crypto.sha1_base64(resp.body)
+            elseif map_entry.hash_type == "sha256" then
+                computed = Crypto.sha256(resp.body)
+            end
+            if computed and computed ~= map_entry.hash then
+                respond("Error: hash mismatch (expected " .. map_entry.hash .. ", got " .. computed .. ")")
                 return
             end
         end

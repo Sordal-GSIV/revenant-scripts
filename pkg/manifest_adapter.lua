@@ -23,7 +23,7 @@ end
 local function normalize_jinx_entry(entry)
     local filename = strip_path(entry.file or "")
     local hash = entry.md5
-    local hash_type = "sha1_base64"
+    local hash_type = "md5"
     if not hash or hash == "" then
         hash = nil
         hash_type = "none"
