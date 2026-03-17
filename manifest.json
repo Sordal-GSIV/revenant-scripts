@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T20:52:26Z",
+  "generated": "2026-03-17T21:42:32Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -413,6 +413,24 @@
               "sha256": "ba4a4551840a6630eda981f50375b7136a3881ec16f51158e8642d5ef4ec64d0"
             }
           ]
+        }
+      }
+    },
+    {
+      "name": "jbackup",
+      "author": "elanthia-online",
+      "description": "Character data backup utility with configurable retention",
+      "tags": [
+        "backup",
+        "utility",
+        "files"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "f9a649deb128d7ab8f19cca9802477229deb278fe21d659c4d385c8c907313fe",
+          "path": "jbackup.lua",
+          "depends": []
         }
       }
     },
