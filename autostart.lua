@@ -3,6 +3,14 @@
 --- version: 0.2.0
 --- description: Launch scripts automatically on character connect
 
+-- ── DR module loading ────────────────────────────────────────────────────────
+if GameState.game == "DR" then
+    local ok, err = pcall(require, "lib/dr/init")
+    if not ok then
+        respond("[warning] Failed to load DR modules: " .. tostring(err))
+    end
+end
+
 -- ── Helpers ──────────────────────────────────────────────────────────────────
 
 local function load_list(key, store)
