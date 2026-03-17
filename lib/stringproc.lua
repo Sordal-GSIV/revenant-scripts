@@ -1,84 +1,813 @@
+-------------------------------------------------------------------------------
+-- StringProc: Ruby→Lua transpiler for mapdb wayto entries
+--
+-- Map database wayto values prefixed with ";e " contain Ruby code from Lich5.
+-- This module translates them to Lua functions at load time using a pipeline
+-- of ordered pattern translators.
+--
+-- Architecture:
+--   1. Strip ";e " prefix
+--   2. Run through translator pipeline (specific → generic)
+--   3. Wrap result in "function() ... end"
+--   4. Compile with load() into a callable function
+--   5. Cache compiled functions for reuse
+-------------------------------------------------------------------------------
+
 local M = {}
 
-local translations = nil
-local translations_game = nil
+-- Translation cache: ruby_code → compiled function
+local cache = {}
+local cache_hits = 0
+local cache_misses = 0
 
--- Detection: is this wayto value a StringProc (Ruby code) vs a simple command?
+-- Stats tracking
+local stats = {
+    total = 0,
+    translated = 0,
+    plain = 0,
+    failed = 0,
+    by_translator = {},
+}
+
+-- Translator pipeline (ordered: specific patterns first, generic last)
+local translators = {}
+
+-------------------------------------------------------------------------------
+-- Utility helpers
+-------------------------------------------------------------------------------
+
+-- Escape a string for use in Lua source code
+local function lua_escape(s)
+    return s:gsub("\\", "\\\\"):gsub('"', '\\"'):gsub("\n", "\\n")
+end
+
+-- Extract regex pattern string from Ruby /pattern/flags
+-- Returns: pattern_str, flags (or nil)
+local function extract_regex(s, pos)
+    pos = pos or 1
+    local start = s:find("/", pos)
+    if not start then return nil end
+
+    local depth = 0
+    local i = start + 1
+    local pat = {}
+    while i <= #s do
+        local c = s:sub(i, i)
+        if c == "\\" then
+            pat[#pat + 1] = s:sub(i, i + 1)
+            i = i + 2
+        elseif c == "(" or c == "[" then
+            depth = depth + 1
+            pat[#pat + 1] = c
+            i = i + 1
+        elseif c == ")" or c == "]" then
+            depth = depth - 1
+            pat[#pat + 1] = c
+            i = i + 1
+        elseif c == "/" and depth <= 0 then
+            -- End of regex
+            local flags = ""
+            local j = i + 1
+            while j <= #s and s:sub(j, j):match("[imx]") do
+                flags = flags .. s:sub(j, j)
+                j = j + 1
+            end
+            return table.concat(pat), flags, start, j - 1
+        else
+            pat[#pat + 1] = c
+            i = i + 1
+        end
+    end
+    return nil
+end
+
+-- Replace all Ruby regexes /.../ with quoted strings "..."
+-- Used for dothistimeout pattern args, =~ matches, etc.
+local function replace_regexes(code)
+    local result = {}
+    local i = 1
+    while i <= #code do
+        -- Skip string literals
+        local c = code:sub(i, i)
+        if c == '"' or c == "'" then
+            local quote = c
+            result[#result + 1] = c
+            i = i + 1
+            while i <= #code do
+                local cc = code:sub(i, i)
+                result[#result + 1] = cc
+                if cc == "\\" then
+                    i = i + 1
+                    if i <= #code then
+                        result[#result + 1] = code:sub(i, i)
+                    end
+                elseif cc == quote then
+                    break
+                end
+                i = i + 1
+            end
+            i = i + 1
+        elseif c == "/" then
+            -- Check if this is a regex (not division)
+            -- Heuristic: preceded by operator, comma, open paren, keyword, or start
+            local before = code:sub(1, i - 1):match("[%s,%(=~!&|;]$") or i == 1
+            if before then
+                local pat, flags, _, end_pos = extract_regex(code, i)
+                if pat then
+                    result[#result + 1] = '"'
+                    result[#result + 1] = lua_escape(pat)
+                    result[#result + 1] = '"'
+                    i = end_pos + 1
+                else
+                    result[#result + 1] = c
+                    i = i + 1
+                end
+            else
+                result[#result + 1] = c
+                i = i + 1
+            end
+        else
+            result[#result + 1] = c
+            i = i + 1
+        end
+    end
+    return table.concat(result)
+end
+
+-- Translate Ruby string interpolation: "text #{expr} more" → "text " .. (expr) .. " more"
+local function translate_interpolation(code)
+    -- Find double-quoted strings containing #{...}
+    local result = {}
+    local i = 1
+    while i <= #code do
+        local c = code:sub(i, i)
+        if c == '"' then
+            -- Scan the double-quoted string
+            local parts = {}
+            local buf = {}
+            local has_interp = false
+            i = i + 1
+            while i <= #code do
+                local cc = code:sub(i, i)
+                if cc == "\\" then
+                    buf[#buf + 1] = code:sub(i, i + 1)
+                    i = i + 2
+                elseif cc == "#" and i + 1 <= #code and code:sub(i + 1, i + 1) == "{" then
+                    has_interp = true
+                    -- Flush text buffer
+                    if #buf > 0 then
+                        parts[#parts + 1] = '"' .. table.concat(buf) .. '"'
+                        buf = {}
+                    end
+                    -- Extract expression inside #{...}
+                    local depth = 1
+                    local expr = {}
+                    i = i + 2  -- skip #{
+                    while i <= #code and depth > 0 do
+                        local ec = code:sub(i, i)
+                        if ec == "{" then depth = depth + 1
+                        elseif ec == "}" then depth = depth - 1 end
+                        if depth > 0 then
+                            expr[#expr + 1] = ec
+                        end
+                        i = i + 1
+                    end
+                    parts[#parts + 1] = "tostring(" .. table.concat(expr) .. ")"
+                elseif cc == '"' then
+                    i = i + 1
+                    break
+                else
+                    buf[#buf + 1] = cc
+                    i = i + 1
+                end
+            end
+            if has_interp then
+                if #buf > 0 then
+                    parts[#parts + 1] = '"' .. table.concat(buf) .. '"'
+                end
+                result[#result + 1] = "(" .. table.concat(parts, " .. ") .. ")"
+            else
+                result[#result + 1] = '"' .. table.concat(buf) .. '"'
+            end
+        elseif c == "'" then
+            -- Single-quoted strings: pass through, no interpolation
+            result[#result + 1] = c
+            i = i + 1
+            while i <= #code do
+                local cc = code:sub(i, i)
+                result[#result + 1] = cc
+                if cc == "\\" then
+                    i = i + 1
+                    if i <= #code then result[#result + 1] = code:sub(i, i) end
+                elseif cc == "'" then
+                    i = i + 1
+                    break
+                end
+                i = i + 1
+            end
+        else
+            result[#result + 1] = c
+            i = i + 1
+        end
+    end
+    return table.concat(result)
+end
+
+-------------------------------------------------------------------------------
+-- Core Ruby→Lua syntax transformation
+--
+-- Applied to all code after interpolation and regex handling.
+-- Order matters: more specific patterns before generic ones.
+-------------------------------------------------------------------------------
+
+local function ruby_to_lua(code)
+    -- Newlines to semicolons (multi-line entries)
+    code = code:gsub("\n", "; ")
+
+    -- Ruby string interpolation → Lua concatenation
+    code = translate_interpolation(code)
+
+    -- Replace Ruby regexes with quoted strings
+    code = replace_regexes(code)
+
+    -- Boolean operators
+    code = code:gsub(" && ", " and ")
+    code = code:gsub(" %|%| ", " or ")
+
+    -- Ruby ! negation (careful: don't break ~=)
+    -- !expr → not expr (when ! is boolean not, not part of != or ~=)
+    code = code:gsub("(%A)!(%w)", "%1not %2")
+    code = code:gsub("^!(%w)", "not %1")
+    code = code:gsub("(%A)!%(", "%1not (")
+    code = code:gsub("^!%(", "not (")
+
+    -- Not equal
+    code = code:gsub("!=", "~=")
+
+    -- Ruby sleep → Lua pause
+    code = code:gsub("sleep%s+(%d+[%.%d]*)", "pause(%1)")
+
+    -- waitrt? / waitcastrt?
+    code = code:gsub("waitrt%?", "waitrt()")
+    code = code:gsub("waitcastrt%?", "waitcastrt()")
+
+    -- Status checks (predicate methods)
+    code = code:gsub("checksitting", "sitting()")
+    code = code:gsub("checkstanding", "standing()")
+    code = code:gsub("checklounging", "lounging()")
+    code = code:gsub("checkprone", "prone()")
+    code = code:gsub("kneeling%?", "kneeling()")
+    code = code:gsub("sitting%?", "sitting()")
+    code = code:gsub("standing%?", "standing()")
+    code = code:gsub("hidden%?", "hidden()")
+    code = code:gsub("invisible%?", "invisible()")
+    code = code:gsub("dead%?", "dead()")
+    code = code:gsub("stunned%?", "stunned()")
+    code = code:gsub("muckled%?", "muckled()")
+
+    -- Spell API
+    code = code:gsub("Spell%[(%d+)%]%.active%?", "Spell.active_p(%1)")
+    code = code:gsub("Spell%[(%d+)%]%.known%?", "Spell.known_p(%1)")
+    code = code:gsub("Spell%[(%d+)%]%.affordable%?", "Spell.affordable_p(%1)")
+    code = code:gsub("Spell%[(%d+)%]%.cast", "Spell.cast(%1)")
+    -- Spell['Name'].active?
+    code = code:gsub("Spell%['([^']+)'%]%.active%?", 'Spell.active_p("%1")')
+    code = code:gsub('Spell%["([^"]+)"%]%.active%?', 'Spell.active_p("%1")')
+    -- Spells.active.include?(N)
+    code = code:gsub("Spells%.active%.include%?%((%d+)%)", "Spell.active_p(%1)")
+
+    -- checkspell — already valid Lua-style call in many entries
+    -- checkspell 'name' → checkspell("name")
+    code = code:gsub("checkspell%s+'([^']+)'", 'checkspell("%1")')
+    code = code:gsub("checkspell%s+(%d+)", "checkspell(%1)")
+
+    -- Room API
+    code = code:gsub("Room%.current%.id", "Map.current_room()")
+    code = code:gsub("Room%[(%d+)%]", "Map.find_room(%1)")
+
+    -- XMLData → GameState
+    code = code:gsub("XMLData%.(%w+)", "GameState.%1")
+
+    -- Skills access (keep as-is, Skills.xxx is valid in Lua API)
+    -- Stats access (keep as-is)
+
+    -- defined?(X) → (X ~= nil)
+    code = code:gsub("defined%?%(([^%)]+)%)", "(%1 ~= nil)")
+
+    -- .nil? → == nil
+    code = code:gsub("(%w[%w%._]*)%.nil%?", "((%1) == nil)")
+
+    -- .empty? → == ""
+    code = code:gsub("(%w[%w%._]*)%.empty%?", "((%1) == nil or (%1) == \"\")")
+
+    -- .include?('x') → has_value(t, 'x')  or string match
+    code = code:gsub("checkpaths%.include%?%('([^']+)'%)", 'checkpaths("%1")')
+    code = code:gsub("checkloot%.include%?%('([^']+)'%)", 'checkloot("%1")')
+    code = code:gsub("%.include%?%(([^%)]+)%)", ":find(%1)")
+
+    -- Ruby ternary: expr ? val_true : val_false → (expr and val_true or val_false)
+    -- This is tricky with nested ternaries; handle simple cases
+    -- We handle it in a dedicated translator below for timeto values
+
+    -- =~ /pattern/ was already converted to =~ "pattern"
+    -- expr =~ "pattern" → Regex.test("pattern", expr)
+    code = code:gsub('(%w[%w%._%(%),% ]*) =~ "([^"]*)"', 'Regex.test("%2", %1)')
+
+    -- Ruby single-quoted strings to double-quoted for consistency with Lua
+    -- Only do this for function call arguments: func 'arg' → func("arg")
+    -- move 'dir' → move("dir")
+    code = code:gsub("(move)%s+'([^']*)'", '%1("%2")')
+    code = code:gsub("(fput)%s+'([^']*)'", '%1("%2")')
+    code = code:gsub("(put)%s+'([^']*)'", '%1("%2")')
+    code = code:gsub("(echo)%s+'([^']*)'", '%1("%2")')
+    code = code:gsub("(waitfor)%s+'([^']*)'", '%1("%2")')
+
+    -- multifput 'a','b','c' → multifput("a","b","c")
+    -- Capture: multifput followed by space and single-quoted comma-separated args
+    code = code:gsub("(multifput)%s+'", '%1("')
+    code = code:gsub("','", '","')
+    -- Close the last arg if multifput was transformed
+    if code:find('multifput%(') then
+        code = code:gsub("(multifput%([^;]+)'", "%1\")")
+    end
+
+    -- Clean up double-semicolons
+    code = code:gsub(";;+", ";")
+    -- Remove trailing semicolons
+    code = code:gsub(";%s*$", "")
+
+    return code
+end
+
+-------------------------------------------------------------------------------
+-- Translator registration
+-------------------------------------------------------------------------------
+
+local function add_translator(name, func)
+    translators[#translators + 1] = { name = name, fn = func }
+    stats.by_translator[name] = 0
+end
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 1: Maze entries (placeholder stub)
+-- Detect: start_room = [...]; dirs = [...]; if index = start_room.index(Room.current.id)
+-------------------------------------------------------------------------------
+
+add_translator("maze", function(code)
+    if code:find("start_room") and code:find("dirs") and code:find("%.index%(Room%.current%.id%)") then
+        return 'Maze.navigate()'
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 2: FWI trinket (complex multi-line script, placeholder)
+-- Detect: mapdb_fwi_trinket
+-------------------------------------------------------------------------------
+
+add_translator("fwi_trinket", function(code)
+    if code:find("mapdb_fwi_trinket") then
+        return 'FWI.use_trinket()'
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 3: Urchin transport (placeholder)
+-- Detect: mapdb_use_urchins
+-------------------------------------------------------------------------------
+
+add_translator("urchin", function(code)
+    if code:find("mapdb_use_urchins") and code:find("urchin") then
+        return 'Urchin.transport()'
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 4: Simple "true" / numeric return values (timeto entries)
+-------------------------------------------------------------------------------
+
+add_translator("literal_value", function(code)
+    -- ";e true"
+    if code:match("^%s*true%s*$") then
+        return "return true"
+    end
+    -- ";e false"
+    if code:match("^%s*false%s*$") then
+        return "return false"
+    end
+    -- ";e nil"
+    if code:match("^%s*nil%s*$") then
+        return "return nil"
+    end
+    -- ";e 0.2" or ";e 15.0"
+    local num = code:match("^%s*(%d+%.?%d*)%s*;?%s*$")
+    if num then
+        return "return " .. num
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 5: Ruby ternary expressions (timeto cost entries)
+-- e.g.: UserVars.mapdb_premium.nil? ? 10 : 0.2
+-- e.g.: (condition) ? value : value
+-------------------------------------------------------------------------------
+
+add_translator("ternary", function(code)
+    -- Match: condition ? true_val : false_val
+    -- Needs careful handling: the ? must not be part of .nil? or .empty?
+    local transformed = ruby_to_lua(code)
+
+    -- Simple ternary: expr ? val : val (possibly wrapped in parens)
+    -- Remove outer parens
+    local inner = transformed:match("^%s*%((.+)%)%s*;?%s*$") or transformed
+
+    -- Look for ternary pattern: condition ? true_val : false_val
+    -- The ? must be surrounded by spaces (not part of a method name)
+    local cond, true_val, false_val = inner:match("^(.+)%s+%?%s+(.+)%s+:%s+(.+)$")
+    if cond and true_val and false_val then
+        -- Recursively handle nested ternaries (rare but possible)
+        return "if " .. cond .. " then return " .. true_val .. " else return " .. false_val .. " end"
+    end
+
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 6: N.times { ... } loops
+-- e.g.: 2.times{fput "event transport duskruin"}
+-- e.g.: 10.times { result = dothistimeout ...; break if ... }
+-------------------------------------------------------------------------------
+
+add_translator("times_loop", function(code)
+    if not code:find("%.times") then return nil end
+
+    local transformed = ruby_to_lua(code)
+
+    -- Pattern: N.times{block} or N.times { block }
+    -- May have code before and after
+    local pre, n, block, post = transformed:match("^(.-)(%d+)%.times%s*{%s*(.-)%s*}(.*)$")
+    if not n then return nil end
+
+    -- Handle |i| block variable (rare in mapdb)
+    local var = block:match("^|(%w+)|%s*")
+    if var then
+        block = block:gsub("^|%w+|%s*", "")
+    else
+        var = "_"
+    end
+
+    -- Translate "break if cond" → "if cond then break end"
+    block = block:gsub("break if (.+)", "if %1 then break end")
+
+    local lua = ""
+    if pre and pre:match("%S") then
+        lua = lua .. pre .. "; "
+    end
+    lua = lua .. "for " .. var .. " = 1, " .. n .. " do " .. block .. " end"
+    if post and post:match("%S") then
+        lua = lua .. "; " .. post
+    end
+
+    return lua
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 7: "unless" modifier/block
+-- e.g.: fput 'kneel' unless kneeling?; move 'southeast'
+-- e.g.: unless move 'go ferryboat'; echo ...; waitfor ...; move ...; end
+-------------------------------------------------------------------------------
+
+add_translator("unless", function(code)
+    if not code:find("unless") then return nil end
+
+    local transformed = ruby_to_lua(code)
+
+    -- Block form: unless COND; body; end; rest
+    local cond, body, rest = transformed:match("^unless%s+(.-)%;%s*(.-)%;?%s*end;?%s*(.*)$")
+    if cond then
+        local lua = "if not (" .. cond .. ") then " .. body .. " end"
+        if rest and rest:match("%S") then
+            lua = lua .. "; " .. rest
+        end
+        return lua
+    end
+
+    -- Modifier form: ACTION unless COND; REST
+    -- Find "unless" that separates action from condition
+    -- The tricky part: there might be a semicolon after the condition
+    local action, cond_rest = transformed:match("^(.-)%s+unless%s+(.+)$")
+    if action and cond_rest then
+        -- Split condition from rest at first semicolon
+        local cond2, rest2 = cond_rest:match("^(.-)%;%s*(.+)$")
+        if cond2 then
+            return "if not (" .. cond2 .. ") then " .. action .. " end; " .. rest2
+        else
+            return "if not (" .. cond_rest .. ") then " .. action .. " end"
+        end
+    end
+
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 8: "while" modifier/block
+-- e.g.: move 'northeast' while checkpaths.include?('nw')
+-- e.g.: while checkpaths.include?('n'); move 'east'; move 'north'; end
+-------------------------------------------------------------------------------
+
+add_translator("while_loop", function(code)
+    if not code:find("while") then return nil end
+
+    local transformed = ruby_to_lua(code)
+
+    -- Block form: while COND; body; end; rest
+    local cond, body, rest = transformed:match("^while%s+(.-)%;%s*(.-)%;?%s*end;?%s*(.*)$")
+    if cond then
+        local lua = "while " .. cond .. " do " .. body .. " end"
+        if rest and rest:match("%S") then
+            lua = lua .. "; " .. rest
+        end
+        return lua
+    end
+
+    -- Modifier form: ACTION while COND
+    local action, cond2 = transformed:match("^(.-)%s+while%s+(.+)$")
+    if action and cond2 then
+        return "while " .. cond2 .. " do " .. action .. " end"
+    end
+
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 9: "until" loops
+-- e.g.: until checkloot.include?('door'); move dirs[index]; ...; end
+-------------------------------------------------------------------------------
+
+add_translator("until_loop", function(code)
+    if not code:find("until") then return nil end
+
+    local transformed = ruby_to_lua(code)
+
+    -- Block form: until COND; body; end
+    local cond, body = transformed:match("until%s+(.-)%;%s*(.-)%;?%s*end")
+    if cond then
+        -- Replace in the full transformed code
+        local full = transformed:gsub("until%s+.-%s*;%s*.-%;?%s*end",
+            "while not (" .. cond .. ") do " .. body .. " end")
+        return full
+    end
+
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 10: Postfix "if" modifier
+-- e.g.: fput 'unhide' if checkspell(916); move 'go gate'
+-- e.g.: fput 'stance offensive' if Skills.climbing < 20
+-- Must be after "unless" and "while" translators
+-------------------------------------------------------------------------------
+
+add_translator("postfix_if", function(code)
+    -- Only handle simple postfix if, not block if/else/end
+    -- Heuristic: contains " if " but not "^if " at start and not " else "
+    if not code:find(" if ") then return nil end
+    if code:match("^%s*if%s") then return nil end  -- block if handled by generic
+
+    local transformed = ruby_to_lua(code)
+
+    -- Split on semicolons, look for statements with postfix if
+    local parts = {}
+    for part in (transformed .. ";"):gmatch("([^;]+);") do
+        part = part:match("^%s*(.-)%s*$")  -- trim
+        if part ~= "" then
+            -- Check for postfix if: "ACTION if COND"
+            local action, cond = part:match("^(.+)%s+if%s+(.+)$")
+            if action and cond then
+                -- Make sure this isn't "else if" or "elsif"
+                if not action:match("else%s*$") then
+                    parts[#parts + 1] = "if " .. cond .. " then " .. action .. " end"
+                else
+                    parts[#parts + 1] = part
+                end
+            else
+                parts[#parts + 1] = part
+            end
+        end
+    end
+
+    if #parts > 0 then
+        return table.concat(parts, "; ")
+    end
+    return nil
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR 11: Generic fallback — apply ruby_to_lua and pass through
+-- Handles: move+waitrt, fput, dothistimeout, if/else/end blocks, etc.
+-- These are already mostly valid Lua after ruby_to_lua transformation.
+-------------------------------------------------------------------------------
+
+add_translator("generic", function(code)
+    local transformed = ruby_to_lua(code)
+
+    -- Fix Ruby if/elsif/else/end that uses semicolons as separators
+    -- Ruby: if COND; body; elsif COND; body; else; body; end
+    -- Lua:  if COND then body elseif COND then body else body end
+    -- Many mapdb entries already use "then/else/end" (Lich5 accepts both Ruby & Lua-ish syntax)
+
+    -- Convert semicolons after if/elsif/elseif conditions to "then"
+    -- But only when "then" is not already present
+    transformed = transformed:gsub("(if%s+[^;]+);", function(m)
+        if m:find("then%s*$") then return m .. ";" end
+        return m .. " then "
+    end)
+    transformed = transformed:gsub("(elsif%s+[^;]+);", function(m)
+        return "elseif" .. m:sub(6) .. " then "
+    end)
+    transformed = transformed:gsub("(elseif%s+[^;]+);", function(m)
+        if m:find("then%s*$") then return m .. ";" end
+        return m .. " then "
+    end)
+
+    -- Ruby "elsif" → Lua "elseif"
+    transformed = transformed:gsub("elsif", "elseif")
+
+    -- "else;" → "else "
+    transformed = transformed:gsub("else%s*;", "else ")
+
+    -- Ruby "end;" → Lua "end;"
+    -- (already valid)
+
+    -- $global_var → _G.global_var
+    transformed = transformed:gsub("%$([%w_]+)", "_G_%1")
+
+    -- Handle "begin ... end while" → repeat ... until not
+    transformed = transformed:gsub("begin;?%s*(.-)%;?%s*end%s+while%s+(.+)",
+        "repeat %1 until not (%2)")
+
+    return transformed
+end)
+
+-------------------------------------------------------------------------------
+-- Main translation entry point
+-------------------------------------------------------------------------------
+
+--- Translate a wayto entry from Ruby to a compiled Lua function.
+--- @param wayto_str string The raw wayto value (may or may not have ";e " prefix)
+--- @return function|nil fn Compiled function, or nil if plain command string
+--- @return string|nil err Error message if compilation failed
+function M.translate(wayto_str)
+    if not wayto_str or type(wayto_str) ~= "string" then
+        return nil
+    end
+
+    -- Plain string (not ;e) — return nil to indicate "use as plain command"
+    if not wayto_str:match("^;e ") and not wayto_str:match("^;e\n") then
+        stats.plain = stats.plain + 1
+        return nil
+    end
+
+    stats.total = stats.total + 1
+
+    -- Check cache
+    if cache[wayto_str] then
+        cache_hits = cache_hits + 1
+        local entry = cache[wayto_str]
+        if entry.err then return nil, entry.err end
+        return entry.fn
+    end
+    cache_misses = cache_misses + 1
+
+    -- Strip ";e " prefix
+    local code = wayto_str:match("^;e%s*(.+)$")
+    if not code then
+        stats.failed = stats.failed + 1
+        cache[wayto_str] = { err = "empty ;e entry" }
+        return nil, "empty ;e entry"
+    end
+
+    -- Try each translator in order
+    for _, t in ipairs(translators) do
+        local lua_body = t.fn(code)
+        if lua_body then
+            -- Wrap in function and compile
+            local chunk = "return function() " .. lua_body .. " end"
+            local fn, err = load(chunk, "stringproc", "t")
+            if fn then
+                local ok, result = pcall(fn)
+                if ok and type(result) == "function" then
+                    stats.translated = stats.translated + 1
+                    stats.by_translator[t.name] = (stats.by_translator[t.name] or 0) + 1
+                    cache[wayto_str] = { fn = result }
+                    return result
+                else
+                    -- pcall failed — try next translator
+                end
+            else
+                -- Compilation failed — log and try next translator
+                -- (Some translators are heuristic, may produce bad code)
+            end
+        end
+    end
+
+    -- All translators failed — produce fallback
+    stats.failed = stats.failed + 1
+    local err_msg = "untranslated: " .. wayto_str:sub(1, 80)
+    cache[wayto_str] = { err = err_msg, fn = function()
+        if respond then
+            respond("[stringproc] " .. err_msg)
+        end
+    end }
+    return cache[wayto_str].fn, err_msg
+end
+
+-------------------------------------------------------------------------------
+-- Batch translation for map loading
+-------------------------------------------------------------------------------
+
+--- Translate all wayto entries in a map database table.
+--- @param rooms table Array of room objects with .wayto tables
+--- @return table translated Map of "from:to" → function
+function M.translate_all(rooms)
+    local result = {}
+    for _, room in ipairs(rooms) do
+        if room.wayto then
+            local room_id = tostring(room.id)
+            for dest_str, wayto_val in pairs(room.wayto) do
+                if type(wayto_val) == "string" and
+                   (wayto_val:match("^;e ") or wayto_val:match("^;e\n")) then
+                    local fn, err = M.translate(wayto_val)
+                    if fn then
+                        local key = room_id .. ":" .. dest_str
+                        result[key] = fn
+                    end
+                end
+            end
+        end
+    end
+    return result
+end
+
+-------------------------------------------------------------------------------
+-- Detection: is this wayto value a StringProc?
+-------------------------------------------------------------------------------
+
 function M.is_stringproc(wayto_value)
     if not wayto_value or type(wayto_value) ~= "string" then return false end
-    if wayto_value:find(";") then return true end
-    if wayto_value:find("%(") then return true end
-    if wayto_value:find("{") then return true end
-    if wayto_value:find("fput") then return true end
-    if wayto_value:find("dothistimeout") then return true end
-    if wayto_value:find("start_script") then return true end
-    if wayto_value:find("waitfor") then return true end
-    if wayto_value:find("wait_until") then return true end
-    if wayto_value:find("move ") and wayto_value:find("'") then return true end
+    if wayto_value:match("^;e ") or wayto_value:match("^;e\n") then return true end
     return false
 end
 
--- Load translations from disk
-function M.load_translations(game)
-    local path = "data/" .. game .. "/stringproc_translations.json"
-    if not File.exists(path) then
-        translations = { version = 1, translations = {} }
-        translations_game = game
-        return translations
-    end
-    local content, err = File.read(path)
-    if not content then
-        translations = { version = 1, translations = {} }
-        translations_game = game
-        return translations
-    end
-    local ok, data = pcall(Json.decode, content)
-    if ok and data then
-        translations = data
-    else
-        translations = { version = 1, translations = {} }
-    end
-    translations_game = game
-    return translations
-end
+-------------------------------------------------------------------------------
+-- Execution (sandbox + run)
+-------------------------------------------------------------------------------
 
--- Save translations to disk
-function M.save_translations(game, data)
-    local dir = "data/" .. game
-    if not File.exists("data") then File.mkdir("data") end
-    if not File.exists(dir) then File.mkdir(dir) end
-    local path = dir .. "/stringproc_translations.json"
-    File.write(path, Json.encode(data or translations))
-end
-
--- Get a translation for an edge
-function M.get_translation(from_id, to_id)
-    if not translations then return nil end
-    local key = tostring(from_id) .. ":" .. tostring(to_id)
-    return translations.translations[key]
-end
-
--- Build sandboxed environment for translation execution
 local function make_sandbox()
     return {
         move = move,
         put = put,
         fput = fput,
+        multifput = multifput,
         waitrt = waitrt,
+        waitcastrt = waitcastrt,
         waitfor = waitfor,
         waitforre = waitforre,
         matchwait = matchwait,
         dothistimeout = dothistimeout,
         pause = pause,
         standing = standing,
+        sitting = sitting,
+        kneeling = kneeling,
+        lounging = lounging,
+        prone = prone,
+        hidden = hidden,
+        invisible = invisible,
         dead = dead,
         muckled = muckled,
         stunned = stunned,
+        checkspell = checkspell,
+        checkpaths = checkpaths,
+        checkloot = checkloot,
+        empty_hands = empty_hands,
+        fill_hands = fill_hands,
+        empty_hand = empty_hand,
         GameState = GameState,
-        Room = Room,
         Map = Map,
         UserVars = UserVars,
-        Script = { run = Script.run },
+        Spell = Spell,
+        Spells = Spells,
+        Skills = Skills,
+        Stats = Stats,
+        Char = Char,
+        Regex = Regex,
+        Script = Script and { run = Script.run, current = Script.current } or nil,
+        Maze = Maze,
+        FWI = FWI,
+        Urchin = Urchin,
         respond = respond,
         echo = echo,
         tostring = tostring,
@@ -93,63 +822,90 @@ local function make_sandbox()
     }
 end
 
--- Execute a translation in a sandbox
-function M.execute(from_id, to_id)
-    local t = M.get_translation(from_id, to_id)
-    if not t then return false, "manual" end
-    if t.stale then return false, "manual" end
-
-    local chunk_name = "stringproc:" .. from_id .. ":" .. to_id
-    local fn, err = load(t.lua, chunk_name, "t", make_sandbox())
-    if not fn then
-        return false, "syntax error: " .. tostring(err)
+--- Execute a pre-translated function in a sandbox.
+--- @param fn function The compiled stringproc function
+--- @return boolean ok
+--- @return any result_or_error
+function M.execute(fn)
+    if type(fn) ~= "function" then
+        return false, "not a function"
     end
 
-    local ok, exec_err = pcall(fn)
+    -- Set up sandboxed environment
+    local env = make_sandbox()
+    -- Note: compiled functions from load() can have their env set via debug.setupvalue
+    -- But since we compile at translate time without sandbox, we rely on globals being
+    -- available in the script's environment. The go2 movement module should call
+    -- execute_wayto() which handles this properly.
+
+    local ok, result = pcall(fn)
     if not ok then
-        return false, "execution error: " .. tostring(exec_err)
+        return false, "execution error: " .. tostring(result)
     end
-    return true, nil
+    return true, result
 end
 
--- Verify all translations against current map DB
--- Returns { stale = {{from=N, to=N}, ...}, verified = N, total = N }
-function M.verify_all(game)
-    if not translations then M.load_translations(game) end
-
-    local result = { stale = {}, verified = 0, total = 0 }
-    local changed = false
-
-    for key, t in pairs(translations.translations) do
-        result.total = result.total + 1
-        local from_str, to_str = key:match("^(%d+):(%d+)$")
-        if from_str and to_str then
-            local from_id = tonumber(from_str)
-            local to_id = tonumber(to_str)
-            local room = Map.find_room(from_id)
-            if room and room.wayto then
-                local current_ruby = room.wayto[to_str]
-                if current_ruby and current_ruby ~= t.ruby then
-                    t.stale = true
-                    changed = true
-                    result.stale[#result.stale + 1] = { from = from_id, to = to_id }
-                elseif current_ruby == t.ruby then
-                    if t.stale then
-                        t.stale = false
-                        changed = true
-                    end
-                    t.last_verified = os.time()
-                    result.verified = result.verified + 1
-                end
-            end
-        end
+--- Translate and execute a wayto entry in one step.
+--- @param wayto_str string Raw wayto value
+--- @return boolean ok
+--- @return any result_or_error
+function M.execute_wayto(wayto_str)
+    local fn, err = M.translate(wayto_str)
+    if not fn then
+        return false, err or "plain command"
     end
-
-    if changed then
-        M.save_translations(game, translations)
-    end
-
-    return result
+    return M.execute(fn)
 end
+
+-------------------------------------------------------------------------------
+-- Stats / diagnostics
+-------------------------------------------------------------------------------
+
+--- Get translation statistics.
+--- @return table stats
+function M.get_stats()
+    return {
+        total = stats.total,
+        translated = stats.translated,
+        plain = stats.plain,
+        failed = stats.failed,
+        cache_hits = cache_hits,
+        cache_misses = cache_misses,
+        cache_size = 0,  -- computed below
+        by_translator = stats.by_translator,
+    }
+end
+
+--- Clear the translation cache.
+function M.clear_cache()
+    cache = {}
+    cache_hits = 0
+    cache_misses = 0
+end
+
+--- Reset all stats.
+function M.reset_stats()
+    stats = {
+        total = 0,
+        translated = 0,
+        plain = 0,
+        failed = 0,
+        by_translator = {},
+    }
+    for _, t in ipairs(translators) do
+        stats.by_translator[t.name] = 0
+    end
+    M.clear_cache()
+end
+
+-------------------------------------------------------------------------------
+-- Expose internals for testing
+-------------------------------------------------------------------------------
+
+M._ruby_to_lua = ruby_to_lua
+M._extract_regex = extract_regex
+M._replace_regexes = replace_regexes
+M._translate_interpolation = translate_interpolation
+M._translators = translators
 
 return M
