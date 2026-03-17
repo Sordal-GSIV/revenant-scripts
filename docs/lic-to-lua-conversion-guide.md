@@ -649,12 +649,9 @@ Most Lich5 features are now implemented. The following have no Revenant equivale
 
 | Feature | Lich5 | Status |
 |---------|-------|--------|
-| **Enhancive / Resources** | Equipment enhancive tracking | Deferred — low community usage |
-| **Spellsong** | Bard spellsong tracking | Deferred — bard-specific |
 | **Map.get_location** | Location-based room lookup | Deferred — requires location data infrastructure |
 | **ExecScript** | Run arbitrary Ruby code as a script | Not applicable (use `Script.run`) |
 | **WizardScript / goto / labels** | Wizard script support | Not applicable to Lua runtime |
-| **fetchloot / take** | Auto-loot helpers | Trivial to write in Lua |
 | **Lich.log** | Write to Lich log file | Not implemented |
 | **SharedBuffer / Buffer** | `Buffer.gets`, `Buffer.gets?` | Use `get()`/`get_noblock()` |
 
@@ -732,4 +729,189 @@ if not CharSettings.target then
     CharSettings.target = "troll"
 end
 local target = CharSettings.target
+```
+
+---
+
+## 20. DragonRealms Script Conversion
+
+DragonRealms scripts in Lich5 rely heavily on the `DR*` common modules. Revenant implements all of these with the same API names, so most DR script conversions are straightforward Ruby-to-Lua syntax changes with minimal API differences.
+
+### DR Common Modules — Direct Mappings
+
+The DR common modules are auto-loaded as globals when the game is DragonRealms. The function signatures are identical to Lich5:
+
+| Lich5 Ruby | Revenant Lua | Notes |
+|-----------|-------------|-------|
+| `DRC.bput("cmd", "pat1", "pat2")` | `DRC.bput("cmd", "pat1", "pat2")` | Send + wait for pattern match |
+| `DRCT.walk_to(room_id)` | `DRCT.walk_to(room_id)` | Navigate to room by ID |
+| `DRCA.cast()` | `DRCA.cast()` | Cast prepared spell |
+| `DRCA.prepare(spell, mana)` | `DRCA.prepare(spell, mana)` | Prepare a spell |
+| `DRSkill.getrank("Augmentation")` | `DRSkill.getrank("Augmentation")` | Get skill rank |
+| `DRSkill.getpercent("Augmentation")` | `DRSkill.getpercent("Augmentation")` | Get learning percent |
+| `DRStats.guild` | `DRStats.guild` | Character guild |
+| `DRStats.race` | `DRStats.race` | Character race |
+| `DRStats.strength` (and other stats) | `DRStats.strength` | Stat values |
+| `DRCM.check_wealth("kronars")` | `DRCM.check_wealth("kronars")` | Check wealth |
+| `DRCI.get_item("backpack", "sword")` | `DRCI.get_item("backpack", "sword")` | Get item from container |
+| `DRCI.stow_hands()` | `DRCI.stow_hands()` | Stow both hands |
+| `DRCH.check_health()` | `DRCH.check_health()` | Check health status |
+| `DRCC.get_crafting_item(item, bag)` | `DRCC.get_crafting_item(item, bag)` | Get crafting item |
+| `DRCMM.visible_moons()` | `DRCMM.visible_moons()` | Check visible moons |
+| `DRCTH.commune_sense()` | `DRCTH.commune_sense()` | Theurgy commune |
+| `DRCS.summon_weapon()` | `DRCS.summon_weapon()` | Summon a weapon |
+| `DRCEV.assert_exists(setting)` | `DRCEV.assert_exists(setting)` | Validate setting exists |
+| `DREMgr.wear_equipment_set(name)` | `DREMgr.wear_equipment_set(name)` | Wear equipment set |
+| `DRSpells.known_p("Ease Burden")` | `DRSpells.known_p("Ease Burden")` | Check if spell is known |
+| `DRBanking.balance("kronars")` | `DRBanking.balance("kronars")` | Bank balance |
+| `DRRoom.npcs` | `DRRoom.npcs` | NPCs in room |
+| `DRRoom.pcs` | `DRRoom.pcs` | PCs in room |
+
+### Flags Pattern
+
+The `Flags` module works identically in both:
+
+```ruby
+# Ruby (Lich5)
+Flags.add("room_changed", "Obvious paths:", "Obvious exits:")
+loop {
+  break if Flags["room_changed"]
+  pause 0.5
+}
+Flags.delete("room_changed")
+```
+```lua
+-- Lua (Revenant)
+Flags.add("room_changed", "Obvious paths:", "Obvious exits:")
+while true do
+    if Flags["room_changed"] then break end
+    pause(0.5)
+end
+Flags.delete("room_changed")
+```
+
+### UserVars / Settings
+
+UserVars work the same way. DR scripts commonly use `get_settings` patterns to load YAML-based character settings:
+
+```ruby
+# Ruby (Lich5)
+arg_definitions = [{ name: "training", regex: /training/i, description: "Run training" }]
+args = parse_args(arg_definitions)
+settings = get_settings
+```
+```lua
+-- Lua (Revenant)
+local args = Script.vars
+local settings = get_settings()
+-- Access settings the same way: settings.training_list, settings.hunting_zones, etc.
+```
+
+### DR Conversion Example — Training Script
+
+```ruby
+# Ruby (Lich5)
+settings = get_settings
+DRCT.walk_to(settings.training_room)
+loop {
+  DRC.bput("meditate", "You close your eyes", "You are already")
+  waitrt?
+  break if DRSkill.getpercent("Augmentation") >= 34
+  pause 5
+}
+```
+```lua
+-- Lua (Revenant)
+local settings = get_settings()
+DRCT.walk_to(settings.training_room)
+while true do
+    DRC.bput("meditate", "You close your eyes", "You are already")
+    waitrt()
+    if DRSkill.getpercent("Augmentation") >= 34 then break end
+    pause(5)
+end
+```
+
+### Key Differences from GS Conversion
+
+- DR scripts use `DRC.bput()` far more than raw `fput()`. The API is the same.
+- Equipment management via `DREMgr` is used heavily — the API is identical.
+- DR scripts rarely use `GameObj` directly; they use `DRRoom.npcs` / `DRRoom.pcs` instead.
+- `Flags` is the primary async coordination pattern in DR scripts (same API).
+- DR spell system uses `DRSpells` / `DRCA` instead of the GS `Spell[]` / `Spells` modules.
+
+---
+
+## 21. Game-Specific File Organization
+
+Revenant organizes scripts and libraries by game to keep GS-only and DR-only code separate.
+
+### Directory Structure
+
+```
+scripts/
+  lib/
+    gs/           -- GemStone IV modules (auto-loaded when game is GS)
+      init.lua    -- loads all GS modules
+      bounty.lua
+      creature.lua
+      currency.lua
+      ...
+    dr/           -- DragonRealms modules (auto-loaded when game is DR)
+      init.lua    -- loads all DR modules
+      common.lua
+      common_travel.lua
+      skills.lua
+      stats.lua
+      ...
+    flags.lua     -- game-agnostic (loaded for both)
+    watchfor.lua
+    messaging.lua
+    ...
+  data/
+    gs/           -- GS-specific data files
+    dr/           -- DR-specific data files
+```
+
+### Require Resolution
+
+When a script calls `require("lib/bounty")`, Revenant resolves the path based on the active game:
+- If the game is GS, it resolves to `lib/gs/bounty.lua`
+- If the game is DR, it resolves to `lib/dr/bounty.lua`
+- If neither game-specific file exists, it falls back to `lib/bounty.lua`
+
+This means scripts can use generic require paths and get the correct game-specific implementation automatically.
+
+### Manifest Game Field
+
+Package manifests can declare which game a package targets using the `game` field:
+
+```toml
+[package]
+name = "my-gs-script"
+version = "1.0.0"
+game = "gs"        # Only installed/visible when game is GemStone IV
+```
+
+```toml
+[package]
+name = "my-dr-script"
+version = "1.0.0"
+game = "dr"        # Only installed/visible when game is DragonRealms
+```
+
+Omitting `game` means the package works with both games.
+
+### Writing Cross-Game Scripts
+
+If your script needs to work in both GS and DR, check `GameState.game`:
+
+```lua
+if GameState.game == "GS3" then
+    -- GemStone IV logic
+    local silver = Currency.silver
+elseif GameState.game == "DR" then
+    -- DragonRealms logic
+    local wealth = DRCM.check_wealth("kronars")
+end
 ```
