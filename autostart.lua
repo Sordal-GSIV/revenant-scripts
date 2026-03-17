@@ -7,6 +7,7 @@
 Flags = require("lib/flags")
 Watchfor = require("lib/watchfor")
 Messaging = require("lib/messaging")
+Webhooks = require("lib/webhooks")
 MapHelpers = require("lib/map_helpers")
 TableRender = require("lib/table_render")
 UserVarHelpers = require("lib/uservars")
