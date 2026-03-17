@@ -89,12 +89,12 @@ function M.process(line)
 
     -- Ability start
     if line:match("^You have the following abilities") then
-        local guild = stats.get and stats.get("guild") or ""
-        if guild then guild = guild:lower() end
-        if guild == "barbarian" then
+        local current_guild = stats.get and stats.get("guild") or ""
+        if current_guild then current_guild = current_guild:lower() end
+        if current_guild == "barbarian" then
             parsing_state = "abilities"
             spells.start_parse("barb_abilities")
-        elseif guild == "thief" then
+        elseif current_guild == "thief" then
             parsing_state = "abilities"
             spells.start_parse("thief_abilities")
         else
