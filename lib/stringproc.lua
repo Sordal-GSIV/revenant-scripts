@@ -607,6 +607,55 @@ end)
 
 -------------------------------------------------------------------------------
 -- TRANSLATOR 11: Generic fallback — apply ruby_to_lua and pass through
+-- Handles: start_script('bescort', ...) patterns (DR transport system)
+-------------------------------------------------------------------------------
+
+add_translator("bescort", function(code)
+    -- Pattern: start_script('bescort', ['route', 'dest']); wait_while{running?('bescort')}
+    local args = code:match("start_script%s*%(%s*'bescort'%s*,%s*%[(.-)%]")
+    if not args then return nil end
+    -- Extract the route arguments: 'arg1', 'arg2', ...
+    local arg_list = {}
+    for arg in args:gmatch("'([^']*)'") do
+        arg_list[#arg_list + 1] = arg
+    end
+    if #arg_list == 0 then return nil end
+    local arg_str = table.concat(arg_list, " ")
+    return 'Script.run("bescort", "' .. arg_str .. '"); while Script.running("bescort") do pause(0.5) end'
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR: start_script (generic, covers any script launch in wayto)
+-------------------------------------------------------------------------------
+
+add_translator("start_script", function(code)
+    local script_name = code:match("start_script%s*%(%s*'([^']*)'")
+    if not script_name then return nil end
+    -- Extract args if present
+    local args_raw = code:match("start_script%s*%(%s*'[^']*'%s*,%s*%[(.-)%]")
+    if args_raw then
+        local arg_list = {}
+        for arg in args_raw:gmatch("'([^']*)'") do
+            arg_list[#arg_list + 1] = arg
+        end
+        local arg_str = table.concat(arg_list, " ")
+        local lua = 'Script.run("' .. script_name .. '", "' .. arg_str .. '")'
+        -- Check for wait_while{running?('name')}
+        if code:find("wait_while") and code:find("running") then
+            lua = lua .. '; while Script.running("' .. script_name .. '") do pause(0.5) end'
+        end
+        return lua
+    end
+    -- No args
+    local lua = 'Script.run("' .. script_name .. '")'
+    if code:find("wait_while") and code:find("running") then
+        lua = lua .. '; while Script.running("' .. script_name .. '") do pause(0.5) end'
+    end
+    return lua
+end)
+
+-------------------------------------------------------------------------------
+-- TRANSLATOR (catch-all): Generic Ruby→Lua
 -- Handles: move+waitrt, fput, dothistimeout, if/else/end blocks, etc.
 -- These are already mostly valid Lua after ruby_to_lua transformation.
 -------------------------------------------------------------------------------
