@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T22:09:36Z",
+  "generated": "2026-03-17T22:12:15Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -233,6 +233,25 @@
             "lib/spell_casting",
             "lib/watchfor"
           ]
+        }
+      }
+    },
+    {
+      "name": "efamgo2",
+      "author": "elanthia-online",
+      "description": "Navigate your familiar/eye companion to a room via pathfinding",
+      "tags": [
+        "movement",
+        "go2",
+        "familiar",
+        "eye"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "2ab62f13d0fcae829addb74ab7fa8e6698415c355787d8d2a6b93724f9fc94b5",
+          "path": "efamgo2.lua",
+          "depends": []
         }
       }
     },

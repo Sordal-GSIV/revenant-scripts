@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T22:12:15Z",
+  "generated": "2026-03-17T22:13:48Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -527,6 +527,25 @@
           "version": "1.0.0",
           "sha256": "6fc6e5895a181bc3cc5fb8577b0a28ad127a58002b748b8bf70760bf0d26ae3e",
           "path": "move2.lua",
+          "depends": []
+        }
+      }
+    },
+    {
+      "name": "notify",
+      "author": "Ondreian",
+      "description": "Desktop notification system for whispers, messages, stuns, and custom events",
+      "tags": [
+        "util",
+        "notification",
+        "whisper",
+        "lnet"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.3.1",
+          "sha256": "c82176bdb43253a3995343e76e5b50dafee3e739498099c1c9e020acea2dd6c1",
+          "path": "notify.lua",
           "depends": []
         }
       }
