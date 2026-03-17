@@ -59,6 +59,38 @@ function M.walk(path, state, on_step)
             on_step(i, #path, command)
         end
 
+        -- Handle ;bescort dispatch (DR transport)
+        if command:match("^;bescort%s") then
+            local args = command:match("^;bescort%s+(.+)$")
+            if args then
+                Script.run("bescort", args)
+                while Script.running("bescort") do pause(0.5) end
+                error_count = 0
+                goto next_step
+            end
+        end
+
+        -- Handle ;go dispatch (nested go2 call)
+        if command:match("^;go%s") then
+            local dest = command:match("^;go%s+(.+)$")
+            if dest then
+                Script.run("go2", dest)
+                while Script.running("go2") do pause(0.5) end
+                error_count = 0
+                goto next_step
+            end
+        end
+
+        -- Handle ; dispatch (any script launch)
+        if command:match("^;%a") and not command:match("^;e ") then
+            local script_name = command:match("^;(%S+)")
+            local script_args = command:match("^;%S+%s+(.+)$") or ""
+            Script.run(script_name, script_args)
+            while Script.running(script_name) do pause(0.5) end
+            error_count = 0
+            goto next_step
+        end
+
         -- Check if this path step is a StringProc (;e prefix)
         -- Map.find_path() returns raw wayto strings, including ";e ..." entries
         if stringproc and stringproc.is_stringproc(command) then
