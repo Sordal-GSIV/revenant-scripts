@@ -17,7 +17,7 @@ M.TRASH_STORAGE = {
 
 --- Patterns indicating successful drop/trash
 M.DROP_TRASH_SUCCESS = {
-  "You drop", "You put", "You spread .* on the ground",
+  "You drop", "^You put", "You spread .* on the ground",
   "smashing it to bits", "As you open your hand to release",
   "You toss .* at the domesticated gelapod",
   "You feed .* a bit warily to the domesticated gelapod",
@@ -45,7 +45,7 @@ M.GET_ITEM_FAILURE = {
 
 --- Put away success patterns
 M.PUT_AWAY_SUCCESS = {
-  "You put", "You tuck", "You place", "You slide",
+  "^You put", "You tuck", "You place", "You slide",
   "You open .* and put", "You drop",
 }
 
