@@ -7,7 +7,7 @@
 --- depends: lib/args,lib/spell_casting
 
 local args_lib = require("lib/args")
-require("lib/gs/spell_casting")
+require("lib/spell_casting")
 
 -- ============================================================
 -- Local helpers (functions not provided by Revenant engine)

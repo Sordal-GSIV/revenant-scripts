@@ -6,7 +6,7 @@
 --- tags: bounty,escort,adventurers-guild
 --- depends: lib/args,lib/spell_casting,lib/watchfor
 
-require("lib/gs/spell_casting")
+require("lib/spell_casting")
 local Watchfor = require("lib/watchfor")
 
 --------------------------------------------------------------------------------
