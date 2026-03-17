@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T20:22:37Z",
+  "generated": "2026-03-17T20:27:02Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -366,7 +366,7 @@
         },
         "stable": {
           "version": "1.0.0",
-          "sha256": "60cc7d13779d18c3842ffa6a4f8528154e623e132aede1a9299fddc6e1ff5b54",
+          "sha256": "103b4f08cee82dd78b79344ec3c75dd30f9de481580fe0ebe851f665bb7a8fa7",
           "path": "go2/",
           "depends": [],
           "files": [
@@ -384,7 +384,7 @@
             },
             {
               "name": "movement.lua",
-              "sha256": "b97abf4c49ab759e822fceda8017fd3c3634ce44aa752478bb86cfa2ed994001"
+              "sha256": "4a9ce3a4fe67f7cdcf709c98e6e23fb78b1e46c118ff443e32ca548705bf0eed"
             },
             {
               "name": "pathfinder.lua",
