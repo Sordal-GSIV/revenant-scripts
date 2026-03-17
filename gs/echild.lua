@@ -1,10 +1,112 @@
 --- @revenant-script
 --- name: echild
 --- version: 1.20.3
---- author: elanthia-online (ported to Revenant)
+--- author: elanthia-online
+--- contributors: Drafix, Catrania, Kaldonis, Kalros, Hazado, Tysong, Xanlin
 --- description: Automate Adventurer's Guild escort-a-child bounty task
 --- tags: bounty,escort,adventurers-guild
 --- depends: lib/args,lib/spell_casting,lib/watchfor
+---
+--- Changelog (from Lich5):
+---   v1.20.3 (2025-05-23)
+---     - fix for detecting familiars incorrectly
+---   v1.20.2 (2025-01-19)
+---     - fix for constant redefinition Ruby warnings
+---   v1.20.1 (2024-09-12)
+---     - convert to use RealID instead of LichID
+---   v1.20.0 (2024-08-07)
+---     - add customizable, always use, disabler option via --disabler=617
+---     - convert min_mana, use_disablers to CharSettings instead of Settings
+---   v1.19.1 (2024-07-06)
+---     - bugfix in Maaghara routine for climb failure
+---     - order spells by actual mana cost
+---     - allow for usage of move2.lic instead of step2.lic
+---   v1.19.0 (2024-03-12)
+---     - add CLI option to disable disablers via ;echild nodisablers
+---     - modify ;echild list to also trigger for help, expand output
+---   v1.18.11 (2024-02-25)
+---     - return child to correct location with manual ask of child
+---   v1.18.10 (2024-02-15)
+---     - bug in standing for Maaghara routine
+---   v1.18.9 (2023-07-08)
+---     - rubocop cleanup
+---     - add Atoll creatures to 706 Mind Jolt exclusion
+---   v1.18.8 (2023-02-23)
+---     - Bugfix for Ruby v3.x compatibility
+---   v1.18.7 (2022-11-03)
+---     - Kill Song of Peace on exit
+---   v1.18.6 (2022-09-21)
+---     - removed Atoll code because fixed in GS now
+---   v1.18.5 (2022-09-20)
+---     - added a second check looking for the child
+---   v1.18.4 (2022-09-03)
+---     - better check for 9716
+---   v1.18.3 (2022-09-03)
+---     - fixed nil? typo, added 9716 check for can cast, skip wound check on script start
+---   v1.18.2 (2022-09-01)
+---     - moved killswitch to fix error
+---   v1.18.1 (2022-08-25)
+---     - fixed advguard2 typo
+---   v1.17.0 (2022-08-15)
+---     - moved into module, updated can_cast debuff list
+---   v1.16.0 (2022-08-09)
+---     - custom proc for Maaghara
+---     - custom proc for Atoll
+---     - added global $child_last_seen
+---     - removed final pause if not Drafix, etc.
+---     - added test mode
+---     - added check for being able to cast before running justice check
+---   v1.15.0 (2022-05-27)
+---     - Updated to support KF rapids and guard, rebaselined as echild
+---   v1.14 (2020-06-15)
+---     - filter ghosts from 501
+---   v1.13 (2020-06-08)
+---     - fix mult-target filtering bug
+---   v1.12 (2020-06-07)
+---     - filter 410 for specific critters, allow 504 multi-target if airlore > 20
+---   v1.11 (2020-05-21)
+---     - add monk spells, move sanctuary to multi-target section only, add lullabye
+---   v1.10 (2020-05-20)
+---     - fix filtering of spells
+---   v1.9 (2020-05-20)
+---     - hide justice check
+---   v1.8 (2020-05-15)
+---     - Don't e-wave in town, use the cheapest spell mana-wise, prefer 213/1011
+---   v1.7 (2017-10-12)
+---     - Fix min mana comparison issue
+---   v1.6 (2017-10-05)
+---     - Fix RR for putting npc in room description
+---   v1.5 (2017-09-09)
+---     - Added min mana setting and fixed untargetable npc checking
+---   v1.4 (2016-09-18)
+---     - Return of maintenance
+---   v1.3 (2016-05-17)
+---     - deliver child to closest guard to specified room
+---   v1.2 (2016-05-11)
+---     - Hazado added specific child tracking
+---   v1.1 (2015-11-04)
+---     - Fixed purser in RR
+---   v1.0 (2015-07-06)
+---     - Rewrote parts for Vaalor guards, fixed loop for alternate rooms
+---   v0.9 (2015-07-03)
+---     - Rewrote for Pinefar v1.3
+---   v0.8 (2015-06-25)
+---     - Fix alternate drop off spot
+---   v0.7 (2015-05-19)
+---     - Drafix took over maintaining from Jeril
+---     - added passive critter recognition, nearest guard drop-off
+---   v0.6 (2012-12-10)
+---     - fixed 213 casting, fixed purser bug
+---   v0.5 (2012-05-18)
+---     - made it work in RR
+---   v0.4 (2012-04-17)
+---     - added Vaalor
+---   v0.3 (2011-06-04)
+---     - added Teras, Helga's for landing guard
+---   v0.2 (2010-12-16)
+---     - bug fixes
+---   v0.1 (2010-02-19)
+---     - added Illistim, disabled automatic reward collection
 
 require("lib/spell_casting")
 local Watchfor = require("lib/watchfor")

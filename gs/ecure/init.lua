@@ -2,8 +2,46 @@
 --- name: ecure
 --- version: 2.0.3
 --- author: elanthia-online
+--- contributors: Tayre, Ashraam, Talonhawke, Naijin
 --- description: Enhanced empath self-healing script
 --- game: gs
+---
+--- Originally cure.lic — a combination of Heal (by Tayre) and Healself (by Ashraam).
+--- Talonhawke heavily modified it. EO updated it for GTK3/Lich5.
+---
+--- Changelog (from Lich5):
+---   v2.0.3 (2026-03-17)
+---     - add --list CLI option to display current settings
+---     - add --debug toggle for verbose troubleshooting output
+---     - YARD documentation throughout
+---     - extract shared spell-hindrance retry logic
+---     - minor Ruby best-practice cleanup
+---   v2.0.2 (2025-10-17)
+---     - bugfix in regex for missing hand/arm/leg extra space
+---   v2.0.1 (2025-09-27)
+---     - bugfix in wait_for_mana infinite stack level
+---     - fix to attempt APPRAISE up to 3 times due to failure
+---     - fix in regex wound array
+---   v2.0.0 (2025-09-27)
+---     - rewrite into proper module/class structure
+---     - regex fixes for additional injury matching
+---     - retry on spell hindrance
+---     - condense GUI window
+---     - add Exertion curing
+---   v1.0.3 (2023-07-26)
+---     - correct sleep/pauses for CURE usage for less than 3 second RT
+---   v1.0.2 (2023-07-26)
+---     - fix for NilClass comparison for @doneVerb
+---     - fix for enabling use of CoL signs but not knowing Clotting or Staunching
+---   v1.0.1 (2023-05-22)
+---     - fixed group functionality after Naijin's return
+---   v1.0.0 (2023-04-08)
+---     - Rebase cure.lic to ecure.lic
+---     - rubocop cleanup
+---   Prior cure.lic changelog:
+---     v1.2 (2021-09-20) - Modifications by EO to support aligned menus
+---     v1.1 (2019-08-01) - Fixed some messaging
+---     v1.0              - Initial release
 
 local config = require("config")
 local healer = require("healer")

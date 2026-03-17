@@ -1,8 +1,92 @@
 --- @revenant-script
 --- name: eherbs
 --- version: 1.0.0
---- author: Sordal
+--- author: Elanthia-Online
+--- contributors: Tillmen, Tysong, Doug, Rinualdo, Xanlin, Deysh
 --- description: Self-healing with herbs — diagnosis, auto-eat/drink, inventory management
+--- game: gs
+---
+--- Changelog (from Lich5):
+---   v2.1.12 (2026-03-14)
+---     - fix for drinkable status not resetting in rare situations
+---   v2.1.11 (2026-03-13)
+---     - highlight herbs needed for current wounds in the list command
+---   v2.1.10 (2026-03-10)
+---     - case insensitive the container name when finding herb container
+---   v2.1.9 (2025-11-26)
+---     - improve the various look in container regex matches with existing ID in comparison
+---   v2.1.8 (2025-11-03)
+---     - fix for buy_herb to rebuy correct amount when not enough money instead of just qty 1
+---   v2.1.7 (2025-08-05)
+---     - fix for Hinterwilds herbs mapdb location including "the"
+---   v2.1.6 (2025-08-05)
+---     - add debug messaging to dead character healing
+---   v2.1.5 (2025-05-13)
+---     - fix for Cysaegir not matching probably for stocking
+---   v2.1.4 (2025-04-22)
+---     - add additional put regex for survival kit when fully stocked
+---   v2.1.3 (2025-03-25)
+---     - remove waitcastrt? from wait_rt method
+---     - add waitcastrt? to cast_spells method
+---     - add Do Not Buy herbs for Solhaven backroom bundles
+---     - bugfix in check_herbs_in_container method for nil measures
+---     - bugfix in get_current_stock to also count herbs in a survival kit
+---     - redetect survival kit if changed stock, distiller or herb_sack
+---   v2.1.2 (2025-02-22)
+---     - add additional unpoison herbs
+---     - add logic to eat/drink poison & disease curing herbs
+---     - bugfix for cached pricing of herbalist in distant town
+---     - remove deprecated calls to maxhealth & checkhealth
+---     - update logic of survival kits to include non-bundled liquid/solid doses
+---   v2.1.1 (2025-02-20)
+---     - change ;eherbs load to also redetermine survival kit
+---   v2.1.0 (2025-01-19)
+---     - add --spellcast and --ranged options to healdown
+---   v2.0.18 (2025-01-06)
+---     - fix for min_stock_doses to persist thru current session running
+---   v2.0.17 (2025-01-06)
+---     - fix for survival_kit to persist thru current session running
+---     - fix for not being able to analyze kit during distill function
+---   v2.0.16 (2024-12-06)
+---     - add additional debug messaging
+---   v2.0.15 (2024-10-10)
+---     - skip herbs that can't be bundled when bundling herbs
+---   v2.0.14 (2024-09-25)
+---     - bugfix for depositing in Pinefar, need to wait for banker
+---   v2.0.13 (2024-08-30)
+---     - bugfix for excessive ANALYZE for survival kits logic
+---     - bugfix for wait_rt method
+---   v2.0.12 (2024-08-27)
+---     - adjust doses for Ta'Vaalor
+---     - update note buying process for in-hand recognition
+---     - bugfix in stock_requested_herbs when not using a note
+---   v2.0.11 (2024-08-26)
+---     - Add missing Ta'Vaalor tinctures
+---   v2.0.10 (2024-08-15)
+---     - bugfix failed finding blood herbs if use_yaba is on with no yaba found
+---   v2.0.9 (2024-07-20)
+---     - change note variable to just use the noun instead of full name
+---     - use quiet command for _injury 2
+---     - consolidate inventory check methods
+---     - general code consolidation
+---   v2.0.8 (2024-07-12)
+---     - pause script ego2 if running
+---   v2.0.7 (2024-07-12)
+---     - drinkable variable not being set when buying
+---   v2.0.6 (2024-07-10)
+---     - changed drinkable boolean in favor of checking regex during herb usage or boolean
+---   v2.0.5 (2024-01-17)
+---     - fix for wrong variable reference
+---   v2.0.4 (2024-01-03)
+---     - bugfix for Zul Logoth location check
+---   v2.0.3 (2024-01-01)
+---     - bugfix for use_potions variable
+---   v2.0.2 (2023-12-15)
+---     - send injury command to refresh XML before attempting to heal self
+---   v2.0.1 (2023-11-10)
+---     - bugfix to use id instead of name for distiller
+---     - added setting output for debugging ;eherbs settings
+---   Previous changelogs: https://gswiki.play.net/Lich:Script_Eherbs
 
 local args_lib = require("lib/args")
 local settings = require("settings")

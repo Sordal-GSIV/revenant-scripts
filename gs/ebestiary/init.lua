@@ -1,10 +1,22 @@
 --- @revenant-script
 --- name: ebestiary
 --- version: 2.0.0
---- author: Ramparts (ported to Revenant)
+--- author: elanthia-online
 --- description: GemStone IV creature lookup by level, type, or name
 --- tags: hunting,creatures,reference
 --- depends: lib/args,lib/table_render
+---
+--- Changelog (from Lich5):
+---   v2.0 (2026-02-02)
+---     - Removed web parsing, uses hardcoded creature hash
+---   v1.2 (2024-05-01)
+---     - Change Char.level to Stats.level
+---   v1.1 (2024-01-25)
+---     - updates to handle new wiki format
+---   v1.0.1 (2023-02-23)
+---     - adds code to handle creatures with non-standard name capitalization
+---   v1.0
+---     - initial release as ebestiary (formerly wikibeast)
 
 local args_lib = require("lib/args")
 local TableRender = require("lib/table_render")
