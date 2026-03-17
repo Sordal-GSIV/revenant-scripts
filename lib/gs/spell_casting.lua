@@ -8,6 +8,9 @@ local SpellEval = require("lib/spell_eval")
 -- Cast lock: only one script can cast at a time
 local _cast_lock = nil  -- script name holding lock, or nil
 
+-- Track when each spell was last cast
+_spell_last_cast = _spell_last_cast or {}  -- global: spell_num → os.time()
+
 -- Manual spell overrides (putup/putdown)
 local _spell_overrides = {}  -- spell_num → { activated_at, duration }
 
@@ -136,6 +139,11 @@ function SpellMethods:cast(target, opts)
             end
         end
 
+        -- Record last cast timestamp
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
+        end
+
         -- After-stance
         if not opts.no_stance then
             local after = Spell.after_stance
@@ -177,6 +185,9 @@ function SpellMethods:channel(target, opts)
                 break
             end
         end
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
+        end
         if not opts.no_stance then
             local after = Spell.after_stance
             if after then fput("stance " .. after) end
@@ -210,6 +221,9 @@ function SpellMethods:evoke(target, opts)
                 break
             end
         end
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
+        end
         return cast_result
     end)
     release_cast_lock()
@@ -231,6 +245,9 @@ function SpellMethods:incant(opts)
                 cast_result = line
                 break
             end
+        end
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
         end
         return cast_result
     end)
@@ -284,6 +301,11 @@ local function wrap_spell(t)
             t.secsleft = math.max(0, secs_left)
             t.timeleft = t.secsleft / 60.0
         end
+    end
+
+    -- Attach last_cast timestamp if available
+    if num and _spell_last_cast[num] then
+        t.last_cast = _spell_last_cast[num]
     end
 
     setmetatable(t, SpellMT)
