@@ -10,6 +10,8 @@ Messaging = require("lib/messaging")
 Webhooks = require("lib/webhooks")
 MapHelpers = require("lib/map_helpers")
 TableRender = require("lib/table_render")
+Watchable = require("lib/watchable")
+FrontendFocus = require("lib/frontend_focus")
 UserVarHelpers = require("lib/uservars")
 require("lib/group")  -- registers DownstreamHook for GROUP verb parsing
 

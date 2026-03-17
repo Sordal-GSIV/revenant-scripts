@@ -48,6 +48,15 @@ Armaments = require("lib/gs/armaments")
 -- Critical rank tables
 CritRanks = require("lib/gs/critranks")
 
+-- Floating Disk tracker (spell 919)
+Disk = require("lib/gs/disk")
+
+-- Multi-group cluster coordination
+Cluster = require("lib/gs/cluster")
+
+-- Item stash/retrieve helper
+Stash = require("lib/gs/stash")
+
 -- Spell casting engine (patches Spell metatable)
 require("lib/gs/spell_casting")
 
