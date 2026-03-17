@@ -13,8 +13,7 @@ function Bounty.parse()
     local info = { done = false }
 
     -- Completion markers
-    if task:find("You have succeeded") or task:find("succeeded in your task")
-       or task:find("You have completed your task") then
+    if Regex.test("succeeded|completed your task|located|your task is failed", task) then
         info.done = true
     end
 
@@ -41,18 +40,19 @@ function Bounty.parse()
         _bounty_cache_result = info; return info
     end
 
-    -- Boss (dangerous)
-    if task:match("particularly dangerous") then
+    -- Boss (dangerous) or cull their numbers
+    if Regex.test("particularly dangerous|cull their numbers", task) then
         info.type = "dangerous"
         info.creature = task:match("dangerous (.-) that has") or task:match("dangerous (.-)%.")
+                     or task:match("cull .+ numbers .+ (.-) near")
         info.number = 1
         info.count = 1
         _bounty_cache_result = info; return info
     end
 
     -- Cull (suppress activity, non-bandit)
-    local cull_creature = task:match("suppress (.-) activity")
-    if cull_creature and not task:find("bandit") then
+    if Regex.test("(?!.*bandit)suppress .* activity", task) then
+        local cull_creature = task:match("suppress (.-) activity")
         info.type = "cull"
         info.creature = cull_creature
         _bounty_cache_result = info; return info
