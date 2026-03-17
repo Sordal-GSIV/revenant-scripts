@@ -88,7 +88,7 @@ local function cmd_update()
     return
   end
 
-  local tmp = "_pkg/revenant.new"
+  local tmp = "data/pkg/revenant.new"
   local ok, wr_err = File.write(tmp, resp.body)
   if not ok then
     respond("Failed to write temp file: " .. tostring(wr_err))
@@ -223,7 +223,7 @@ local function cmd_info()
   -- Installed packages
   respond("── Installed Packages ──")
   local inst_ok, inst_data = pcall(function()
-    local raw = File.read("_pkg/installed.lua")
+    local raw = File.read("data/pkg/installed.lua")
     if not raw then return {} end
     local fn = load(raw)
     if not fn then return {} end
