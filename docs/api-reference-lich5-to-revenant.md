@@ -29,6 +29,13 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `matchtimeout secs, "p1"` | `matchtimeout(secs, "p1")` | **Implemented** |
 | `selectput "cmd", succ, fail` | `selectput("cmd", succ, fail, timeout)` | **Implemented** |
 | `_respond "text"` | `respond("text")` | **Implemented** (no distinction) |
+| `fetchloot` | `fetchloot()` | **Implemented** (compat shim in builtins) |
+| `take` | `take()` | **Implemented** (compat shim in builtins) |
+| `respond_to_window(win, text)` | `respond_to_window(win, text)` | **Implemented** |
+| `xml_encode(text)` | `xml_encode(text)` | **Implemented** |
+| `parse_list(text)` | `parse_list(text)` | **Implemented** |
+| `arrival_pcs()` | `arrival_pcs()` | **Implemented** |
+| `_CLIENT_BUFFER` | `_CLIENT_BUFFER` | **Implemented** |
 
 ## Timing & Roundtime
 
@@ -59,7 +66,7 @@ Legend: **Implemented**, ~~Not Implemented~~
 
 | Lich5 Ruby | Revenant Lua | Status |
 |-----------|-------------|--------|
-| `Script.start("name")` | `Script.run("name")` | **Implemented** |
+| `Script.start("name")` | `Script.run("name")` / `Script.start("name")` | **Implemented** (`start` is alias for `run`) |
 | `Script.start("name", "args")` | `Script.run("name", "args")` | **Implemented** |
 | `Script.kill("name")` | `Script.kill("name")` | **Implemented** |
 | `stop_script("name")` | `Script.kill("name")` | **Implemented** |
@@ -68,6 +75,7 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `Script.exists?("name")` | `Script.exists("name")` | **Implemented** |
 | `Script.current.name` | `Script.name` | **Implemented** |
 | `Script.current.vars` | `Script.vars` | **Implemented** |
+| `Script.current` | `Script.current()` | **Implemented** (returns `{name, paused}`) |
 | `before_dying { }` | `before_dying(func)` | **Implemented** |
 | `undo_before_dying` | `undo_before_dying()` | **Implemented** |
 | `Script.at_exit { }` | `Script.at_exit(func)` | **Implemented** |
@@ -76,6 +84,8 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `no_pause_all` | `no_pause_all()` | **Implemented** |
 | `pause_script("name")` | `Script.pause("name")` | **Implemented** |
 | `unpause_script("name")` | `Script.unpause("name")` | **Implemented** |
+| — | `Script.pause_all()` | **Implemented** |
+| — | `Script.unpause_all()` | **Implemented** |
 | `die_with_me("name")` | `die_with_me("name")` | **Implemented** |
 | `send_to_script("name", msg)` | `send_to_script("name", msg)` | **Implemented** |
 | `start_script("name")` | `Script.run("name")` | **Implemented** |
@@ -137,6 +147,10 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `checkfried` / `checksaturated` | `checkfried()` / `checksaturated()` | **Implemented** |
 | `checkmind` / `percentmind` | `checkmind(s)` / `percentmind(n)` | **Implemented** |
 | `idle?` | `idle_p(secs)` | **Implemented** |
+| `survivepoison?` | `survivepoison()` | **Implemented** (compat shim in builtins) |
+| `survivedisease?` | `survivedisease()` | **Implemented** (compat shim in builtins) |
+| `dec2bin(n)` | `dec2bin(n)` | **Implemented** (compat shim in builtins) |
+| `bin2dec(s)` | `bin2dec(s)` | **Implemented** (compat shim in builtins) |
 
 ## Room
 
@@ -189,6 +203,9 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `GameObj.fam_pcs` | `GameObj.fam_pcs()` | **Implemented** |
 | `GameObj.fam_room_desc` | `GameObj.fam_room_desc()` | **Implemented** |
 | `GameObj["key"]` | `GameObj["key"]` | **Implemented** (ID/noun/name lookup) |
+| — | `GameObj.targets()` | **Implemented** (alive NPCs) |
+| — | `GameObj.target()` | **Implemented** (first alive NPC) |
+| — | `GameObj.hidden_targets()` | **Implemented** (hidden NPCs) |
 | `obj.id` | `obj.id` | **Implemented** |
 | `obj.noun` | `obj.noun` | **Implemented** |
 | `obj.name` | `obj.name` | **Implemented** |
@@ -284,10 +301,11 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `DownstreamHook.add(name, proc)` | `DownstreamHook.add(name, func)` | **Implemented** |
 | `DownstreamHook.remove(name)` | `DownstreamHook.remove(name)` | **Implemented** |
 | `DownstreamHook.list` | `DownstreamHook.list()` | **Implemented** |
+| — | `DownstreamHook.sources()` | **Implemented** (list hook sources) |
 | `UpstreamHook.add(name, proc)` | `UpstreamHook.add(name, func)` | **Implemented** |
 | `UpstreamHook.remove(name)` | `UpstreamHook.remove(name)` | **Implemented** |
 | `UpstreamHook.list` | `UpstreamHook.list()` | **Implemented** |
-| `Watchfor.new(/pat/) { }` | `Watchfor.new(pattern, func)` | **Implemented** (via `lib/watchfor`) |
+| — | `UpstreamHook.sources()` | **Implemented** (list hook sources) |
 
 ## Map / Navigation
 
@@ -319,12 +337,24 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `Vars["key"]` / `Vars.key` | `Vars["key"]` / `Vars.key` | **Implemented** (via `lib/lich_vars`, JSON-serialized) |
 | `Settings["key"]` | `Settings.key` | **Implemented** (global cross-char) |
 | `GameSettings["key"]` | `Settings.key` | **Implemented** |
+| — | `SessionVars.key = val` | **Implemented** (ephemeral, lost on disconnect) |
 
-## Wounds / Scars
+## Wounds / Scars / Injuries
 
 | Lich5 Ruby | Revenant Lua | Status |
 |-----------|-------------|--------|
 | Injury data (via XMLData) | `Wounds.bodypart` / `Scars.bodypart` | **Implemented** |
+| — | `Injured.head`, `.neck`, etc. | **Implemented** (true if wound OR scar > 0) |
+
+## GameState (Additional Fields)
+
+| Lich5 Ruby | Revenant Lua | Status |
+|-----------|-------------|--------|
+| — | `GameState.login_time` | **Implemented** |
+| — | `GameState.last_pulse` | **Implemented** |
+| — | `GameState.wound_gsl` | **Implemented** |
+| — | `GameState.scar_gsl` | **Implemented** |
+| — | `GameState.stow_container_id` | **Implemented** |
 
 ## Familiar
 
@@ -352,6 +382,299 @@ Legend: **Implemented**, ~~Not Implemented~~
 |-----------|-------------|--------|
 | `checkbounty` | `checkbounty()` / `Bounty.task` | **Implemented** |
 | `XMLData.society_task` | `Society.task` | **Implemented** |
+
+## Direction Constants
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `SHORTDIR` | Short direction names table (e.g., "n", "s", "e", "w") |
+| `LONGDIR` | Long direction names table (e.g., "north", "south") |
+| `DIRMAP` | Mapping between short and long direction names |
+| `MINDMAP` | Mind state mapping constants |
+| `ICONMAP` | Icon name mapping constants |
+
+---
+
+## GS-Specific Modules
+
+These modules are auto-loaded as globals when the game is GemStone IV. Source files live in `lib/gs/`.
+
+### Currency (`lib/gs/currency.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Currency.silver` | Current silver |
+| `Currency.bloodscrip` | Bloodscrip count |
+| Plus 11 additional currency types (13 total) | All tracked via infomon |
+
+### SpellRanks (`lib/gs/spellranks.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `SpellRanks.minorspiritual` | Minor Spiritual spell ranks |
+| `SpellRanks.majorspiritual` | Major Spiritual spell ranks |
+| Same for all circles | All circle rank lookups |
+
+### Experience (`lib/gs/experience.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Experience.fame` | Current fame |
+| `Experience.total` | Total experience |
+| Additional experience fields | All XP-related data |
+
+### Creature (`lib/gs/creature.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Creature.find(name)` | Find creature by name |
+| `Creature.new(gameobj)` | Create Creature from a GameObj |
+
+### PSM Modules (`lib/gs/psm.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `CMan.known_p(name)` | Check if combat maneuver is known |
+| `Feat.known_p(name)` | Check if feat is known |
+| Additional PSM lookups | Shield, Armor, etc. |
+
+### CombatTracker (`lib/gs/combat_tracker.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `CombatTracker.enable()` | Enable combat tracking |
+| `CombatTracker.on_death(cb)` | Register death callback |
+
+### Claim (`lib/gs/claim.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Claim.claim_room()` | Claim the current room |
+| `Claim.mine()` | Your claim data |
+| `Claim.others()` | Other claims in room |
+
+### Overwatch (`lib/gs/overwatch.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Overwatch.enable()` | Enable overwatch tracking |
+| `Overwatch.hiders()` | List of detected hidden entities |
+
+### SK (`lib/gs/sk.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `SK.known()` | List of known SKs |
+| `SK.add()` | Add to SK list |
+| `SK.remove()` | Remove from SK list |
+
+### Gift (`lib/gs/gift.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Gift.started()` | Whether gift is active |
+| `Gift.pulse()` | Current gift pulse |
+| `Gift.remaining()` | Remaining gift time |
+
+### Enhancive (`lib/gs/enhancive.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Enhancive.refresh()` | Refresh enhancive data |
+| `Enhancive.strength` | Enhancive strength bonus |
+| Additional stat bonuses | All enhancive stat fields |
+
+### Spellsong (`lib/gs/spellsong.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Spellsong` global | Bard spellsong tracking |
+
+### ReadyList (`lib/gs/readylist.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `ReadyList.check()` | Check readied items |
+| `ReadyList.shield` | Currently readied shield |
+| `ReadyList.weapon` | Currently readied weapon |
+| Additional slots | All readied equipment slots |
+
+### StowList (`lib/gs/stowlist.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `StowList.check()` | Check stow targets |
+| `StowList.box` | Box stow container |
+| `StowList.gem` | Gem stow container |
+| Additional stow types | All stow target types |
+
+### Armaments (`lib/gs/armaments.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Armaments.find(name)` | Find armament by name |
+| `Armaments.type_for(name)` | Get weapon type for a name |
+
+### CritRanks (`lib/gs/critranks.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `CritRanks.parse(line)` | Parse a crit result line |
+| `CritRanks.fetch(type, loc, rank)` | Fetch crit data by type/location/rank |
+
+### Disk (`lib/gs/disk.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Disk.active()` | Whether disk is active |
+| `Disk.noun()` | Disk noun |
+
+### Cluster (`lib/gs/cluster.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Cluster.add()` | Add to cluster |
+| `Cluster.members()` | List cluster members |
+| `Cluster.is_member()` | Check cluster membership |
+
+### Stash (`lib/gs/stash.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Stash.stash()` | Stash current item |
+| `Stash.retrieve()` | Retrieve from stash |
+| `Stash.stash_loot()` | Stash all loot |
+
+---
+
+## DR-Specific Modules
+
+These modules are auto-loaded as globals when the game is DragonRealms. Source files live in `lib/dr/`.
+
+### DRSkill (`lib/dr/skills.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `DRSkill.getrank(name)` | Get skill rank by name (e.g., `"Augmentation"`) |
+| `DRSkill.getpercent(name)` | Get skill learning percent |
+| `DRSkill.getlearning(name)` | Get skill learning rate string |
+
+### DRStats (`lib/dr/stats.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `DRStats.race` | Character race |
+| `DRStats.guild` | Character guild |
+| `DRStats.strength` | Strength stat |
+| Additional stats | All DR character stats |
+
+### DRSpells (`lib/dr/spells.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `DRSpells.known_spells_list()` | List of known spells |
+| `DRSpells.known_p(name)` | Check if spell is known |
+
+### DRBanking (`lib/dr/banking.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `DRBanking.balance(currency)` | Check balance for a currency |
+| `DRBanking.balances()` | All bank balances |
+
+### DRRoom (`lib/dr/room.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `DRRoom.npcs` | NPCs in room |
+| `DRRoom.pcs` | PCs in room |
+| `DRRoom.dead_npcs` | Dead NPCs in room |
+
+### DRExpMon (`lib/dr/expmonitor.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `DRExpMon.start()` | Start experience monitoring |
+| `DRExpMon.stop()` | Stop experience monitoring |
+| `DRExpMon.report()` | Get experience report |
+
+### DR Commons
+
+Helper modules that mirror the Lich5 DR community script commons. All auto-loaded as globals.
+
+| Revenant Lua | Source | Description |
+|-------------|--------|-------------|
+| `DRC.bput()` | `lib/dr/common.lua` | Send command and wait for pattern |
+| `DRCT.walk_to()` | `lib/dr/common_travel.lua` | Navigate to a room |
+| `DRCM.check_wealth()` | `lib/dr/common_money.lua` | Check current wealth |
+| `DRCI.get_item()` | `lib/dr/common_items.lua` | Get an item from container |
+| `DRCH.check_health()` | `lib/dr/common_healing.lua` | Check health status |
+| `DRCC.get_crafting_item()` | `lib/dr/common_crafting.lua` | Get a crafting item |
+| `DRCA.cast()` | `lib/dr/common_arcana.lua` | Cast a spell |
+| `DRCMM.visible_moons()` | `lib/dr/common_moonmage.lua` | Check visible moons |
+| `DRCTH.commune_sense()` | `lib/dr/common_theurgy.lua` | Theurgy commune sense |
+| `DRCS.summon_weapon()` | `lib/dr/common_summoning.lua` | Summon a weapon |
+| `DRCEV.assert_exists()` | `lib/dr/common_validation.lua` | Assert setting exists |
+| `DREMgr.wear_equipment_set()` | `lib/dr/equip_manager.lua` | Wear an equipment set |
+
+---
+
+## Game-Agnostic Modules
+
+These modules work in both GemStone IV and DragonRealms. Source files live in `lib/`.
+
+### Flags (`lib/flags.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Flags.add(key, ...)` | Register a flag with match patterns |
+| `Flags[key]` | Check if flag has been triggered (truthy/falsy) |
+
+### Watchfor (`lib/watchfor.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Watchfor.new(pattern, func)` | Register a pattern watcher with callback |
+| `Watchfor.clear()` | Clear all watchers |
+
+### Messaging (`lib/messaging.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Messaging.msg(type, text)` | Send typed message to client |
+| `Messaging.monsterbold()` | Monster-bold formatted text |
+| `Messaging.mono()` | Monospace formatted text |
+
+### Webhooks (`lib/webhooks.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Webhooks.add()` | Register a webhook |
+| `Webhooks.send()` | Send a webhook |
+| `Webhooks.notify()` | Send notification via webhook |
+| `Webhooks.on()` | Register webhook event handler |
+
+### Watchable (`lib/watchable.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Watchable.watch(key, cb)` | Watch a key for changes |
+| `Watchable.check()` | Check watched values |
+
+### FrontendFocus (`lib/frontend_focus.lua`)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `FrontendFocus.refocus()` | Refocus the frontend window |
+
+### Frontend
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Frontend.name()` | Name of connected frontend |
+| `Frontend.supports_xml()` | Whether frontend supports XML |
+
+---
 
 ## Utilities (Revenant-only, no Lich5 equivalent)
 
@@ -398,7 +721,7 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `Gui.button(label)` | Button (`:set_text()`, `:on_click()`) |
 | `Gui.checkbox(label, checked)` | Checkbox (`:set_checked()`, `:get_checked()`, `:on_change()`) |
 | `Gui.input(opts)` | Text input with `placeholder`, `text` (`:set_text()`, `:get_text()`, `:on_change()`, `:on_submit()`) |
-| `Gui.progress(value)` | Progress bar 0.0–1.0 (`:set_value()`) |
+| `Gui.progress(value)` | Progress bar 0.0-1.0 (`:set_value()`) |
 | `Gui.separator()` | Visual divider |
 | `Gui.section_header(text)` | Styled section header |
 | `Gui.metric(label, value, opts)` | Metric display with optional `unit`, `trend` (f32), `icon` (char) |
@@ -411,50 +734,45 @@ Legend: **Implemented**, ~~Not Implemented~~
 | `Gui.vbox()` / `Gui.hbox()` | Vertical/horizontal layout (`:add(child)`) |
 | `Gui.scroll(child)` | Scrollable wrapper |
 | `Gui.card(opts)` | Card container with optional `title` (`:add(child)`) |
-| `Gui.split_view(opts)` | Resizable split pane — `direction` ("horizontal"/"vertical"), `fraction`, `min`, `max` (`:set_first(w)`, `:set_second(w)`) |
+| `Gui.split_view(opts)` | Resizable split pane -- `direction` ("horizontal"/"vertical"), `fraction`, `min`, `max` (`:set_first(w)`, `:set_second(w)`) |
 
 ### Advanced Widgets
 
 | Revenant Lua | Description |
 |-------------|-------------|
-| `Gui.badge(text, opts)` | Badge/tag — `color` ("success"/"error"/"warning"/"info"/"accent"), `outlined` (`:on_click()`) |
+| `Gui.badge(text, opts)` | Badge/tag -- `color` ("success"/"error"/"warning"/"info"/"accent"), `outlined` (`:on_click()`) |
 | `Gui.toggle(label, checked)` | Toggle switch (`:set_checked()`, `:get_checked()`, `:on_change()`) |
 | `Gui.tab_bar(tabs)` | Tab bar from array of names (`:set_tab_content(index, widget)`, `:on_change()`) |
-| `Gui.side_tab_bar(tabs, opts)` | Side-oriented tab bar — optional `tab_width` (`:set_tab_content(index, widget)`, `:on_change()`) |
-| `Gui.editable_combo(opts)` | Editable dropdown — `text`, `hint`, `options` array (`:get_text()`, `:set_text()`, `:set_options()`, `:on_change()`) |
-| `Gui.password_meter()` | Password strength meter (`:set_password(str)`) — built-in strength rules |
-| `Gui.tree_view(opts)` | Tree view — `columns` (array of `{label, width, sortable}`), `rows` (recursive `{cells, children, expanded}`) (`:set_rows()`, `:get_selected()`, `:on_click()`, `:on_double_click()`) |
+| `Gui.side_tab_bar(tabs, opts)` | Side-oriented tab bar -- optional `tab_width` (`:set_tab_content(index, widget)`, `:on_change()`) |
+| `Gui.editable_combo(opts)` | Editable dropdown -- `text`, `hint`, `options` array (`:get_text()`, `:set_text()`, `:set_options()`, `:on_change()`) |
+| `Gui.password_meter()` | Password strength meter (`:set_password(str)`) -- built-in strength rules |
+| `Gui.tree_view(opts)` | Tree view -- `columns` (array of `{label, width, sortable}`), `rows` (recursive `{cells, children, expanded}`) (`:set_rows()`, `:get_selected()`, `:on_click()`, `:on_double_click()`) |
 
 ### Map Widget
 
 | Revenant Lua | Description |
 |-------------|-------------|
-| `Gui.map_view(opts)` | Map display — `width`, `height` (`:load_image(path)`, `:set_marker(room_id, opts)`, `:clear_markers()`, `:set_scale(f)`, `:set_scroll_offset(x,y)`, `:center_on(room_id)`, `:on_click()`) |
+| `Gui.map_view(opts)` | Map display -- `width`, `height` (`:load_image(path)`, `:set_marker(room_id, opts)`, `:clear_markers()`, `:set_scale(f)`, `:set_scroll_offset(x,y)`, `:center_on(room_id)`, `:on_click()`) |
 
 ### Theming & Events
 
 | Revenant Lua | Description |
 |-------------|-------------|
-| `Gui.palette()` | Returns current theme colors: `base`, `panel`, `surface`, `elevated`, `accent`, `accent_hover`, `success`, `error`, `warning`, `info`, `text_primary`, `text_secondary`, `text_muted`, `border`, `border_subtle` — each `{r, g, b, a}` |
-| `Gui.wait(target, event)` | Async event wait — events: `"close"`, `"click"`, `"change"`, `"submit"` |
+| `Gui.palette()` | Returns current theme colors: `base`, `panel`, `surface`, `elevated`, `accent`, `accent_hover`, `success`, `error`, `warning`, `info`, `text_primary`, `text_secondary`, `text_muted`, `border`, `border_subtle` -- each `{r, g, b, a}` |
+| `Gui.wait(target, event)` | Async event wait -- events: `"close"`, `"click"`, `"change"`, `"submit"` |
 
 ## Remaining: Not Yet Implemented
 
 Features from Lich5 that have **no Revenant equivalent**:
 
 ### Out of Scope (deferred)
-- **Enhancive module** — equipment enhancive tracking. Low usage in community scripts.
-- **Spellsong module** — bard spellsong tracking. Bard-specific, low priority.
-- **Map.get_location** — location-based room lookup. Requires location data infrastructure.
-- **ExecScript / WizardScript / goto/labels** — not applicable to Lua runtime.
-- **fetchloot / take helpers** — trivial to write in Lua; not engine-level features.
-- **GameObj.new_npc / GameObj.clear_*** — internal engine operations, not script-facing.
+- **Map.get_location** -- location-based room lookup. Requires location data infrastructure.
+- **ExecScript / WizardScript / goto/labels** -- not applicable to Lua runtime.
+- **GameObj.new_npc / GameObj.clear_*** -- internal engine operations, not script-facing.
 
 ### Low Priority (deprecated or rarely used)
-- `Lich.log` — log file writing
-- `walk` / `run` — random movement
-- `survivepoison?` / `survivedie?` — deprecated checks
-- `debug` — conditional echo
-- `setpriority` — thread priority
-- `timetest` — benchmarking
-- `dec2bin` / `bin2dec` — binary conversion
+- `Lich.log` -- log file writing
+- `walk` / `run` -- random movement
+- `debug` -- conditional echo
+- `setpriority` -- thread priority
+- `timetest` -- benchmarking
