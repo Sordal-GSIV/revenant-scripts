@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T20:27:02Z",
+  "generated": "2026-03-17T20:39:19Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -349,6 +349,20 @@
             "lib/args",
             "lib/spell_casting"
           ]
+        }
+      }
+    },
+    {
+      "name": "go",
+      "author": "unknown",
+      "description": "Alias for go2 (forwards all arguments)",
+      "tags": [],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "cc1ff8877cd2890f1e029284cea4f39ef87eed639a9b9ac0ffebbcd6204a402b",
+          "path": "go.lua",
+          "depends": []
         }
       }
     },
