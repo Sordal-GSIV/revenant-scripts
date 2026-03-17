@@ -225,9 +225,9 @@ function M.get_money_from_bank(amount_as_string, settings, hometown)
       "You don't have that much money",
       "have an account")
 
-    if result:find("clerk counts") or result:find("You count out") then
+    if Regex.test("clerk counts|You count out", result) then
       return true
-    elseif result:find("glares") or result:find("Slow down") then
+    elseif Regex.test("glares|Slow down", result) then
       pause(15)
     else
       return false
@@ -271,7 +271,7 @@ function M.deposit_coins(keep_copper, settings, hometown)
   -- Parse balance from response
   local bal_text = balance_result:match("current balance is (.*) %a+s?%.\"$")
                 or balance_result:match("As expected, there are (.*) %a+s?%.$")
-  local currency = balance_result:match("(Kronars?|Lirums?|Dokoras?)") or "Unknown"
+  local currency = Regex.match("Kronars?|Lirums?|Dokoras?", balance_result) or "Unknown"
   local balance = 0
 
   if bal_text then

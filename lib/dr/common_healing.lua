@@ -133,7 +133,7 @@ function M.Wound(opts)
       if self.is_lodged_item then return true end
       if self.body_part and self.body_part:find("skin") then return false end
       if not self:bleeding() then return false end
-      if self.bleeding_rate and (self.bleeding_rate:find("tended") or self.bleeding_rate:find("clotted")) then
+      if self.bleeding_rate and Regex.test("tended|clotted", self.bleeding_rate) then
         return false
       end
       return M.skilled_to_tend_wound(self.bleeding_rate, self.is_internal)
@@ -198,7 +198,7 @@ function M.check_health()
   while os.time() < timeout_at do
     local line = get()
     if line then
-      if line:find("Your body feels") or line:find("You have") or line:find("Bleeding") then
+      if Regex.test("Your body feels|You have|Bleeding", line) then
         collecting = true
       end
       if collecting then
@@ -227,11 +227,11 @@ function M.parse_health_lines(health_lines)
 
   for _, line in ipairs(health_lines) do
     -- Disease
-    if line:find("dormant infection") or line:find("wounds are infected") or line:find("open oozing sores") then
+    if Regex.test("dormant infection|wounds are infected|open oozing sores", line) then
       diseased = true
     end
     -- Poison
-    if line:find("poison") or line:find("trouble breathing") then
+    if Regex.test("poison|trouble breathing", line) then
       poisoned = true
     end
     -- Parasites

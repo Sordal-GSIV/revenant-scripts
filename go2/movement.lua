@@ -5,7 +5,7 @@ if not ok_sp then stringproc = nil end
 
 local function is_swim_or_climb(cmd)
     local c = cmd:lower()
-    return c:find("swim") or c:find("dive") or c:find("climb") or c:find("pedal")
+    return Regex.test("swim|dive|climb|pedal", c)
 end
 
 function M.step(command, state)
