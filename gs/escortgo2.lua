@@ -1,10 +1,32 @@
 --- @revenant-script
 --- name: escortgo2
 --- version: 1.0.0
---- author: elanthia-online (ported to Revenant)
+--- author: elanthia-online
 --- description: Escort bounty traveller automation with pathfinding and combat support
 --- tags: bounty,escort
 --- depends: lib/args,lib/spell_casting
+---
+--- Changelog (from Lich5):
+---   v1.0.4 (2025-05-06)
+---     - update silver_check to use Lich::Util.silver_count
+---   v1.0.3 (2025-04-03)
+---     - correct Icemule dropoff from 2486 to 2412
+---     - add additional debug info for not able to find next path location
+---   v1.0.2 (2025-03-06)
+---     - remove Zul ferry logic, no longer needed
+---     - remove Zul rope ladder logic, no longer needed
+---   v1.0.1 (2025-02-02)
+---     - remove EN ferry logic, no longer needed
+---     - update to use eherbs instead of useherbs
+---   v1.0.0 (2025-01-05)
+---     - initial fork of ego2
+---     - remove Zul rope bridge pathing as no longer needed
+---     - rubocop cleanup
+---   Prior ego2 changelog:
+---     v0.6 (2020-10-10) - fix commas in silver check
+---     v0.5 (2015-04-07) - ignore disabled people's disabled bandits, pay attention to disks
+---     v0.4 (2014-11-04) - fixed poaching issue where escort id wasn't being checked
+---     v0.3 (2014-09-29) - reworked ambush detection to prevent false positives
 
 local args_lib = require("lib/args")
 require("lib/spell_casting")

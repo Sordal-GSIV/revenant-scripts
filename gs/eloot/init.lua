@@ -1,9 +1,98 @@
 --- @revenant-script
 --- name: eloot
 --- version: 1.0.0
---- author: Sordal
+--- author: elanthia-online
+--- original_author: SpiffyJr (sloot)
+--- contributors: SpiffyJr, Athias, Demandred, Tysong, Deysh, Ondreian, Lieo, Lobe, Etheirys
 --- depends: go2 >= 1.0
 --- description: Full loot/sell/hoard pipeline
+--- game: gs
+---
+--- Changelog (from Lich5):
+---   v2.7.0 (2026-01-19)
+---     - added ground looting of boxes
+---     - added support for group disks when looting boxes
+---     - added selling of ingots if too heavy to store
+---     - updated find_trash to fully use trash verb
+---     - general inventory code cleanup
+---     - bugfix for depositing extra silver in pool method
+---     - bugfix in go2_locker to stop withdrawing silver when using house locker
+---   v2.6.7 (2026-01-18)
+---     - bugfix in silver breakdown
+---   v2.6.6 (2026-01-17)
+---     - bugfix for bank withdraw
+---     - disable f2p locksmith pool
+---   v2.6.5 (2026-01-16)
+---     - update for new loot commands in locksmith pool
+---   v2.6.4 (2026-01-12)
+---     - increase upper limit of appraisal amount from 1,000,000 to 10,000,000
+---   v2.6.3 (2025-12-02)
+---     - bugfix trying to skin/loot failed bounty children npcs
+---     - update debug messaging
+---     - bugfix in blood band/bracer settings
+---   v2.6.2 (2025-11-21)
+---     - force looting of bounty heirloom items if found
+---   v2.6.1 (2025-11-11)
+---     - bugfix in open_loot_containers
+---     - bugfix in get_weapon_inv
+---   v2.6.0 (2025-10-26)
+---     - add bloodband support
+---     - bugfix for save_trash_box method
+---     - bugfix box tipping default missing on first run
+---     - bugfix for open_single_container when using a string
+---     - moved tooltips out of UI xml
+---   v2.5.7 (2025-10-19)
+---     - bugfix for debt when entering locker
+---   v2.5.6 (2025-10-08)
+---     - bugfix for store/ready ranged_weapon to ranged
+---   v2.5.5 (2025-10-05)
+---     - bugfix for non-standard ready/stow list items
+---   v2.5.4 (2025-10-04)
+---     - bugfix for nil items
+---     - bugfix in logic for return_hands
+---   v2.5.3 (2025-10-03)
+---     - bugfix for return_hands
+---     - toggle righthand and lefthand off at initialization
+---     - minimum lich version to 5.12.9
+---   v2.5.2 (2025-10-02)
+---     - bugfix for incorrect method call typo
+---   v2.5.1 (2025-09-30)
+---     - bugfix for store/ready secondary_weapon to 2weapon
+---   v2.5.0 (2025-09-19)
+---     - switch to using Lich methods ReadyList and StowList
+---     - removed change log in script before 2.4.0
+---     - fix for SG trash can
+---   v2.4.11 (2025-09-12)
+---     - add option to always use the locksmith when a gem bounty is active
+---   v2.4.10 (2025-09-06)
+---     - rework box contents check to store box instead of pausing
+---     - bugfix for looting coins on the ground
+---   v2.4.9 (2025-09-05)
+---     - bugfix in regex for use_coin_hand method
+---   v2.4.8 (2025-08-30)
+---     - bugfix for setting ELoot.data.coin_bag_full to false when empty
+---   v2.4.7 (2025-08-15)
+---     - if debug to file enabled, allow for when started with a parameter
+---   v2.4.6 (2025-08-12)
+---     - fix encumbered after box opening by depositing silvers in process_boxes
+---   v2.4.5 (2025-07-22)
+---     - bugfix for default locksmith_withdrawl_amount
+---   v2.4.4 (2025-07-16)
+---     - allow customizable locksmith tip amount withdrawal
+---     - typo correction in bulk sell gem method
+---     - force clean overflow containers from sell_container list
+---     - utilize File.join for save/load
+---     - bugfix in pool_return to allow up to 2 seconds for GameObj
+---     - remove Unicode characters in formula explanation
+---   v2.4.3 (2025-07-15)
+---     - bugfix for town locksmith regex to open box after return being too generic
+---   v2.4.2 (2025-07-09)
+---     - bugfix for silver withdrawals failing on f2p accounts
+---   v2.4.1 (2025-06-05)
+---     - bugfix for unable to lighten load during pool return
+---     - bugfix for box loot to deposit coins if too many
+---     - change class checks to is_a? checks
+---   Full prior changelog: https://gswiki.play.net/Lich:Script_Eloot
 
 local args_lib = require("lib/args")
 local settings = require("settings")

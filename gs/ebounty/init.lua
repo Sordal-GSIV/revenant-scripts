@@ -1,8 +1,141 @@
 --- @revenant-script
 --- name: ebounty
 --- version: 2.0.0
---- author: elanthia-online (ported to Revenant)
+--- author: elanthia-online
+--- contributors: Deysh, Nisugi, Tysong, Rinualdo
 --- description: Adventurer's Guild bounty automation — culling, gems, herbs, skins, heirlooms, escorts, rescues, bandits
+--- game: gs
+---
+--- Changelog (from Lich5):
+---   v1.9.7 (2025-03-01)
+---     - bugfix expedite vouchers when already ready to get new task
+---   v1.9.6 (2025-02-17)
+---     - bugfix to not try searching SG for taskmaster when already in room
+---   v1.9.5 (2025-02-06)
+---     - bugfix in forage_bounty when using optional location in CLI argument
+---   v1.9.4 (2025-02-04)
+---     - optimize location_list finding in forage_find room logic
+---   v1.9.3 (2025-02-04)
+---     - bugfix in forage_find room
+---   v1.9.2 (2025-01-27)
+---     - add CLI support for ;ebounty forage bounty
+---     - add CLI support for ;ebounty forage "herb" <qty> "location"
+---     - bugfix in heirloom_search and forage_bounty to use Claim.mine?
+---     - anchor ending gem names in search functions
+---     - fix resting spot for SG shattered
+---     - fix forage tag in starting room crash
+---     - fix between script(s) added erroneous commas
+---   v1.9.1 (2025-01-18)
+---     - bugfix for running gem tracking script
+---   v1.9.0 (2025-01-08)
+---     - added support for ranger track
+---   v1.8.1 (2025-12-24)
+---     - added option to regroup before quiting if started in group
+---   v1.8.0 (2025-11-18)
+---     - added option to get a new bounty before quitting
+---   v1.7.5 (2025-11-11)
+---     - bugfix in minimum Lich required checks
+---   v1.7.4 (2025-11-11)
+---     - bugfix for go2_rest - settings[:resting_room] converted to array
+---   v1.7.3 (2025-10-01)
+---     - updates for Sailor's Grief
+---     - added support for uids
+---     - bugfix for saving settings
+---     - general code cleanup
+---   v1.7.2 (2025-09-08)
+---     - change requirement to 5.12.5 due to heirloom text change
+---   v1.7.1 (2025-09-07)
+---     - bugfix for change in Heirloom return messaging
+---   v1.7.0 (2025-09-05)
+---     - add option to select boost bounty type
+---   v1.6.5 (2025-08-15)
+---     - bugfix for stowing herbs
+---   v1.6.4 (2025-08-05)
+---     - remove version check for bigshot
+---   v1.6.3 (2025-08-03)
+---     - bugfix mana check when changing aspect while 650 is active
+---     - bugfix for hiding is 608 doesn't work
+---   v1.6.2 (2025-04-21)
+---     - bugfix for NPCs not populating quickly upon room entry
+---   v1.6.1 (2025-04-21)
+---     - bugfix for HW bounty turnin
+---   v1.6.0 (2025-03-29)
+---     - remove custom bounty and use Lich Bounty API
+---     - remove custom issue_command to Lich::Util.issue_command
+---     - remove depreciated code
+---     - update references of ego2 to escortgo2
+---   v1.5.6 (2025-03-27)
+---     - bugfix for set_eval not adding additional skins
+---   v1.5.5 (2025-03-19)
+---     - remove deprecated Lich calls
+---   v1.5.4 (2025-03-10)
+---     - another bugfix for bundled skins
+---   v1.5.3 (2025-03-08)
+---     - bugfix when counting bundled skins
+---   v1.5.2 (2025-02-09)
+---     - bugfix when only foraging and needing healed
+---   v1.5.1 (2025-01-07)
+---     - bugfix for forage turn-in
+---   v1.5.0 (2024-12-24)
+---     - added buffing option when resting
+---     - added using a script to handling resting location
+---     - added option to rest at nearest table
+---     - added remove bounty if heirloom item gets lost
+---     - bugfix for bounty eval not setting EBounty.data.complete_mind
+---     - bugfix for ask_guard in HW
+---   v1.4.5 (2024-11-26)
+---     - added option to use bigshot setting for resting location
+---     - bugfix for profile dropdown sorting
+---     - bugfix stop script from looping if started without child in room
+---   v1.4.4 (2024-11-22)
+---     - bugfix in should_hunt
+---   v1.4.3 (2024-11-18)
+---     - missing criteria in should_hunt?
+---     - bugfix in wait_for_bounty
+---     - removed EBounty.data.wait
+---   v1.4.2 (2024-11-16)
+---     - bugfix for when to rest
+---   v1.4.1 (2024-11-07)
+---     - will continue hunting after bounty complete until Bigshot Should Rest? is met
+---     - bugfix in setup
+---     - bugfix for should_hunt? spamming experience check
+---     - bugfix for should_hunt? exp_pause incorrectly included
+---   v1.4.0 (2024-08-23)
+---     - expanded resting options
+---     - added optional death recovery support
+---     - added spinbutton for room delay for bandit bounties
+---     - bugfix in gem bounty running hording script with parameters
+---     - bugfix in bandit hunting variables
+---     - removed script change log before v1.3.0
+---   v1.3.11 (2024-09-24)
+---     - fix to allow for CLI foraging without setting Gem/Default profile
+---   v1.3.10 (2024-08-19)
+---     - bugfix for ask_guard response
+---   v1.3.9 (2024-08-14)
+---     - logic fix when once_and_done is set and rejected bounty not exiting
+---   v1.3.8 (2024-07-12)
+---     - add timer to not spam INFO during should_hunt?
+---   v1.3.7 (2024-07-08)
+---     - add quiet info command to should_hunt? to refresh stats
+---   v1.3.6 (2024-06-23)
+---     - update ebounty fog routine to match bigshot
+---   v1.3.5 (2024-05-15)
+---     - add exit if gembounty complete but using eloot sell excludes gems
+---   v1.3.4 (2024-05-01)
+---     - Change Char.prof to Stats.prof
+---   v1.3.3 (2024-04-13)
+---     - bug in escort task acceptance
+---   v1.3.2 (2024-04-09)
+---     - bug in forage for 1011 song of peace usage
+---   v1.3.1 (2024-04-01)
+---     - updated keep_hunting not to run in bigshot bounty mode
+---     - consolidated herbalist names and switched to ID for turnin
+---     - removed change log before v1.1.14
+---   v1.3.0 (2024-03-17)
+---     - added exclusion options for individual gems and locations
+---     - added help section
+---     - bugfix for UI title
+---   Full prior changelog: https://gswiki.play.net/Lich:Script_Ebounty
 
 require("lib/bounty")
 
