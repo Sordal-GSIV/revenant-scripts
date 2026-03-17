@@ -68,8 +68,12 @@ end
 local function hook_fn(line)
     if check_patterns(line, HIDE_PATTERNS) then
         room_with_hiders_id = GameState.room_id
+    elseif check_patterns(line, REVEAL_PATTERNS) then
+        -- Creature revealed; don't clear room_with_hiders (may be more)
+    elseif check_patterns(line, SILENT_STRIKE_PATTERNS) then
+        -- Attack from hiding; creature may re-hide immediately
+        room_with_hiders_id = GameState.room_id
     end
-    -- On reveal/silent_strike: don't clear (may be more hiders)
     return line
 end
 
