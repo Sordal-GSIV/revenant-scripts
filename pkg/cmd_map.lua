@@ -181,6 +181,7 @@ function M.run_update(game)
     local data_dir = "data/" .. game
     if not File.exists(data_dir) then File.mkdir(data_dir) end
     migrate_flat_images(game)
+    ensure_image_dirs(game, nil)  -- ensure maps/ exists even without jinx registry
 
     local manifests = registry.fetch_all_manifests(cfg, false, { map_only = true })
     if #manifests == 0 then
