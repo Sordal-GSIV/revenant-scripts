@@ -1,6 +1,6 @@
 local M = {}
 
-local CONFIG_DIR = "_pkg"
+local CONFIG_DIR = "data/pkg"
 local CONFIG_FILE = CONFIG_DIR .. "/config.lua"
 local INSTALLED_FILE = CONFIG_DIR .. "/installed.lua"
 local CACHE_DIR = CONFIG_DIR .. "/cache"
