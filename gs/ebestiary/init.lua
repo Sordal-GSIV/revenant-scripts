@@ -10,7 +10,7 @@ local args_lib = require("lib/args")
 local TableRender = require("lib/table_render")
 
 local BASE_URL = "https://gswiki.play.net"
-local DATA_FILE = "data/gs/creatures.json"
+local DATA_FILE = "gs/ebestiary/creatures.json"
 
 local NAME_OVERRIDES = {
     ["Nasty little gremlin"]       = "nasty little red gremlin",
