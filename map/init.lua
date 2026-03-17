@@ -12,7 +12,12 @@ local notes = require("notes")
 
 -- State
 local state = settings.load()
-local game = GameState.game or "GS3"
+local game = GameState.game or "gs"
+-- Sync theme from pkg setting if map hasn't set one
+local pkg_theme = Settings.map_theme
+if pkg_theme and pkg_theme ~= "" and not state.theme then
+    state.theme = pkg_theme
+end
 notes.init(game)
 local all_notes = notes.load()
 local current_room_id = nil
@@ -60,7 +65,7 @@ widgets.scale_btn:on_click(function()
     settings.set_scale(state, current_image, next_scale)
     widgets.scale_btn:set_text("Scale: " .. math.floor(next_scale * 100) .. "%")
     if current_image then
-        local image_path = map_data.resolve_image_path(current_image, game, state.dark_mode)
+        local image_path = map_data.resolve_image_path(current_image, game, state.theme)
         map_window.update_map(widgets, image_path, next_scale)
         -- Re-apply markers
         local room = current_room_id and Map.find_room(current_room_id)
@@ -73,12 +78,32 @@ widgets.scale_btn:on_click(function()
     end
 end)
 
--- Dark mode toggle
+-- Theme cycle button: default → dark → light → ... → default
+-- Also respects Settings.map_theme set via `;pkg map-theme`
+local available_themes = map_data.available_themes(game)
 widgets.dark_btn:on_click(function()
-    state.dark_mode = not state.dark_mode
-    widgets.dark_btn:set_text(state.dark_mode and "Light" or "Dark")
+    if #available_themes == 0 then
+        respond("Map: no alternate themes found (install via ;pkg map-theme)")
+        return
+    end
+    -- Find current theme index
+    local current_idx = 0
+    for i, t in ipairs(available_themes) do
+        if t == state.theme then current_idx = i; break end
+    end
+    -- Cycle to next theme (0 = default, 1..N = themes)
+    local next_idx = current_idx + 1
+    if next_idx > #available_themes then
+        state.theme = nil  -- back to default
+    else
+        state.theme = available_themes[next_idx]
+    end
+    -- Also update the global setting so pkg knows
+    Settings.map_theme = state.theme or ""
+    local label = state.theme and ("Theme: " .. state.theme) or "Theme: default"
+    widgets.dark_btn:set_text(label)
     if current_image then
-        local image_path = map_data.resolve_image_path(current_image, game, state.dark_mode)
+        local image_path = map_data.resolve_image_path(current_image, game, state.theme)
         local scale = settings.get_scale(state, current_image)
         map_window.update_map(widgets, image_path, scale)
         local room = current_room_id and Map.find_room(current_room_id)
@@ -207,7 +232,7 @@ widgets.maps_btn:on_click(function()
         if row_idx and map_list[row_idx] then
             local img = map_list[row_idx]
             current_image = img
-            local image_path = map_data.resolve_image_path(img, game, state.dark_mode)
+            local image_path = map_data.resolve_image_path(img, game, state.theme)
             local scale = settings.get_scale(state, img)
             map_window.update_map(widgets, image_path, scale)
             widgets.scale_btn:set_text("Scale: " .. math.floor(scale * 100) .. "%")
@@ -298,7 +323,7 @@ widgets.find_btn:on_click(function()
             if image then
                 current_image = image
                 current_room_id = room.id
-                local image_path = map_data.resolve_image_path(image, game, state.dark_mode)
+                local image_path = map_data.resolve_image_path(image, game, state.theme)
                 local scale = settings.get_scale(state, image)
                 map_window.update_map(widgets, image_path, scale)
                 map_window.update_room_marker(widgets, room)
@@ -335,7 +360,7 @@ DownstreamHook.add("map_room_tracker", function(line)
         if room and state.follow_mode then
             local image = map_data.image_for_room(room)
             if image then
-                local image_path = map_data.resolve_image_path(image, game, state.dark_mode)
+                local image_path = map_data.resolve_image_path(image, game, state.theme)
                 if image ~= current_image then
                     current_image = image
                     local scale = settings.get_scale(state, image)
@@ -375,7 +400,7 @@ if target_arg then
         if image then
             current_image = image
             current_room_id = room.id
-            local image_path = map_data.resolve_image_path(image, game, state.dark_mode)
+            local image_path = map_data.resolve_image_path(image, game, state.theme)
             local scale = settings.get_scale(state, image)
             map_window.update_map(widgets, image_path, scale)
             map_window.update_room_marker(widgets, room)
@@ -398,7 +423,7 @@ else
             local image = map_data.image_for_room(room)
             if image then
                 current_image = image
-                local image_path = map_data.resolve_image_path(image, game, state.dark_mode)
+                local image_path = map_data.resolve_image_path(image, game, state.theme)
                 local scale = settings.get_scale(state, image)
                 map_window.update_map(widgets, image_path, scale)
                 map_window.update_room_marker(widgets, room)

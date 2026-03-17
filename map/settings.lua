@@ -4,7 +4,7 @@ local GLOBAL_DEFAULTS = {
     follow_mode = true,
     keep_centered = true,
     keep_above = true,
-    dark_mode = false,
+    theme = nil,  -- nil = default maps/, "dark" = maps-dark/, etc.
     global_scale = 1.0,
     global_scale_enabled = false,
     map_scales = {},
