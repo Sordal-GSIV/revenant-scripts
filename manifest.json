@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T21:42:32Z",
+  "generated": "2026-03-17T22:09:36Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -122,6 +122,24 @@
               "sha256": "31cbfefeacaeebef023c3f3a6deda0cd72cdae7fb4a97c0d6b39b05e8375ae91"
             }
           ]
+        }
+      }
+    },
+    {
+      "name": "discordhook",
+      "author": "elanthia-online",
+      "description": "Discord webhook integration \u2014 send messages from any game to Discord",
+      "tags": [
+        "discord",
+        "webhooks",
+        "utility"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "47d7f40cbef973532e03f15251ffb4e64b3979a323cd0016d237c84e7adb3b31",
+          "path": "discordhook.lua",
+          "depends": []
         }
       }
     },
@@ -490,6 +508,25 @@
           "version": "1.0.0",
           "sha256": "6fc6e5895a181bc3cc5fb8577b0a28ad127a58002b748b8bf70760bf0d26ae3e",
           "path": "move2.lua",
+          "depends": []
+        }
+      }
+    },
+    {
+      "name": "showexits",
+      "author": "elanthia-online",
+      "description": "Show current map DB exits for a room with clickable links",
+      "tags": [
+        "mapdb",
+        "exits",
+        "paths",
+        "utility"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.0.1",
+          "sha256": "8d01f5a285e0967d9496b071988540ce0c12bfc3063e77d43498b53cca6022ab",
+          "path": "showexits.lua",
           "depends": []
         }
       }
