@@ -41,14 +41,20 @@ function M.open_editor(room_id, notes, on_save)
     local note_win = Gui.window("Note — Room " .. room_id, { width = 350, height = 250 })
     local vbox = Gui.vbox()
     local room_label = Gui.label("Room " .. room_id)
+    vbox:add(room_label)
     local note_input = Gui.input({
         placeholder = "Enter note...",
         text = notes[tostring(room_id)] or "",
     })
+    vbox:add(note_input)
     local btn_box = Gui.hbox()
     local save_btn = Gui.button("Save")
+    btn_box:add(save_btn)
     local delete_btn = Gui.button("Delete")
+    btn_box:add(delete_btn)
     local cancel_btn = Gui.button("Cancel")
+    btn_box:add(cancel_btn)
+    vbox:add(btn_box)
     note_win:set_root(vbox)
 
     save_btn:on_click(function()

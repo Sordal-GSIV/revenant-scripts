@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T11:37:41Z",
+  "generated": "2026-03-17T18:09:37Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -366,13 +366,13 @@
         },
         "stable": {
           "version": "1.0.0",
-          "sha256": "03af06d702a80451210f0f891d5742f5f658b3f7d3d1ffb8d91e7ca9f8b9ace2",
+          "sha256": "008ae98459e9324b87961bbc2f5da4c28f84aaef1aa90639fdbc1bfded6aeb65",
           "path": "go2/",
           "depends": [],
           "files": [
             {
               "name": "gui_settings.lua",
-              "sha256": "6c8ed23fa8d64ea3248d9b13e41c727fad77fc21dd718630df37d423bb1b5f1b"
+              "sha256": "cf53cb66b402854003d63a7c5569f6a022c41d00e3149fa9a81a534d570cd364"
             },
             {
               "name": "init.lua",
@@ -410,7 +410,7 @@
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "261b9efe643adabbf3c43c893d2d27ab602b9fb9c087be286a449e5b458c0fd9",
+          "sha256": "35ef45d650a70221cfcfa075df8f806736eb5f4e9d74d7bb433d47280426a3ba",
           "path": "map/",
           "depends": [
             "go2 >= 1.0"
@@ -418,7 +418,7 @@
           "files": [
             {
               "name": "init.lua",
-              "sha256": "99c9601e1ba3a01a69dd4367bd69f6666c05e0cd7d1fd4a874a60d30154766dd"
+              "sha256": "f4539cc63a5a640b4a3a7794fc2522cf06fb1b3a685ef50084dd5e7665559eff"
             },
             {
               "name": "manifest.lua",
@@ -434,11 +434,11 @@
             },
             {
               "name": "map_window.lua",
-              "sha256": "092d437666bf292a34c3fcf6c5e4d9a802023f1ec1b6707a3d208ebeb50d6e0a"
+              "sha256": "91c1d6dd839bae19f04250f344252132df0b4392f624a7f9be3a6d97daf74c13"
             },
             {
               "name": "notes.lua",
-              "sha256": "313eab824d1d42df5ce7b647c547eb64eeb1af40b7ffc68cea257a0c061088bc"
+              "sha256": "5cc4f562af72d9cee698c9cd629edbd0bda5b9eea199b1e37c3da9cb771c4d19"
             },
             {
               "name": "settings.lua",
@@ -476,13 +476,13 @@
         },
         "stable": {
           "version": "1.0.0",
-          "sha256": "2d73bddc8afb0e67b96340afb13e186fa7c280e5d26683cf1aea0f181d52d110",
+          "sha256": "e5ba4c2aea077bae7bf51e8b59a6f01b16d5df632bd6e63ac81faf464c4078ba",
           "path": "vars/",
           "depends": [],
           "files": [
             {
               "name": "gui_settings.lua",
-              "sha256": "77f73fb2ef492f4868ad42167822dbe320c766a21d86f847d01b77f54caef921"
+              "sha256": "6de438c50064907806795b4f78d9317284cd6e94547ab2dd9d5bd12228fb45b4"
             },
             {
               "name": "init.lua",

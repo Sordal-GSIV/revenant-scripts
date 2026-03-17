@@ -22,16 +22,24 @@ function M.build(state, map_index)
     local notes_btn = Gui.button("Notes")
     local dark_btn = Gui.button(state.dark_mode and "Light" or "Dark")
 
-    -- Add toolbar children (order matters for layout)
-    -- Note: container child management depends on Gui API —
-    -- if Gui.hbox() takes children in constructor, pass them;
-    -- otherwise use set_root pattern from the spec.
+    -- Add toolbar children
+    toolbar:add(follow_btn)
+    toolbar:add(tags_btn)
+    toolbar:add(locations_btn)
+    toolbar:add(maps_btn)
+    toolbar:add(scale_btn)
+    toolbar:add(find_btn)
+    toolbar:add(notes_btn)
+    toolbar:add(dark_btn)
+    root:add(toolbar)
 
     -- Map view
     local map_view = Gui.map_view({ width = 600, height = 400 })
+    root:add(map_view)
 
     -- Status label
     local status_label = Gui.label("")
+    root:add(status_label)
 
     -- Assemble widget tree
     win:set_root(root)

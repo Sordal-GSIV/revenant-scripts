@@ -100,82 +100,104 @@ local function filter_and_sort(scripts, search_text, filter_mode, sort_mode)
     return filtered
 end
 
-local function build_table_rows(scripts)
-    local rows = {}
+local function rebuild_table_rows(script_table, scripts)
+    script_table:clear()
     for _, s in ipairs(scripts) do
         local marker = s.installed and "* " or "  "
         local tags_str = table.concat(s.tags or {}, ",")
         if #tags_str > 12 then tags_str = tags_str:sub(1, 11) .. "+" end
-        rows[#rows + 1] = { marker .. s.name, get_version(s), tags_str }
+        script_table:add_row({ marker .. s.name, get_version(s), tags_str })
     end
-    return rows
 end
 
 function M.run(positional, flags)
-    local win = Gui.window("Revenant Package Manager", 900, 600)
-
-    -- Scripts tab
-    local scripts_tab = Gui.vbox(win)
+    local win = Gui.window("Revenant Package Manager", { width = 900, height = 600 })
+    local root = Gui.vbox()
 
     -- Toolbar
-    local toolbar = Gui.hbox(scripts_tab)
-    local search_input = Gui.input(toolbar, { placeholder = "Search by name..." })
-    local filter_btn = Gui.button(toolbar, "Filter: All")
-    local sort_btn = Gui.button(toolbar, "Sort: Name")
+    local toolbar = Gui.hbox()
+    local search_input = Gui.input({ placeholder = "Search by name..." })
+    toolbar:add(search_input)
+    local filter_btn = Gui.button("Filter: All")
+    toolbar:add(filter_btn)
+    local sort_btn = Gui.button("Sort: Name")
+    toolbar:add(sort_btn)
+    root:add(toolbar)
 
     -- Main content: table + detail
-    local content = Gui.hbox(scripts_tab)
+    local content = Gui.hbox()
 
-    local script_table = Gui.table(content, {
-        columns = { "Name", "Version", "Tags" },
-        rows = {},
-    })
+    local script_table = Gui.table({ columns = { "Name", "Version", "Tags" } })
+    content:add(script_table)
 
     -- Detail panel
-    local detail_box = Gui.vbox(content)
-    local detail_name = Gui.label(detail_box, "Select a script")
-    local detail_author = Gui.label(detail_box, "")
-    local detail_tags = Gui.label(detail_box, "")
-    local detail_updated = Gui.label(detail_box, "")
-    local detail_registry = Gui.label(detail_box, "")
-    local detail_desc = Gui.label(detail_box, "")
-    Gui.separator(detail_box)
-    local action_btn = Gui.button(detail_box, "Install")
+    local detail_box = Gui.vbox()
+    local detail_name = Gui.label("Select a script")
+    detail_box:add(detail_name)
+    local detail_author = Gui.label("")
+    detail_box:add(detail_author)
+    local detail_tags = Gui.label("")
+    detail_box:add(detail_tags)
+    local detail_updated = Gui.label("")
+    detail_box:add(detail_updated)
+    local detail_registry = Gui.label("")
+    detail_box:add(detail_registry)
+    local detail_desc = Gui.label("")
+    detail_box:add(detail_desc)
+    detail_box:add(Gui.separator())
+    local action_btn = Gui.button("Install")
+    detail_box:add(action_btn)
+    content:add(detail_box)
+    root:add(content)
 
     -- Status bar
-    local status_bar = Gui.hbox(scripts_tab)
-    local status_label = Gui.label(status_bar, "Loading...")
-    local update_all_btn = Gui.button(status_bar, "Update All")
+    local status_bar = Gui.hbox()
+    local status_label = Gui.label("Loading...")
+    status_bar:add(status_label)
+    local update_all_btn = Gui.button("Update All")
+    status_bar:add(update_all_btn)
+    root:add(status_bar)
 
     -- Map section
-    Gui.separator(scripts_tab)
-    local map_header = Gui.label(scripts_tab, "Map Database")
-    local map_status = Gui.label(scripts_tab, "")
-    local map_images = Gui.label(scripts_tab, "")
-    local map_btn = Gui.button(scripts_tab, "Update Map Database")
-    local map_progress = Gui.progress(scripts_tab, 0)
+    root:add(Gui.separator())
+    local map_header = Gui.label("Map Database")
+    root:add(map_header)
+    local map_status = Gui.label("")
+    root:add(map_status)
+    local map_images = Gui.label("")
+    root:add(map_images)
+    local map_btn = Gui.button("Update Map Database")
+    root:add(map_btn)
+    local map_progress = Gui.progress(0)
+    root:add(map_progress)
 
     -- Settings section
-    Gui.separator(scripts_tab)
-    local settings_header = Gui.label(scripts_tab, "Settings")
-    local registries_label = Gui.label(scripts_tab, "Registries:")
-    local registries_table = Gui.table(scripts_tab, {
-        columns = { "Name", "Format", "Map", "URL" },
-        rows = {},
-    })
-    local settings_bar = Gui.hbox(scripts_tab)
-    local reg_name_input = Gui.input(settings_bar, { placeholder = "Registry name" })
-    local reg_url_input = Gui.input(settings_bar, { placeholder = "Registry URL" })
-    local reg_add_btn = Gui.button(settings_bar, "Add Registry")
-    local channel_label = Gui.label(scripts_tab, "")
-    local channel_btn = Gui.button(scripts_tab, "Change Channel")
+    root:add(Gui.separator())
+    root:add(Gui.label("Settings"))
+    root:add(Gui.label("Registries:"))
+    local registries_table = Gui.table({ columns = { "Name", "Format", "Map", "URL" } })
+    root:add(registries_table)
+    local settings_bar = Gui.hbox()
+    local reg_name_input = Gui.input({ placeholder = "Registry name" })
+    settings_bar:add(reg_name_input)
+    local reg_url_input = Gui.input({ placeholder = "Registry URL" })
+    settings_bar:add(reg_url_input)
+    local reg_add_btn = Gui.button("Add Registry")
+    settings_bar:add(reg_add_btn)
+    root:add(settings_bar)
+    local channel_label = Gui.label("")
+    root:add(channel_label)
+    local channel_btn = Gui.button("Change Channel")
+    root:add(channel_btn)
+
+    win:set_root(Gui.scroll(root))
 
     -- Load data
     local cfg = config.load_config()
     local all_scripts, installed = load_script_data()
     local filtered = filter_and_sort(all_scripts, "", current_filter, current_sort)
-    Gui.update(script_table, { rows = build_table_rows(filtered) })
-    Gui.update(status_label, { text = #all_scripts .. " scripts across registries" })
+    rebuild_table_rows(script_table, filtered)
+    status_label:set_text(#all_scripts .. " scripts across registries")
 
     -- Populate map info
     local game = nil
@@ -184,141 +206,138 @@ function M.run(positional, flags)
     if game then
         local map_regs = registry.get_registries(cfg, { map_only = true })
         if #map_regs > 0 then
-            Gui.update(map_status, { text = "Game: " .. game .. " | Registry: " .. map_regs[1].name })
-            -- Count local images would require fetching manifest, skip for initial load
-            Gui.update(map_images, { text = "Run Update to check for new map data" })
+            map_status:set_text("Game: " .. game .. " | Registry: " .. map_regs[1].name)
+            map_images:set_text("Run Update to check for new map data")
         else
-            Gui.update(map_status, { text = "No map registries configured" })
+            map_status:set_text("No map registries configured")
         end
     else
-        Gui.update(map_status, { text = "Log in to a game to see map status" })
+        map_status:set_text("Log in to a game to see map status")
     end
 
     -- Populate settings
     local function refresh_registries_table()
         local current_cfg = config.load_config()
-        local reg_rows = {}
+        registries_table:clear()
         for _, reg in ipairs(current_cfg.registries) do
-            reg_rows[#reg_rows + 1] = {
+            registries_table:add_row({
                 reg.name,
                 reg.format or "revenant",
                 reg.map_registry and "yes" or "",
                 reg.url,
-            }
+            })
         end
-        Gui.update(registries_table, { rows = reg_rows })
         local ch = current_cfg.channel or "stable"
-        Gui.update(channel_label, { text = "Global channel: " .. ch })
+        channel_label:set_text("Global channel: " .. ch)
     end
     refresh_registries_table()
 
-    win:show()
+    -- Callbacks
+    search_input:on_change(function(text)
+        filtered = filter_and_sort(all_scripts, text, current_filter, current_sort)
+        rebuild_table_rows(script_table, filtered)
+    end)
 
-    -- Event loop
-    while win:alive() do
-        local event = win:wait()
-        if not event then
-            -- Check if worker finished
-            if worker_running and not Script.running("pkg_worker") then
-                worker_running = false
-                Gui.update(status_label, { text = "Operation complete." })
-                Gui.update(action_btn, { label = "Install" })
-                all_scripts, installed = load_script_data()
-                filtered = filter_and_sort(all_scripts, "", current_filter, current_sort)
-                Gui.update(script_table, { rows = build_table_rows(filtered) })
-            end
-        elseif event.type == "clicked" then
-            if event.widget == filter_btn then
-                current_filter = cycle_value(current_filter, filter_modes)
-                Gui.update(filter_btn, { label = "Filter: " .. current_filter })
-                filtered = filter_and_sort(all_scripts,
-                    Gui.get_text(search_input), current_filter, current_sort)
-                Gui.update(script_table, { rows = build_table_rows(filtered) })
-            elseif event.widget == sort_btn then
-                current_sort = cycle_value(current_sort, sort_modes)
-                Gui.update(sort_btn, { label = "Sort: " .. current_sort })
-                filtered = filter_and_sort(all_scripts,
-                    Gui.get_text(search_input), current_filter, current_sort)
-                Gui.update(script_table, { rows = build_table_rows(filtered) })
-            elseif event.widget == action_btn and selected_script and not worker_running then
-                local s = selected_script
-                if not s.installed then
-                    worker_running = true
-                    Gui.update(action_btn, { label = "Working..." })
-                    Gui.update(status_label, { text = "Installing " .. s.name .. "..." })
-                    Script.run("pkg_worker", { "install", s.name })
+    filter_btn:on_click(function()
+        current_filter = cycle_value(current_filter, filter_modes)
+        filter_btn:set_text("Filter: " .. current_filter)
+        filtered = filter_and_sort(all_scripts,
+            search_input:get_text(), current_filter, current_sort)
+        rebuild_table_rows(script_table, filtered)
+    end)
+
+    sort_btn:on_click(function()
+        current_sort = cycle_value(current_sort, sort_modes)
+        sort_btn:set_text("Sort: " .. current_sort)
+        filtered = filter_and_sort(all_scripts,
+            search_input:get_text(), current_filter, current_sort)
+        rebuild_table_rows(script_table, filtered)
+    end)
+
+    script_table:on_click(function(row_idx)
+        if row_idx and filtered[row_idx] then
+            selected_script = filtered[row_idx]
+            local s = selected_script
+            detail_name:set_text(s.name .. " v" .. get_version(s))
+            detail_author:set_text("by: " .. s.author)
+            detail_tags:set_text("tags: " .. table.concat(s.tags, ", "))
+            detail_updated:set_text("updated: " .. time_ago(s.last_updated))
+            detail_registry:set_text("registry: " .. s.registry_name)
+            detail_desc:set_text(s.description)
+
+            if not s.installed then
+                action_btn:set_text("Install")
+            else
+                local remote_ver = get_version(s)
+                if remote_ver ~= "-" and remote_ver ~= s.installed_version then
+                    action_btn:set_text("Update")
                 else
-                    local remote_ver = get_version(s)
-                    if remote_ver ~= "-" and remote_ver ~= s.installed_version then
-                        worker_running = true
-                        Gui.update(action_btn, { label = "Working..." })
-                        Gui.update(status_label, { text = "Updating " .. s.name .. "..." })
-                        Script.run("pkg_worker", { "update", s.name })
-                    end
+                    action_btn:set_text("Installed")
                 end
-            elseif event.widget == update_all_btn and not worker_running then
-                worker_running = true
-                Gui.update(status_label, { text = "Updating all scripts..." })
-                Script.run("pkg_worker", { "update" })
-            elseif event.widget == map_btn and not worker_running then
-                worker_running = true
-                Gui.update(map_btn, { label = "Updating..." })
-                Gui.update(status_label, { text = "Updating map database..." })
-                Script.run("pkg_worker", { "map-update" })
-            elseif event.widget == reg_add_btn then
-                local rname = Gui.get_text(reg_name_input)
-                local rurl = Gui.get_text(reg_url_input)
-                if rname and rname ~= "" and rurl and rurl ~= "" then
-                    local cmd_repo = require("cmd_repo")
-                    cmd_repo.run({ "add", rname, rurl }, flags or {})
-                    refresh_registries_table()
-                end
-            elseif event.widget == channel_btn then
-                local current_cfg = config.load_config()
-                local ch = current_cfg.channel or "stable"
-                local channels = { "stable", "beta", "dev" }
-                for i, v in ipairs(channels) do
-                    if v == ch then
-                        current_cfg.channel = channels[(i % #channels) + 1]
-                        break
-                    end
-                end
-                config.save_config(current_cfg)
-                refresh_registries_table()
-            end
-        elseif event.type == "table_row_selected" then
-            if event.widget == script_table then
-                local idx = event.row
-                if idx and filtered[idx] then
-                    selected_script = filtered[idx]
-                    local s = selected_script
-                    Gui.update(detail_name, { text = s.name .. " v" .. get_version(s) })
-                    Gui.update(detail_author, { text = "by: " .. s.author })
-                    Gui.update(detail_tags, { text = "tags: " .. table.concat(s.tags, ", ") })
-                    Gui.update(detail_updated, { text = "updated: " .. time_ago(s.last_updated) })
-                    Gui.update(detail_registry, { text = "registry: " .. s.registry_name })
-                    Gui.update(detail_desc, { text = s.description })
-
-                    if not s.installed then
-                        Gui.update(action_btn, { label = "Install" })
-                    else
-                        local remote_ver = get_version(s)
-                        if remote_ver ~= "-" and remote_ver ~= s.installed_version then
-                            Gui.update(action_btn, { label = "Update" })
-                        else
-                            Gui.update(action_btn, { label = "Installed" })
-                        end
-                    end
-                end
-            end
-        elseif event.type == "changed" then
-            if event.widget == search_input then
-                filtered = filter_and_sort(all_scripts,
-                    event.text, current_filter, current_sort)
-                Gui.update(script_table, { rows = build_table_rows(filtered) })
             end
         end
-    end
+    end)
+
+    action_btn:on_click(function()
+        if not selected_script or worker_running then return end
+        local s = selected_script
+        if not s.installed then
+            worker_running = true
+            action_btn:set_text("Working...")
+            status_label:set_text("Installing " .. s.name .. "...")
+            Script.run("pkg_worker", { "install", s.name })
+        else
+            local remote_ver = get_version(s)
+            if remote_ver ~= "-" and remote_ver ~= s.installed_version then
+                worker_running = true
+                action_btn:set_text("Working...")
+                status_label:set_text("Updating " .. s.name .. "...")
+                Script.run("pkg_worker", { "update", s.name })
+            end
+        end
+    end)
+
+    update_all_btn:on_click(function()
+        if worker_running then return end
+        worker_running = true
+        status_label:set_text("Updating all scripts...")
+        Script.run("pkg_worker", { "update" })
+    end)
+
+    map_btn:on_click(function()
+        if worker_running then return end
+        worker_running = true
+        map_btn:set_text("Updating...")
+        status_label:set_text("Updating map database...")
+        Script.run("pkg_worker", { "map-update" })
+    end)
+
+    reg_add_btn:on_click(function()
+        local rname = reg_name_input:get_text()
+        local rurl = reg_url_input:get_text()
+        if rname and rname ~= "" and rurl and rurl ~= "" then
+            local cmd_repo = require("cmd_repo")
+            cmd_repo.run({ "add", rname, rurl }, flags or {})
+            refresh_registries_table()
+        end
+    end)
+
+    channel_btn:on_click(function()
+        local current_cfg = config.load_config()
+        local ch = current_cfg.channel or "stable"
+        local channels = { "stable", "beta", "dev" }
+        for i, v in ipairs(channels) do
+            if v == ch then
+                current_cfg.channel = channels[(i % #channels) + 1]
+                break
+            end
+        end
+        config.save_config(current_cfg)
+        refresh_registries_table()
+    end)
+
+    win:show()
+    Gui.wait(win, "close")
 end
 
 return M

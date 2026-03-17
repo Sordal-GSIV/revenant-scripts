@@ -7,19 +7,24 @@ function M.open(state, targets)
     local root = Gui.vbox()
 
     -- Movement settings
-    Gui.label("Movement Settings")
+    root:add(Gui.label("Movement Settings"))
     local delay_box = Gui.hbox()
-    Gui.label("Delay (sec):")
+    delay_box:add(Gui.label("Delay (sec):"))
     local delay_input = Gui.input({ text = tostring(state.delay or 0) })
+    delay_box:add(delay_input)
+    root:add(delay_box)
 
     local hide_desc_chk = Gui.checkbox("Hide room descriptions", state.hide_room_descriptions)
+    root:add(hide_desc_chk)
     local hide_title_chk = Gui.checkbox("Hide room titles", state.hide_room_titles)
+    root:add(hide_title_chk)
     local disable_confirm_chk = Gui.checkbox("Disable confirmation prompts", state.disable_confirm)
+    root:add(disable_confirm_chk)
 
-    Gui.separator()
+    root:add(Gui.separator())
 
     -- Custom targets
-    Gui.label("Custom Targets")
+    root:add(Gui.label("Custom Targets"))
     local target_rows = {}
     local target_names = {}
     for name, val in pairs(targets) do
@@ -27,17 +32,27 @@ function M.open(state, targets)
         target_rows[#target_rows + 1] = { name, display }
         target_names[#target_names + 1] = name
     end
-    local target_table = Gui.table({ columns = { "Name", "Room ID" }, rows = target_rows })
+    local target_table = Gui.table({ columns = { "Name", "Room ID" } })
+    for _, row in ipairs(target_rows) do
+        target_table:add_row(row)
+    end
+    root:add(target_table)
 
     local add_box = Gui.hbox()
     local name_input = Gui.input({ placeholder = "target name" })
+    add_box:add(name_input)
     local room_input = Gui.input({ placeholder = "room ID" })
+    add_box:add(room_input)
     local add_btn = Gui.button("Add")
+    add_box:add(add_btn)
     local delete_btn = Gui.button("Delete Selected")
+    add_box:add(delete_btn)
+    root:add(add_box)
 
-    Gui.separator()
+    root:add(Gui.separator())
 
     local save_btn = Gui.button("Save & Close")
+    root:add(save_btn)
 
     win:set_root(root)
 
@@ -73,13 +88,7 @@ function M.open(state, targets)
             return
         end
         local_targets[name] = room_id
-        -- Refresh table
-        local rows = {}
-        for n, v in pairs(local_targets) do
-            local display = type(v) == "table" and table.concat(v, ",") or tostring(v)
-            rows[#rows + 1] = { n, display }
-        end
-        -- Table rows can't be updated after show in current GUI spec
+        target_table:add_row({ name, room_str })
         respond("[go2] Added target: " .. name .. " = " .. room_str)
     end)
 

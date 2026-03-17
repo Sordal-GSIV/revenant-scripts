@@ -33,7 +33,7 @@ local widgets = map_window.build(state, index)
 -- Follow toggle
 widgets.follow_btn:on_click(function()
     state.follow_mode = not state.follow_mode
-    widgets.follow_btn:set_label(state.follow_mode and "Following" or "Follow")
+    widgets.follow_btn:set_text(state.follow_mode and "Following" or "Follow")
 end)
 
 -- Click-to-navigate
@@ -58,7 +58,7 @@ widgets.scale_btn:on_click(function()
         end
     end
     settings.set_scale(state, current_image, next_scale)
-    widgets.scale_btn:set_label("Scale: " .. math.floor(next_scale * 100) .. "%")
+    widgets.scale_btn:set_text("Scale: " .. math.floor(next_scale * 100) .. "%")
     if current_image then
         local image_path = map_data.resolve_image_path(current_image, game, state.dark_mode)
         map_window.update_map(widgets, image_path, next_scale)
@@ -76,7 +76,7 @@ end)
 -- Dark mode toggle
 widgets.dark_btn:on_click(function()
     state.dark_mode = not state.dark_mode
-    widgets.dark_btn:set_label(state.dark_mode and "Light" or "Dark")
+    widgets.dark_btn:set_text(state.dark_mode and "Light" or "Dark")
     if current_image then
         local image_path = map_data.resolve_image_path(current_image, game, state.dark_mode)
         local scale = settings.get_scale(state, current_image)
@@ -104,7 +104,12 @@ widgets.tags_btn:on_click(function()
     local tag_win = Gui.window("Select Tag", { width = 250, height = 400 })
     local tag_vbox = Gui.vbox()
     local clear_btn = Gui.button("Clear Tag Markers")
-    local tag_table = Gui.table({ columns = { "Tag" }, rows = rows })
+    tag_vbox:add(clear_btn)
+    local tag_table = Gui.table({ columns = { "Tag" } })
+    for _, row in ipairs(rows) do
+        tag_table:add_row(row)
+    end
+    tag_vbox:add(tag_table)
     tag_win:set_root(tag_vbox)
 
     clear_btn:on_click(function()
@@ -148,7 +153,11 @@ widgets.locations_btn:on_click(function()
     end
     local loc_win = Gui.window("Select Location", { width = 300, height = 400 })
     local loc_vbox = Gui.vbox()
-    local loc_table = Gui.table({ columns = { "Location" }, rows = rows })
+    local loc_table = Gui.table({ columns = { "Location" } })
+    for _, row in ipairs(rows) do
+        loc_table:add_row(row)
+    end
+    loc_vbox:add(loc_table)
     loc_win:set_root(loc_vbox)
 
     loc_table:on_click(function(row_idx)
@@ -187,7 +196,11 @@ widgets.maps_btn:on_click(function()
     end
     local map_sel_win = Gui.window("Select Map", { width = 400, height = 500 })
     local map_vbox = Gui.vbox()
-    local map_table = Gui.table({ columns = { "Map", "Category" }, rows = rows })
+    local map_table = Gui.table({ columns = { "Map", "Category" } })
+    for _, row in ipairs(rows) do
+        map_table:add_row(row)
+    end
+    map_vbox:add(map_table)
     map_sel_win:set_root(map_vbox)
 
     map_table:on_click(function(row_idx)
@@ -197,10 +210,10 @@ widgets.maps_btn:on_click(function()
             local image_path = map_data.resolve_image_path(img, game, state.dark_mode)
             local scale = settings.get_scale(state, img)
             map_window.update_map(widgets, image_path, scale)
-            widgets.scale_btn:set_label("Scale: " .. math.floor(scale * 100) .. "%")
+            widgets.scale_btn:set_text("Scale: " .. math.floor(scale * 100) .. "%")
             -- Disable follow mode when manually selecting a map
             state.follow_mode = false
-            widgets.follow_btn:set_label("Follow")
+            widgets.follow_btn:set_text("Follow")
             map_sel_win:close()
         end
     end)
@@ -214,8 +227,12 @@ widgets.find_btn:on_click(function()
     local vbox = Gui.vbox()
     local search_box = Gui.hbox()
     local find_input = Gui.input({ placeholder = "Room ID or name..." })
+    search_box:add(find_input)
     local find_go_btn = Gui.button("Search")
-    local results_table = Gui.table({ columns = { "ID", "Title", "Map" }, rows = {} })
+    search_box:add(find_go_btn)
+    vbox:add(search_box)
+    local results_table = Gui.table({ columns = { "ID", "Title", "Map" } })
+    vbox:add(results_table)
     find_win:set_root(vbox)
 
     local result_rooms = {}
@@ -288,7 +305,7 @@ widgets.find_btn:on_click(function()
                 map_window.center_on_room(widgets, room)
                 map_window.update_title(widgets, room)
                 state.follow_mode = false
-                widgets.follow_btn:set_label("Follow")
+                widgets.follow_btn:set_text("Follow")
             end
             find_win:close()
         end
@@ -323,7 +340,7 @@ DownstreamHook.add("map_room_tracker", function(line)
                     current_image = image
                     local scale = settings.get_scale(state, image)
                     map_window.update_map(widgets, image_path, scale)
-                    widgets.scale_btn:set_label("Scale: " .. math.floor(scale * 100) .. "%")
+                    widgets.scale_btn:set_text("Scale: " .. math.floor(scale * 100) .. "%")
                     if active_tag and #active_tag_rooms > 0 then
                         map_window.show_tag_markers(widgets, active_tag_rooms)
                     end
@@ -367,7 +384,7 @@ if target_arg then
         end
         -- Don't follow when started with a specific room
         state.follow_mode = false
-        widgets.follow_btn:set_label("Follow")
+        widgets.follow_btn:set_text("Follow")
     else
         respond("Map: room not found: " .. target_arg)
     end

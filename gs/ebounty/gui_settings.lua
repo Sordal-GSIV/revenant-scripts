@@ -18,7 +18,7 @@ function M.show(st)
     }) do
         local key, label = opt[1], opt[2]
         local cb = Gui.checkbox(label, settings_mod.list_contains(st.bounty_types, key))
-        cb:on("change", function(val)
+        cb:on_change(function(val)
             if val then settings_mod.list_add(st.bounty_types, key)
             else settings_mod.list_remove(st.bounty_types, key) end
         end)
@@ -35,7 +35,7 @@ function M.show(st)
         local row = Gui.hbox()
         row:add(Gui.label(f[2] .. ": "))
         local inp = Gui.input({text = tostring(st[f[1]] or 0)})
-        inp:on("change", function(v) st[f[1]] = tonumber(v) or 0 end)
+        inp:on_change(function(v) st[f[1]] = tonumber(v) or 0 end)
         row:add(inp); root:add(row)
     end
 
@@ -51,7 +51,7 @@ function M.show(st)
         {"remove_heirloom","Remove if heirloom lost"},{"debug","Debug mode"},
     }) do
         local cb = Gui.checkbox(t[2], st[t[1]] or false)
-        cb:on("change", function(v) st[t[1]] = v end)
+        cb:on_change(function(v) st[t[1]] = v end)
         root:add(cb)
     end
 
@@ -67,7 +67,7 @@ function M.show(st)
         local row = Gui.hbox()
         row:add(Gui.label(f[2] .. ": "))
         local inp = Gui.input({text = st[f[1]] or ""})
-        inp:on("change", function(v) st[f[1]] = v end)
+        inp:on_change(function(v) st[f[1]] = v end)
         row:add(inp); root:add(row)
     end
 
@@ -81,7 +81,7 @@ function M.show(st)
         {"use_buff_script","Run buff script"},
     }) do
         local cb = Gui.checkbox(t[2], st[t[1]] or false)
-        cb:on("change", function(v) st[t[1]] = v end)
+        cb:on_change(function(v) st[t[1]] = v end)
         root:add(cb)
     end
     for _, f in ipairs({
@@ -91,7 +91,7 @@ function M.show(st)
         local row = Gui.hbox()
         row:add(Gui.label(f[2] .. ": "))
         local inp = Gui.input({text = st[f[1]] or ""})
-        inp:on("change", function(v) st[f[1]] = v end)
+        inp:on_change( function(v) st[f[1]] = v end)
         row:add(inp); root:add(row)
     end
 
@@ -105,7 +105,7 @@ function M.show(st)
         local row = Gui.hbox()
         row:add(Gui.label(f[2] .. ": "))
         local inp = Gui.input({text = table.concat(st[f[1]] or {}, ", ")})
-        inp:on("change", function(v)
+        inp:on_change( function(v)
             local list = {}
             for item in v:gmatch("[^,]+") do
                 item = item:match("^%s*(.-)%s*$")
@@ -123,21 +123,21 @@ function M.show(st)
         local row = Gui.hbox()
         row:add(Gui.label(f[2] .. ": "))
         local inp = Gui.input({text = st[f[1]] or ""})
-        inp:on("change", function(v) st[f[1]] = v end)
+        inp:on_change( function(v) st[f[1]] = v end)
         row:add(inp); root:add(row)
     end
     for _, letter in ipairs({"a","b","c","d","e","f","g","h","i","j"}) do
         local row = Gui.hbox()
         row:add(Gui.label(letter:upper() .. " Names: "))
         local n = Gui.input({text = st["names_" .. letter] or ""})
-        n:on("change", function(v) st["names_" .. letter] = v end)
+        n:on_change( function(v) st["names_" .. letter] = v end)
         row:add(n)
         row:add(Gui.label(" Profile: "))
         local p = Gui.input({text = st["profile_" .. letter] or ""})
-        p:on("change", function(v) st["profile_" .. letter] = v end)
+        p:on_change( function(v) st["profile_" .. letter] = v end)
         row:add(p)
         local k = Gui.checkbox("Kill Only", st["kill_" .. letter] or false)
-        k:on("change", function(v) st["kill_" .. letter] = v end)
+        k:on_change( function(v) st["kill_" .. letter] = v end)
         row:add(k); root:add(row)
     end
 
@@ -145,13 +145,14 @@ function M.show(st)
     root:add(Gui.separator())
     local btns = Gui.hbox()
     local save = Gui.button("Save & Close")
-    save:on("click", function() settings_mod.save(st); win:close() end)
+    save:on_click( function() settings_mod.save(st); win:close() end)
     btns:add(save)
     local cancel = Gui.button("Cancel")
-    cancel:on("click", function() win:close() end)
+    cancel:on_click( function() win:close() end)
     btns:add(cancel); root:add(btns)
 
-    win:add(Gui.scroll(root))
+    win:set_root(Gui.scroll(root))
+    win:show()
     Gui.wait(win, "close")
     return st
 end
