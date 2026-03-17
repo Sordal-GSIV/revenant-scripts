@@ -3,11 +3,20 @@
 --- version: 0.2.0
 --- description: Launch scripts automatically on character connect
 
--- ── DR module loading ────────────────────────────────────────────────────────
+-- ── Game-agnostic module loading ────────────────────────────────────────────
+Flags = require("lib/flags")
+Watchfor = require("lib/watchfor")
+
+-- ── Game-specific module loading ────────────────────────────────────────────
 if GameState.game == "DR" then
     local ok, err = pcall(require, "lib/dr/init")
     if not ok then
         respond("[warning] Failed to load DR modules: " .. tostring(err))
+    end
+else
+    local ok, err = pcall(require, "lib/gs/init")
+    if not ok then
+        respond("[warning] Failed to load GS modules: " .. tostring(err))
     end
 end
 
