@@ -858,6 +858,79 @@ function M.execute_wayto(wayto_str)
 end
 
 -------------------------------------------------------------------------------
+-- Batch pre-translation for map loading
+-------------------------------------------------------------------------------
+
+--- Pre-translate all ;e wayto entries in the loaded map database.
+--- Called by go2/init.lua at startup to warm the cache.
+--- @param game string Game identifier (e.g., "GS3", "DR") — currently unused
+function M.load_translations(game)
+    local room_ids = Map.list()
+    if not room_ids or #room_ids == 0 then return end
+
+    local translated, failed, plain = 0, 0, 0
+    for _, room_id in ipairs(room_ids) do
+        local room = Map.find_room(room_id)
+        if room and room.wayto then
+            for dest_str, wayto_val in pairs(room.wayto) do
+                if type(wayto_val) == "string" then
+                    if wayto_val:match("^;e ") or wayto_val:match("^;e\n") then
+                        local fn, err = M.translate(wayto_val)
+                        if fn then
+                            translated = translated + 1
+                        else
+                            failed = failed + 1
+                        end
+                    else
+                        plain = plain + 1
+                    end
+                end
+            end
+        end
+    end
+
+    if respond then
+        respond(string.format(
+            "[stringproc] Loaded: %d translated, %d failed, %d plain commands",
+            translated, failed, plain))
+    end
+end
+
+--- Verify all cached translations against the current map data.
+--- Called by pkg/cmd_map.lua after map update to detect stale entries.
+--- @param game string Game identifier
+--- @return table result { total, verified, stale = { {from, to}, ... } }
+function M.verify_all(game)
+    local room_ids = Map.list()
+    if not room_ids or #room_ids == 0 then
+        return { total = 0, verified = 0, stale = {} }
+    end
+
+    local total, verified = 0, 0
+    local stale = {}
+
+    for _, room_id in ipairs(room_ids) do
+        local room = Map.find_room(room_id)
+        if room and room.wayto then
+            for dest_str, wayto_val in pairs(room.wayto) do
+                if type(wayto_val) == "string" and
+                   (wayto_val:match("^;e ") or wayto_val:match("^;e\n")) then
+                    total = total + 1
+                    local fn, err = M.translate(wayto_val)
+                    if fn then
+                        verified = verified + 1
+                    else
+                        stale[#stale + 1] = { from = room_id, to = dest_str }
+                    end
+                end
+            end
+        end
+    end
+
+    return { total = total, verified = verified, stale = stale }
+end
+
+-------------------------------------------------------------------------------
 -- Stats / diagnostics
 -------------------------------------------------------------------------------
 

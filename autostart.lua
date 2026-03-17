@@ -13,6 +13,7 @@ TableRender = require("lib/table_render")
 Watchable = require("lib/watchable")
 FrontendFocus = require("lib/frontend_focus")
 UserVarHelpers = require("lib/uservars")
+StringProc = require("lib/stringproc")
 require("lib/group")  -- registers DownstreamHook for GROUP verb parsing
 
 -- ── Game-specific module loading ────────────────────────────────────────────
