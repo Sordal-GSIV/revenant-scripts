@@ -1,7 +1,7 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T22:28:05Z",
+  "generated": "2026-03-17T22:30:13Z",
   "manifest_version": 1,
   "scripts": [
     {
@@ -472,6 +472,23 @@
       }
     },
     {
+      "name": "lnet",
+      "author": "Tillmen (tillmen@lichproject.org)",
+      "description": "Lich network chat system (LNet) \u2014 cross-game chat client",
+      "tags": [
+        "core",
+        "chat"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.14.0",
+          "sha256": "67bd4970cac074541e4720ca844968b836cf34a797bb514572c6e8f118bd2df0",
+          "path": "lnet.lua",
+          "depends": []
+        }
+      }
+    },
+    {
       "name": "map",
       "author": "Sordal",
       "description": "Interactive map viewer with room tracking and click-to-navigate",
@@ -636,6 +653,23 @@
           "version": "1.0.0",
           "sha256": "e065e943bffc764b173bbbe1be6daae73848e3e59ce4beb198013d32cc452741",
           "path": "webhooks.lua",
+          "depends": []
+        }
+      }
+    },
+    {
+      "name": "zeronet",
+      "author": "Ondreian",
+      "description": "Extended LNet chat client with custom callbacks (0net)",
+      "tags": [
+        "core",
+        "chat"
+      ],
+      "channels": {
+        "stable": {
+          "version": "0.0.10",
+          "sha256": "2450eba7e1beebecc152fe1e7abfede3746d5c42d84109ec2605ac6bf639438c",
+          "path": "zeronet.lua",
           "depends": []
         }
       }
