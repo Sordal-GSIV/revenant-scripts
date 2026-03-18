@@ -1,5 +1,5 @@
 --- @revenant-script
---- @lic-audit: validated 2026-03-17
+--- @lic-certified: complete 2026-03-18
 --- name: eherbs
 --- version: 1.0.0
 --- author: Elanthia-Online
@@ -473,7 +473,7 @@ else
         if state.use_distiller then
             local sk = require("survival_kit")
             if sk.detected and sk.has_distiller then
-                sk.distill(container, nil)
+                sk.distill()
             end
         end
         if ego2_was_running then Script.unpause("ego2") end
@@ -510,6 +510,14 @@ while herbs_used < max_herbs do
 
     -- Cast spells before using herbs
     actions.cast_spells(state)
+
+    -- Guard: only try to retrieve herbs if at least one arm is usable (wound < 3)
+    local left_arm_ok  = (Wounds.leftArm  or 0) < 3
+    local right_arm_ok = (Wounds.rightArm or 0) < 3
+    if not left_arm_ok and not right_arm_ok then
+        respond("[eherbs] Both arms are severely wounded — cannot retrieve herbs")
+        break
+    end
 
     -- Find herb in container
     local item, herb = actions.find_herb_in_container(wound_type, container, state)
@@ -578,7 +586,7 @@ end
 if state.use_distiller then
     local sk = require("survival_kit")
     if sk.detected and sk.has_distiller then
-        sk.distill(container, nil)
+        sk.distill()
     end
 end
 

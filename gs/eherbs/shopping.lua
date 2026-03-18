@@ -69,37 +69,85 @@ function M.check_silver()
     return silver
 end
 
+--- Read N lines of game response and return true if pattern found, false if fail_pattern found
+local function read_response(success_pat, fail_pat, max_lines)
+    for i = 1, max_lines or 10 do
+        local line = get()
+        if not line then break end
+        if fail_pat and line:find(fail_pat) then return false, line end
+        if success_pat and line:find(success_pat) then return true, line end
+        if line:find("<prompt") then break end
+    end
+    return nil
+end
+
 --- Withdraw silver from bank
 function M.withdraw(amount, state)
     local original_room = Map.current_room()
     actions.check_cutthroat(state)
+
+    -- Unhide/un-invisible before navigating (go2 may not do this automatically)
+    if GameState.hidden then fput("unhide") end
+
     Script.run("go2", "bank")
 
-    -- Handle Pinefar special case
     if GameState.room_name and GameState.room_name:find("Pinefar, Depository") then
-        -- Wait for banker NPC
-        local npcs = GameObj.npcs()
+        -- Check if banker NPC is present
         local banker_found = false
-        for _, npc in ipairs(npcs) do
+        for _, npc in ipairs(GameObj.npcs()) do
             if npc.noun == "banker" then banker_found = true; break end
         end
-        if not banker_found then
-            respond("[eherbs] Waiting for banker...")
-            wait_until(function()
-                for _, npc in ipairs(GameObj.npcs()) do
-                    if npc.noun == "banker" then return true end
-                end
+
+        if banker_found then
+            fput("ask banker for " .. math.max(amount or state.withdraw_amount, 20) .. " silvers")
+            -- Pinefar banker says "suspicious" if no funds
+            local ok = read_response("Alright|here ye go", "suspicious", 10)
+            if ok == false then
+                respond("[eherbs] No coins in Pinefar bank. Returning to start.")
+                if original_room then Script.run("go2", tostring(original_room)) end
                 return false
-            end)
+            end
+        else
+            -- Banker absent at Pinefar — find nearest Icemule bank and try there
+            respond("[eherbs] Pinefar banker absent, trying Icemule bank...")
+            local icemule_bank = Map.find_nearest_by_tag and Map.find_nearest_by_tag("bank")
+            if icemule_bank then
+                Script.run("go2", tostring(icemule_bank))
+                fput("withdraw " .. (amount or state.withdraw_amount) .. " silvers")
+                local ok, line = read_response("withdrawn|You withdraw", "suspicious|chuckles at you|debt collector", 10)
+                if ok == false then
+                    if line and line:find("debt collector") then
+                        fput("withdraw " .. (amount or state.withdraw_amount) .. " silvers")
+                    else
+                        respond("[eherbs] No coins in bank. Returning to start.")
+                        if original_room then Script.run("go2", tostring(original_room)) end
+                        return false
+                    end
+                end
+            else
+                fput("ask banker for " .. math.max(amount or state.withdraw_amount, 20) .. " silvers")
+            end
         end
-        fput("ask banker for " .. math.max(amount or state.withdraw_amount, 20) .. " silvers")
     else
-        local result = fput("withdraw " .. (amount or state.withdraw_amount) .. " silvers")
+        -- Regular bank
+        fput("withdraw " .. (amount or state.withdraw_amount) .. " silvers")
+        local ok, line = read_response("withdrawn|You withdraw", "suspicious|chuckles at you|debt collector", 10)
+        if ok == false then
+            if line and line:find("debt collector") then
+                -- Debt collector intercept — re-send the original command
+                fput("withdraw " .. (amount or state.withdraw_amount) .. " silvers")
+            else
+                respond("[eherbs] No coins in bank. Returning to start.")
+                if original_room then Script.run("go2", tostring(original_room)) end
+                return false
+            end
+        end
     end
 
     if original_room then
         Script.run("go2", tostring(original_room))
     end
+    return true
 end
 
 --- Withdraw a bank note for large purchases
@@ -367,11 +415,60 @@ function M.buy_herb(herb_type, amount, state)
     return purchased_item
 end
 
---- Store a purchased herb into the container
+--- Store a purchased herb (or package) into the container.
+--- Returns true on success, false if container is full (caller should stop).
 function M.store_herb(item, state)
-    if not item then return end
+    if not item then return true end
     local container = state.herb_container or "herbsack"
+
+    -- Handle packages: open, empty contents into container, throw away
+    if item.name and item.name:lower():find("package") then
+        fput("open #" .. item.id)
+        for i = 1, 5 do
+            local line = get()
+            if not line then break end
+            if line:find("You open") or line:find("already open") then break end
+            if line:find("<prompt") then break end
+        end
+        fput("empty #" .. item.id .. " in my " .. container)
+        waitrt()
+        fput("throw #" .. item.id)
+        for i = 1, 5 do
+            local line = get()
+            if not line then break end
+            if line:find("You throw away") or line:find("<prompt") then break end
+        end
+        return true
+    end
+
     fput("put #" .. item.id .. " in my " .. container)
+
+    -- Check for container-full response
+    for i = 1, 10 do
+        local line = get()
+        if not line then break end
+        if line:match("^Your .+ won't fit in .+%.$") then
+            respond("[eherbs] Container full. Stowing and stopping.")
+            local rh = GameObj.right_hand()
+            if rh and rh.id then fput("stow right") end
+            local lh = GameObj.left_hand()
+            if lh and lh.id then fput("stow left") end
+            if state.use_distiller then
+                local sk = require("survival_kit")
+                if sk.detected and sk.has_distiller then
+                    sk.distill()
+                end
+            end
+            return false
+        end
+        if line:find("You put") or line:find("You add") or
+           line:find("You find a suitable") or line:find("already fully stocked") then
+            break
+        end
+        if line:find("<prompt") then break end
+    end
+
+    return true
 end
 
 --- Fill: buy one of each missing herb type
@@ -573,13 +670,19 @@ function M.stock(state, filter)
     Script.run("go2", "herbalist")
     local stowed = actions.stow_hands()
 
+    local container_full = false
     for _, item in ipairs(shopping_list) do
+        if container_full then break end
         -- Buy in batches
         local remaining = item.needed
         while remaining > 0 do
             local batch = math.min(10, remaining)
             local purchased = M.buy_herb(item.category, batch, state)
-            M.store_herb(purchased, state)
+            local ok = M.store_herb(purchased, state)
+            if not ok then
+                container_full = true
+                break
+            end
             remaining = remaining - batch
         end
     end

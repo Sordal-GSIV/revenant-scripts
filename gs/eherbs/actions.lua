@@ -287,14 +287,18 @@ end
 
 --- Cast spells before healing (Sigil of Mending, Song of Tonis, Aspect of Yierka)
 function M.cast_spells(state)
-    -- Sigil of Mending (9713)
+    -- Sigil of Mending (9713) — Guardians of Sunfist rank 13+ only
     if state.use_mending then
-        local mending = Spell[9713]
-        if mending and mending.known and mending.affordable then
-            if not Spell.active_p(9713) then
-                waitcastrt()
-                fput("incant 9713")
-                waitrt()
+        local gos_qualified = (not Society) or
+                              (Society.status == "Guardians of Sunfist" and (Society.rank or 0) >= 13)
+        if gos_qualified then
+            local mending = Spell[9713]
+            if mending and mending.known and mending.affordable then
+                if not Spell.active_p(9713) then
+                    waitcastrt()
+                    fput("incant 9713")
+                    waitrt()
+                end
             end
         end
     end
@@ -605,8 +609,8 @@ function M.heal_dead_player(player_name, full_heal, container_noun, state)
             end
 
             if herb_in_hand then
-                -- Pour onto dead character (not give)
-                fput("pour #" .. herb_in_hand.id .. " on " .. target.name)
+                -- Pour into dead character's mouth (must use "in", not "on")
+                fput("pour #" .. herb_in_hand.id .. " in " .. target.name)
                 waitrt()
             else
                 respond("[eherbs] Missing potion for: " .. herb_type)
