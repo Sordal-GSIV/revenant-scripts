@@ -395,9 +395,14 @@ local function echild_can_cast()
     end
     if wounds_prevent_cast then return false end
 
-    -- Note: Effects::Debuffs does not exist in Revenant.
-    -- Check specific debuff spells that would prevent casting.
-    -- Skipping debuff check as there is no equivalent API.
+    -- Debuffs that prevent casting (mirrors echild.lic can_cast? check)
+    local blocking_debuffs = {
+        "Bind", "Corrupt Essence", "Calm", "Mind Jolt",
+        "Net", "Silenced", "Sleep", "Web",
+    }
+    for _, debuff in ipairs(blocking_debuffs) do
+        if Effects.Debuffs.active(debuff) then return false end
+    end
 
     return true
 end

@@ -2,6 +2,9 @@
 -- Loaded conditionally when game is GemStone IV.
 -- Registers all GS-specific modules as globals (matching Lich5 behavior).
 
+-- Effect registries (Spells, Buffs, Debuffs, Cooldowns)
+Effects = require("lib/gs/effects")
+
 -- PSM modules (CMan, Feat, Shield, Armor, Weapon, Ascension, Warcry)
 require("lib/gs/psm")
 
