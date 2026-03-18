@@ -201,8 +201,8 @@ local function cast_support()
         if not Spell[203]:active() or Spell[203]:timeleft() < 10 then
             Spell[203]:cast()
             -- Gobble the bread
-            local right = GameObj.right_hand
-            local left = GameObj.left_hand
+            local right = GameObj.right_hand()
+            local left = GameObj.left_hand()
             for _, hand in ipairs({right, left}) do
                 if hand and hand.noun and Regex.test(hand.noun, "flatbread|teacake|cake|waybread|biscuit|oatcake|loaf|bread|tart|dough") then
                     fput("gobble #" .. hand.id)
@@ -435,7 +435,7 @@ local function cast_disk(target)
 
     -- Check if disk already exists
     local disk_pattern = target .. " disk"
-    for _, loot in ipairs(GameObj.loot or {}) do
+    for _, loot in ipairs(GameObj.loot() or {}) do
         if loot.name and string.find(loot.name:lower(), disk_pattern:lower()) then
             return true
         end
@@ -636,7 +636,7 @@ local function build_targets(args)
         else
             -- Try to find PC in room
             local found = false
-            for _, pc in ipairs(GameObj.pcs or {}) do
+            for _, pc in ipairs(GameObj.pcs() or {}) do
                 if pc.noun and pc.noun:lower():find(name:lower(), 1, true) == 1 then
                     table.insert(targets, pc.noun)
                     found = true

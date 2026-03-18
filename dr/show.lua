@@ -24,7 +24,8 @@ if arg1:match("^%d+$") then
     end
     echo(tostring(room))
 else
-    local id = Room.current and Room.current:find_nearest_by_tag(arg1)
+    local room = Room.current()
+    local id = room and room.find_nearest_by_tag and room.find_nearest_by_tag(arg1)
     if not id then
         echo(tostring(arg1) .. " was not found in the map database.")
         return

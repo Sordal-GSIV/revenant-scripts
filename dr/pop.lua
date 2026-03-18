@@ -70,18 +70,20 @@ for _, box in ipairs(BOX_NOUNS) do
     local result = dothistimeout("get my " .. box, 5, "You remove|Get what")
     if result and result:match("You remove") then
         ensure_rapid()
-        local trap = detect_trap(GameObj.right_hand.noun)
+        local rh = GameObj.right_hand()
+        local rh_noun = rh and rh.noun or box
+        local trap = detect_trap(rh_noun)
         if trap == "drop" then
-            fput("drop " .. GameObj.right_hand.noun)
+            fput("drop " .. rh_noun)
         elseif trap == "disarm" then
-            disarm_box(GameObj.right_hand.noun)
-            pick_box(GameObj.right_hand.noun)
-            fput("loot my " .. GameObj.right_hand.noun)
-            fput("drop " .. GameObj.right_hand.noun)
+            disarm_box(rh_noun)
+            pick_box(rh_noun)
+            fput("loot my " .. rh_noun)
+            fput("drop " .. rh_noun)
         elseif trap == "safe" then
-            pick_box(GameObj.right_hand.noun)
-            fput("loot my " .. GameObj.right_hand.noun)
-            fput("drop " .. GameObj.right_hand.noun)
+            pick_box(rh_noun)
+            fput("loot my " .. rh_noun)
+            fput("drop " .. rh_noun)
         end
     end
 end

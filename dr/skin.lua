@@ -28,12 +28,14 @@ if guild == "unknown" then
 end
 
 local shield = nil
-local weapon = GameObj.right_hand and GameObj.right_hand.name or "Empty"
+local rh = GameObj.right_hand()
+local weapon = (rh and rh.name) or "Empty"
 local moonblade = weapon:find("moonblade") and true or false
 
-if GameObj.left_hand and GameObj.left_hand.name then
-    if GameObj.left_hand.name:find("shield") or GameObj.left_hand.name:find("sipar") then
-        shield = GameObj.left_hand.name
+local lh = GameObj.left_hand()
+if lh and lh.name then
+    if lh.name:find("shield") or lh.name:find("sipar") then
+        shield = lh.name
     end
 end
 

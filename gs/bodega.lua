@@ -170,7 +170,7 @@ function Bodega.scan_shelf()
     end
 
     -- Parse items from the room description (GameObj.loot for shop items)
-    local room_items = GameObj.loot and GameObj.loot() or {}
+    local room_items = GameObj.loot() or {}
     for _, item in ipairs(room_items) do
         local entry = {
             id = item.id,

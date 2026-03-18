@@ -79,8 +79,8 @@ function M.walk_to(target_room, restart_on_fail)
   if not room_num then return false end
 
   -- Already there?
-  if Room and Room.current and Room.current.id then
-    if Room.current.id == room_num then return true end
+  if Room and Room.id then
+    if Room.id == room_num then return true end
   end
 
   -- Stand up first
@@ -95,7 +95,7 @@ function M.walk_to(target_room, restart_on_fail)
   local start = os.time()
   while os.time() - start < timeout do
     pause(1)
-    if Room and Room.current and Room.current.id == room_num then
+    if Room and Room.id == room_num then
       return true
     end
   end
@@ -106,7 +106,7 @@ function M.walk_to(target_room, restart_on_fail)
     return M.walk_to(room_num, false)
   end
 
-  return Room and Room.current and Room.current.id == room_num
+  return Room and Room.id == room_num
 end
 
 --- Resolve a map tag to a room ID (closest match via Dijkstra).
@@ -118,7 +118,7 @@ function M.tag_to_id(target)
     return nil
   end
 
-  local start_room = Room and Room.current and Room.current.id
+  local start_room = Room and Room.id
   local target_list = {}
 
   for _, room in ipairs(Map.list) do

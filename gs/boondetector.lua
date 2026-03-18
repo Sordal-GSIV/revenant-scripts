@@ -76,7 +76,7 @@ while true do
     end
 
     if #boon_creatures > 0 and not found_room and not GameObj.pcs() then
-        found_room = Room.current.id
+        found_room = Room.id
         for _, npc in ipairs(boon_creatures) do
             if not already_seen(npc.id) then
                 local lines = quiet_command("appraise #" .. npc.id, "is %w+ in size and about|^Usage:")
@@ -97,7 +97,7 @@ while true do
                 end
             end
         end
-        while found_room == Room.current.id do wait(0.5) end
+        while found_room == Room.id do wait(0.5) end
         found_room = nil
     end
     wait(0.5)

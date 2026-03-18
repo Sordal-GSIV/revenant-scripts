@@ -35,15 +35,15 @@ end
 
 local function holding(item)
     item = tostring(item)
-    local right = GameObj.right_hand
-    local left = GameObj.left_hand
+    local right = GameObj.right_hand()
+    local left = GameObj.left_hand()
     if right and (tostring(right.id) == item or right.noun == item or right.name == item) then return true end
     if left and (tostring(left.id) == item or left.noun == item or left.name == item) then return true end
     return false
 end
 
 local function get_inventory(sack)
-    for _, inv in ipairs(GameObj.inv) do
+    for _, inv in ipairs(GameObj.inv()) do
         if Regex.test(inv.name, "^" .. sack .. "$") or Regex.test(inv.noun, "\\b" .. sack .. "\\b") then
             return inv
         end
@@ -108,7 +108,7 @@ local function put_item(item, sack)
 end
 
 local function go2(room)
-    if Room.current and tostring(Room.current.id) == tostring(room) then return end
+    if Room.id and tostring(Room.id) == tostring(room) then return end
     waitrt()
     run_script("go2", { tostring(room), "_disable_confirm_" })
 end
@@ -149,9 +149,9 @@ local function empty_hand(hand)
     waitrt()
     local item
     if hand == "left" then
-        item = GameObj.left_hand
+        item = GameObj.left_hand()
     else
-        item = GameObj.right_hand
+        item = GameObj.right_hand()
     end
     if not item or not item.noun then return end
 
@@ -191,8 +191,8 @@ end
 
 local function save_shaft()
     shaft = nil
-    local right = GameObj.right_hand
-    local left = GameObj.left_hand
+    local right = GameObj.right_hand()
+    local left = GameObj.left_hand()
     if right and right.noun and Regex.test(right.noun, "shaft") then shaft = right end
     if left and left.noun and Regex.test(left.noun, "shaft") then shaft = left end
 end
@@ -240,7 +240,7 @@ local function buy(item)
     for _ = 1, tonumber(cnt) do
         fput("order " .. order)
         fput("buy")
-        local right = GameObj.right_hand
+        local right = GameObj.right_hand()
         if right and right.id then
             put_item(tonumber(right.id), sack)
         end
@@ -273,9 +273,9 @@ local function get_and_buy(item)
         get_item(tonumber(shaft.id))
     end
 
-    local right = GameObj.right_hand
+    local right = GameObj.right_hand()
     if right and right.name and string.find(right.name, item) then return right end
-    local left = GameObj.left_hand
+    local left = GameObj.left_hand()
     if left and left.name and string.find(left.name, item) then return left end
     return nil
 end
@@ -320,8 +320,8 @@ local function knife_command(cmd, _match_pattern)
         end
     end
 
-    local right = GameObj.right_hand
-    local left = GameObj.left_hand
+    local right = GameObj.right_hand()
+    local left = GameObj.left_hand()
     return fput(cmd .. " #" .. right.id .. " with #" .. left.id)
 end
 
@@ -329,7 +329,7 @@ local function bundle()
     empty_hands()
 
     local quiver = nil
-    for _, inv in ipairs(GameObj.inv) do
+    for _, inv in ipairs(GameObj.inv()) do
         if inv.name and Regex.test(inv.name, settings.donesack) then
             quiver = inv
             break
@@ -344,7 +344,9 @@ local function bundle()
         for _, item in ipairs(quiver.contents) do
             if item.name and Regex.test(item.name, settings.product) then
                 fput("get #" .. item.id)
-                if GameObj.left_hand and GameObj.left_hand.id and GameObj.right_hand and GameObj.right_hand.id then
+                local lh = GameObj.left_hand()
+                local rh = GameObj.right_hand()
+                if lh and lh.id and rh and rh.id then
                     fput("bundle")
                 end
             end
@@ -362,11 +364,13 @@ local function finish()
 end
 
 local function check_state()
-    if GameObj.left_hand and GameObj.left_hand.id then
+    local lh = GameObj.left_hand()
+    if lh and lh.id then
         empty_hand("left")
     end
 
-    local right_name = GameObj.right_hand and GameObj.right_hand.name or ""
+    local rh = GameObj.right_hand()
+    local right_name = rh and rh.name or ""
     if not Regex.test(right_name, "shaft") then
         empty_hand("right")
         get_shaft()
@@ -426,11 +430,11 @@ end
 
 function state_handlers.measure_and_cut()
     fput(settings.weapon_ready)
-    local left = GameObj.left_hand
+    local left = GameObj.left_hand()
     if not left or not Regex.test(left.noun or "", "bow|dart|cross") then
         crash("Could not locate your weapon!")
     end
-    local right = GameObj.right_hand
+    local right = GameObj.right_hand()
     fput("measure #" .. right.id .. " with #" .. left.id)
     empty_hand("left")
     knife_command("cut")
@@ -440,14 +444,16 @@ function state_handlers.fletch()
     local glue = get_and_buy("glue")
     if not glue then return end
 
-    fput("put #" .. glue.id .. " on #" .. (shaft and shaft.id or GameObj.right_hand.id))
+    local rh_fletch = GameObj.right_hand()
+    fput("put #" .. glue.id .. " on #" .. (shaft and shaft.id or rh_fletch.id))
 
     put_item(tonumber(glue.id), settings.gluesack)
 
     local fletching = get_and_buy("fletching")
     if not fletching then return end
 
-    local res = fput("put #" .. fletching.id .. " on #" .. (shaft and shaft.id or GameObj.right_hand.id))
+    local rh_fletch2 = GameObj.right_hand()
+    local res = fput("put #" .. fletching.id .. " on #" .. (shaft and shaft.id or rh_fletch2.id))
     if not res then
         empty_hands()
         shaft = nil
@@ -596,7 +602,7 @@ local function refill(refill_type, refill_count)
     smsg("-- Refilling ammo to " .. refill_count, true)
 
     local quiver = nil
-    for _, inv in ipairs(GameObj.inv) do
+    for _, inv in ipairs(GameObj.inv()) do
         if inv.name and Regex.test(inv.name, settings.donesack) then
             quiver = inv
             break

@@ -13,7 +13,7 @@ DownstreamHook.add("roomnumbers_hook", function(line)
         room_ready = true
     end
     if room_ready and line:find("^Obvious") then
-        local room_id = Room.current and Room.current.id
+        local room_id = Room.id
         if room_id then
             respond("Room ID: " .. tostring(room_id))
         end

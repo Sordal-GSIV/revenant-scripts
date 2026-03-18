@@ -136,7 +136,7 @@ local function attack()
     end
 
     -- Default: use bigshot quick
-    local targets = GameObj.targets or {}
+    local targets = GameObj.targets() or {}
     local alive = {}
     for _, npc in ipairs(targets) do
         if not npc.status or not Regex.test(npc.status, "dead|gone") then
@@ -165,17 +165,23 @@ local function loot_package(package_line)
     -- Pick up package if on ground
     if package_line and string.find(package_line, "at your feet") then
         local attempts = 0
-        while not GameObj.right_hand or GameObj.right_hand.noun ~= "package" do
-            if GameObj.left_hand and GameObj.left_hand.noun == "package" then break end
+        local rh = GameObj.right_hand()
+        local lh = GameObj.left_hand()
+        while not rh or rh.noun ~= "package" do
+            if lh and lh.noun == "package" then break end
             fput("get package")
             pause(1)
             attempts = attempts + 1
             if attempts > 5 then break end
+            rh = GameObj.right_hand()
+            lh = GameObj.left_hand()
         end
     end
 
-    local has_package = (GameObj.right_hand and GameObj.right_hand.noun == "package") or
-                        (GameObj.left_hand and GameObj.left_hand.noun == "package")
+    local rh = GameObj.right_hand()
+    local lh = GameObj.left_hand()
+    local has_package = (rh and rh.noun == "package") or
+                        (lh and lh.noun == "package")
 
     if cfg.lootpackage and has_package then
         fput("open my package")
@@ -262,7 +268,7 @@ local function loot_package(package_line)
             else
                 pause(math.random(30, 60))
             end
-            if Room.current and Room.current.id == ARENA_ROOM then
+            if Room.id == ARENA_ROOM then
                 in_arena = true
             end
         end
@@ -271,7 +277,7 @@ local function loot_package(package_line)
     end
 
     -- Wait until in arena
-    while not Room.current or Room.current.id ~= ARENA_ROOM do
+    while Room.id ~= ARENA_ROOM do
         pause(1)
     end
 
@@ -300,7 +306,7 @@ pause(1)
 fput("go entrance")
 
 -- Wait until in arena
-while not Room.current or Room.current.id ~= ARENA_ROOM do
+while Room.id ~= ARENA_ROOM do
     pause(1)
 end
 
@@ -320,7 +326,7 @@ while true do
 
         wave_number = 0
         group_size = 1
-        local pcs = GameObj.pcs
+        local pcs = GameObj.pcs()
         if pcs then group_size = #pcs + 1 end
 
         -- Opener spells
@@ -378,8 +384,8 @@ while true do
         attack()
 
     -- Also attack if targets are alive and we have no attack script running
-    elseif Room.current and Room.current.id == ARENA_ROOM and wave_number > 0 then
-        local targets = GameObj.targets or {}
+    elseif Room.id == ARENA_ROOM and wave_number > 0 then
+        local targets = GameObj.targets() or {}
         local alive_count = 0
         for _, npc in ipairs(targets) do
             if not npc.status or not Regex.test(npc.status, "dead|gone") then

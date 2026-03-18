@@ -63,21 +63,43 @@ function M.show(settings)
     tabs:set_tab_content(1, basic)
 
     -- === Hunt/Heal Mode Tabs ===
-    for tab_idx, mode in ipairs({ "hunt", "heal" }) do
-        local mode_vbox = Gui.vbox()
-        mode_vbox:add(Gui.section_header(mode:sub(1,1):upper() .. mode:sub(2) .. " Mode Thresholds"))
+    -- Track per-part input widgets so Save can read them
+    local part_inputs = {}  -- part_inputs[mode][part] = { wounds = input, scars = input }
 
-        local tbl = Gui.table({ columns = { "Body Part", "Wounds", "Scars" } })
+    for tab_idx, mode in ipairs({ "hunt", "heal" }) do
+        part_inputs[mode] = {}
+        local mode_vbox = Gui.vbox()
+        mode_vbox:add(Gui.section_header(mode:sub(1,1):upper() .. mode:sub(2) .. " Mode Thresholds (0-3)"))
+        mode_vbox:add(Gui.label("3=ignore, 0=heal completely"))
+
+        -- Header row
+        local header = Gui.hbox()
+        header:add(Gui.label(string.format("%-14s  %-8s  %s", "Body Part", "Wounds", "Scars")))
+        mode_vbox:add(header)
+        mode_vbox:add(Gui.separator())
+
         for _, part in ipairs(config.BODY_PARTS) do
             local display = part:gsub("(right)(.*)", "%1 %2"):gsub("(left)(.*)", "%1 %2")
             display = display:sub(1,1):upper() .. display:sub(2)
+
             local w_lvl = config.wound_level(settings, part, mode)
             local s_lvl = config.scar_level(settings, part, mode)
-            tbl:add_row({ display, tostring(w_lvl), tostring(s_lvl) })
+
+            local row = Gui.hbox()
+            row:add(Gui.label(string.format("%-14s", display)))
+
+            local w_input = Gui.input({ text = tostring(w_lvl), placeholder = "0" })
+            local s_input = Gui.input({ text = tostring(s_lvl), placeholder = "0" })
+
+            row:add(w_input)
+            row:add(s_input)
+            mode_vbox:add(row)
+
+            part_inputs[mode][part] = { wounds = w_input, scars = s_input }
         end
-        mode_vbox:add(tbl)
-        mode_vbox:add(Gui.label("(Edit thresholds via ;ecure --list or per-part CLI)"))
-        tabs:set_tab_content(tab_idx + 1, mode_vbox)
+
+        local scroll = Gui.scroll(mode_vbox)
+        tabs:set_tab_content(tab_idx + 1, scroll)
     end
 
     -- Save button
@@ -85,6 +107,22 @@ function M.show(settings)
     save_btn:on_click(function()
         settings.all_wounds_level = tonumber(wounds_input:get_text()) or 0
         settings.all_scars_level = tonumber(scars_input:get_text()) or 0
+
+        -- Save per-part threshold values from the editable inputs
+        for _, mode in ipairs({ "hunt", "heal" }) do
+            if part_inputs[mode] then
+                for _, part in ipairs(config.BODY_PARTS) do
+                    local pi = part_inputs[mode][part]
+                    if pi then
+                        local w_val = math.max(0, math.min(3, tonumber(pi.wounds:get_text()) or 0))
+                        local s_val = math.max(0, math.min(3, tonumber(pi.scars:get_text()) or 0))
+                        settings[part .. "_wounds_" .. mode] = w_val
+                        settings[part .. "_scars_" .. mode] = s_val
+                    end
+                end
+            end
+        end
+
         config.save(settings)
         respond("[ecure] Settings saved")
         win:close()

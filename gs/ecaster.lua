@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-audit: validated 2026-03-17
 --- name: ecaster
 --- version: 1.2.2
 --- author: elanthia-online
@@ -75,7 +76,9 @@ local function table_remove_value(t, val)
 end
 
 local function send_to_client(message)
-    respond(message)
+    -- Escape XML entities for Stormfront/Wrayth frontends
+    message = message:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+    respond(message .. "\r\n")
 end
 
 local function send_prompt()
@@ -87,6 +90,7 @@ end
 --------------------------------------------------------------------------------
 
 local function show_help()
+    respond("<output class=\"mono\"/>\r\n")
     send_to_client("")
     send_to_client(" ECaster helps you cast your spells!")
     send_to_client("")
@@ -110,6 +114,7 @@ local function show_help()
     send_to_client(" Verbs: " .. Json.encode(verb_map))
     send_to_client(" Hide: " .. Json.encode(hide_list))
     send_to_client("")
+    respond("<output class=\"\"/>\r\n")
 end
 
 local function handle_hide(spell_number)
@@ -145,8 +150,13 @@ local function handle_verb(spell, verb)
             send_to_client("Invalid verb '" .. verb .. "'. Valid: cast, channel, evoke")
             return
         end
+        local old = verb_map[spell]
         verb_map[spell] = verb
-        send_to_client("Spell " .. spell .. " will now use " .. verb .. " verb.")
+        if old then
+            send_to_client("Spell " .. spell .. " was set to use the '" .. old .. "' verb, changing to '" .. verb .. "'.")
+        else
+            send_to_client("Spell " .. spell .. " will now use " .. verb .. " verb.")
+        end
     end
     save_json_setting("verb_map", verb_map)
 end
@@ -160,8 +170,13 @@ local function handle_alias(spell, command)
         alias_map[command] = nil
         send_to_client("Removed alias '" .. command .. "'.")
     else
+        local old = alias_map[command]
         alias_map[command] = spell
-        send_to_client("Created alias '" .. command .. "' for spell " .. spell .. ".")
+        if old then
+            send_to_client("Alias '" .. command .. "' was set to spell " .. old .. ", changing to " .. spell .. ".")
+        else
+            send_to_client("Created alias '" .. command .. "' for spell " .. spell .. ".")
+        end
     end
     save_json_setting("alias_map", alias_map)
 end
@@ -179,8 +194,13 @@ local function handle_stance(spell, stance)
             send_to_client("Invalid stance '" .. stance .. "'. Valid: " .. table.concat(STANCES, ", "))
             return
         end
+        local old = stance_map[spell]
         stance_map[spell] = stance
-        send_to_client("Set spell " .. spell .. " to stance '" .. stance .. "'.")
+        if old then
+            send_to_client("Spell " .. spell .. " was set to stance '" .. old .. "', changing to '" .. stance .. "'.")
+        else
+            send_to_client("Set spell " .. spell .. " to stance '" .. stance .. "'.")
+        end
     end
     save_json_setting("stance_map", stance_map)
 end
@@ -250,9 +270,61 @@ local function valid_target(target_str)
     if not target_str then return false end
     local npcs = get_hostile_npcs()
     local lower = target_str:lower()
+
+    -- Parse ordinal prefix (e.g., "second troll", "other kobold", "third dark troll")
+    local words = {}
+    for w in lower:gmatch("%S+") do
+        words[#words + 1] = w
+    end
+
+    -- Map "other" to "second"
+    if words[1] == "other" then words[1] = "second" end
+
+    -- Check if first word is an ordinal
+    local ordinal_index = nil
+    for i, ord in ipairs(ORDINALS) do
+        if words[1] == ord then
+            ordinal_index = i
+            break
+        end
+    end
+
+    -- Build search terms (remaining words after ordinal, or all words)
+    local search_words
+    if ordinal_index then
+        search_words = {}
+        for i = 2, #words do
+            search_words[#search_words + 1] = words[i]
+        end
+    else
+        ordinal_index = 1  -- default to first match
+        search_words = words
+    end
+
+    if #search_words == 0 then return false end
+
+    -- Match NPCs: for multi-word targets like "dark troll", each word must appear
+    -- in the NPC name in order (with possible intervening text)
+    local match_count = 0
     for _, npc in ipairs(npcs) do
-        if npc.name and npc.name:lower():find(lower, 1, true) then
-            return true
+        if npc.name then
+            local name_lower = npc.name:lower()
+            local matched = true
+            local search_pos = 1
+            for _, sw in ipairs(search_words) do
+                local found = name_lower:find(sw, search_pos, true)
+                if not found then
+                    matched = false
+                    break
+                end
+                search_pos = found + #sw
+            end
+            if matched then
+                match_count = match_count + 1
+                if match_count == ordinal_index then
+                    return true
+                end
+            end
         end
     end
     return false
@@ -283,11 +355,19 @@ local function do_cast(input)
 
     -- Conserve mode checks
     if options.conserve then
-        local cost = spell.mana_cost or 0
-        local total = count and (cost * tonumber(count)) or cost
-        if Char.mana < total then
-            send_to_client("Insufficient mana to cast " .. spell.name .. ".")
-            return
+        -- Spell 516 (Locate Person) always costs 1 mana regardless of mana_cost
+        if spell.num == 516 then
+            if Char.mana < 1 then
+                send_to_client("Insufficient mana to cast " .. spell.name .. ".")
+                return
+            end
+        else
+            local cost = spell.mana_cost or 0
+            local total = count and (cost * tonumber(count)) or cost
+            if Char.mana < total then
+                send_to_client("Insufficient mana to cast " .. spell.name .. ".")
+                return
+            end
         end
         if spell.type == "attack" and spell_target and not valid_target(spell_target) then
             send_to_client("Could not find valid target matching '" .. spell_target .. "'.")
@@ -317,7 +397,11 @@ local function do_cast(input)
     end
     if pre_stance then
         if GameState.stance ~= pre_stance and not dead() then
-            fput("stance " .. pre_stance)
+            for attempt = 1, 5 do
+                local result = dothistimeout("stance " .. pre_stance, 2, STANCE_RX)
+                if result then break end
+                pause(0.2)
+            end
         end
     end
 
@@ -349,7 +433,11 @@ local function do_cast(input)
     -- Stance back to guarded after cast
     if pre_stance then
         waitrt()
-        fput("stance guarded")
+        for attempt = 1, 5 do
+            local result = dothistimeout("stance guarded", 2, STANCE_RX)
+            if result then break end
+            pause(0.2)
+        end
     end
 
     -- Hide after cast

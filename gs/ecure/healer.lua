@@ -13,6 +13,214 @@ local function debug_msg(settings, msg)
     end
 end
 
+-- Maps appraisal body-part text back to the WOUND_KEY_MAP keys used by Wounds/Scars
+local APPRAISE_PART_TO_KEY = {
+    ["right eye"]  = "rightEye",  ["left eye"]  = "leftEye",
+    ["right arm"]  = "rightArm",  ["left arm"]  = "leftArm",
+    ["right hand"] = "rightHand", ["left hand"] = "leftHand",
+    ["right leg"]  = "rightLeg",  ["left leg"]  = "leftLeg",
+    head = "head", neck = "neck", chest = "chest", back = "back",
+    abdomen = "abdomen", ["abdominal area"] = "abdomen",
+    nerves = "nsys", exertion = "exertion",
+}
+
+-- Maps appraisal body-part text to the ecure config part names
+local APPRAISE_PART_TO_ECURE = {
+    ["right eye"]  = "righteye",  ["left eye"]  = "lefteye",
+    ["right arm"]  = "rightarm",  ["left arm"]  = "leftarm",
+    ["right hand"] = "righthand", ["left hand"] = "lefthand",
+    ["right leg"]  = "rightleg",  ["left leg"]  = "leftleg",
+    head = "head", neck = "neck", chest = "chest", back = "back",
+    abdomen = "abdomen", ["abdominal area"] = "abdomen",
+    nerves = "nerves", exertion = "exertion",
+}
+
+--- Strip XML tags from a string
+local function strip_xml(s)
+    return s:gsub("<[^>]+>", "")
+end
+
+--- Clean a wound description line by normalising grammar and removing XML
+local function clean_wound_line(line)
+    line = line:gsub("arm and", "arm, ")
+    line = line:gsub('<d cmd[^>]*>', "")
+    line = line:gsub('</d[^>]*>', "")
+    return line
+end
+
+--- Extract wound phrase fragments from a cleaned wound description line.
+--- Returns a table of raw wound phrase strings.
+local function extract_wound_array(line)
+    local results = {}
+    -- All the wound/scar patterns from the original Ruby regex
+    local patterns = {
+        "a [%w%-]+%s+[lr][ie][gf][hg]t%s+eye",
+        "a [%w%-]+%s+left%s+eye",
+        "severe bruises and swelling around%s+[lr][ie][gf][hg]t%s+eye",
+        "severe bruises and swelling around%s+left%s+eye",
+        "old battle scars? on%s+%w+%s+[lr][ie][gf][hg]t%s+%w+",
+        "old battle scars? on%s+%w+%s+left%s+%w+",
+        "old battle scar across%s+%w+%s+%w+",
+        "several painful%-looking scars across%s+%w+%s+%w+",
+        "terrible, permanent mutilation of%s+%w+%s+%w+",
+        "mangled%s+[lr][ie][gf][hg]t%s+%w+",
+        "mangled%s+left%s+%w+",
+        "missing%s+[lr][ie][gf][hg]t%s+%w+",
+        "missing%s+left%s+%w+",
+        "deep lacerations across%s+%w+%s+%w+",
+        "deep gashes and serious bleeding%s+%w+%s+%w+%s+%w+",
+        "minor cuts and bruises on%s+%w+%s+[lr][ie][gf][hg]t%s+%w+",
+        "minor cuts and bruises on%s+%w+%s+left%s+%w+",
+        "minor cuts and bruises on%s+%w+%s+%w+",
+        "a fractured and bleeding%s+[lr][ie][gf][hg]t%s+%w+",
+        "a fractured and bleeding%s+left%s+%w+",
+        "a completely severed%s+[lr][ie][gf][hg]t%s+%w+",
+        "a completely severed%s+left%s+%w+",
+        "moderate bleeding from%s+%w+%s+neck",
+        "snapped bones and serious bleeding from the neck",
+        "minor bruises on%s+%w+%s+neck",
+        "scar across%s+%w+%s+neck",
+        "some old neck wounds",
+        "terrible scars from some serious neck injury",
+        "minor bruises about the head",
+        "minor lacerations about the head",
+        "severe head trauma and bleeding from the ears",
+        "scar across%s+%w+%s+face",
+        "several facial scars",
+        "old mutilation wounds about%s+%w+%s+head",
+        "strange case of muscle twitching",
+        "case of sporadic convulsions",
+        "case of uncontrollable convulsions",
+        "developed slurred speech",
+        "constant muscle spasms",
+        "a very difficult time with muscle control",
+        "overexerted",
+    }
+    for _, pat in ipairs(patterns) do
+        local s, e = line:find(pat)
+        while s do
+            table.insert(results, line:sub(s, e))
+            s, e = line:find(pat, e + 1)
+        end
+    end
+    return results
+end
+
+--- Map a single wound phrase to a body part name (matches Ruby parse_body_parts).
+--- Returns the body part string used by the transfer command, or nil.
+local function wound_phrase_to_part(wound)
+    -- Left/right limb/eye patterns
+    local rl, bp = wound:match("(%w+)%s+(%w+)%s*$")
+    if rl and (rl == "right" or rl == "left") then
+        return rl .. " " .. bp
+    end
+    -- Chest/back/abdominal scar/wound patterns
+    if wound:find("chest") then return "chest" end
+    if wound:find("back") then return "back" end
+    if wound:find("abdom") then return "abdomen" end
+    -- Neck
+    if wound:find("neck") then return "neck" end
+    -- Head
+    if wound:find("head") or wound:find("face") or wound:find("facial") or wound:find("ears") then return "head" end
+    -- Nerves
+    if wound:find("muscle") or wound:find("convulsion") or wound:find("slurred") then return "nerves" end
+    -- Exertion
+    if wound:find("overexerted") then return "exertion" end
+    return nil
+end
+
+--- Appraise a target up to 3 times, parsing wound descriptions.
+--- Returns (heal_target_name, body_parts_table, wound_description_string) or (nil, {}, "")
+local function appraise_target(settings, target_name)
+    local wounds_raw = {}
+    local heal_target = nil
+
+    for attempt = 1, 3 do
+        debug_msg(settings, "Appraising " .. target_name .. " (attempt " .. attempt .. "/3)")
+        waitrt()
+
+        -- Install a downstream hook to capture the appraisal output
+        local captured = {}
+        local capture_done = false
+        DownstreamHook.add("Appraising", function(line)
+            if not capture_done then
+                table.insert(captured, line)
+            end
+            return line
+        end)
+
+        fput("appraise " .. target_name)
+        pause(1)
+        capture_done = true
+        DownstreamHook.remove("Appraising")
+
+        -- Also check reget for the appraisal output
+        local lines = reget(20)
+        for _, rawline in ipairs(lines) do
+            local line = strip_xml(rawline)
+            -- "You take a quick appraisal of <name> and find that he/she has <wounds>."
+            local appraised, detected = line:match("You take a quick appraisal of (%w+) and find that %w+ has (.+)%.")
+            if appraised and detected then
+                table.insert(wounds_raw, strip_xml(detected))
+                heal_target = appraised
+            end
+            -- Scar line: "He/She has <scars>."
+            if heal_target and (Skills.mltransference or 0) >= 50 then
+                local scars = line:match("^%s*[HS][eh]e? has (.+)%.$")
+                if scars and not scars:find("appraisal") then
+                    table.insert(wounds_raw, strip_xml(scars))
+                end
+            end
+            -- Overexertion: "appears to have overexerted"
+            if line:find("appears to have.*overexerted") then
+                table.insert(wounds_raw, "overexerted")
+            end
+            -- "appears somewhat haggard" / "appears to be very tired"
+            if line:find("appears somewhat haggard") or line:find("appears to be very tired") then
+                table.insert(wounds_raw, "overexerted")
+            end
+            -- Error cases
+            if line:find("Appraise what") or line:find("^Usage:") then
+                heal_target = target_name
+                table.insert(wounds_raw, line)
+            end
+        end
+
+        debug_msg(settings, "Appraise result - target=" .. tostring(heal_target) .. " wounds=" .. table.concat(wounds_raw, "; "))
+        if heal_target then break end
+    end
+
+    if not heal_target then
+        return nil, {}, ""
+    end
+
+    -- Join all wound fragments
+    local wound_line = table.concat(wounds_raw, ", ")
+
+    -- Check for "no apparent injuries"
+    if wound_line:find("no apparent injuries") or wound_line:find("no apparent wounds$") then
+        if not wound_line:find("overexerted") then
+            return heal_target, {}, wound_line
+        end
+    end
+
+    -- Parse into body parts
+    local cleaned = clean_wound_line(wound_line)
+    local wound_phrases = extract_wound_array(cleaned)
+    local body_parts = {}
+    local seen = {}
+    for _, phrase in ipairs(wound_phrases) do
+        local part = wound_phrase_to_part(phrase)
+        if part and not seen[part] then
+            seen[part] = true
+            table.insert(body_parts, part)
+        end
+    end
+
+    debug_msg(settings, "Parsed body parts: " .. table.concat(body_parts, ", "))
+    return heal_target, body_parts, wound_line
+end
+
 -- Spell hindrance retry wrapper
 local function attempt_with_hindrance_retry(settings, action)
     local max_attempts = 3
@@ -200,33 +408,99 @@ function M.heal_self(settings)
     end
 end
 
--- Heal a specific target by transferring wounds
+--- Transfer a single wound from the target, pre-healing own level-3 wound on that part first.
+--- @param settings table
+--- @param heal_target string the resolved target noun
+--- @param part string body part name as returned by appraise parser (e.g. "right arm", "nerves")
+local function transfer_wound(settings, heal_target, part)
+    debug_msg(settings, "Transferring " .. part .. " from " .. heal_target)
+
+    -- Map the appraise part name to an ecure config key so we can check our own wounds
+    local ecure_key = APPRAISE_PART_TO_ECURE[part]
+    local wound_key = APPRAISE_PART_TO_KEY[part]
+
+    if part == "exertion" then
+        -- Heal our own overexertion first if present
+        if Effects and Effects.Debuffs and Effects.Debuffs.active("Overexerted") then
+            attempt_with_hindrance_retry(settings, function(attempt, max)
+                wait_for_mana(settings, 7)
+                waitrt()
+                waitcastrt()
+                debug_msg(settings, "Casting exertion cure before transfer (attempt " .. attempt .. "/" .. max .. ")")
+                return dothistimeout("incant 1107", 2, "^%[Spell Hindrance", "^Cast")
+            end)
+        end
+        fput("transfer " .. heal_target .. " exertion")
+        return
+    end
+
+    -- If we have a level 3 wound on the same body part, pre-heal it first
+    if ecure_key and wound_key then
+        local our_wound = Wounds[wound_key] or 0
+        if our_wound >= 3 then
+            debug_msg(settings, "Pre-healing own " .. part .. " (level " .. our_wound .. ") before transfer")
+            heal_body_part(settings, ecure_key, our_wound > 1, false)
+        end
+    end
+
+    fput("transfer " .. heal_target .. " " .. part)
+    if part == "abdomen" or part == "nerves" then
+        pause(1)
+    end
+end
+
+-- Heal a specific target by appraising and transferring per-body-part wounds
 function M.heal_target(settings, target_name)
     debug_msg(settings, "Healing target: " .. target_name)
     check_signs(settings)
 
-    -- Transfer wounds
+    -- Appraise the target to find specific wounds
+    local heal_target, body_parts, wound_description = appraise_target(settings, target_name)
+
+    if not heal_target then
+        respond("Couldn't find or appraise " .. target_name .. "!")
+        return
+    end
+
+    if #body_parts == 0 then
+        if wound_description:find("Appraise what") or wound_description:find("^Usage:") then
+            respond("Couldn't find or no injuries on " .. target_name .. "!")
+        else
+            respond(heal_target .. " does not appear to be injured.")
+        end
+        return
+    end
+
+    debug_msg(settings, "Healing target " .. heal_target .. ": " .. wound_description)
+
+    -- Transfer each detected body part individually
+    for _, part in ipairs(body_parts) do
+        transfer_wound(settings, heal_target, part)
+    end
+
+    -- Follow up with untargeted transfer loop to catch remaining HP damage
     local pre_health = Char.health
     local post_health = 0
     local total_healed = 0
 
-    -- Transfer loop
     while pre_health ~= post_health do
         if Char.health <= 75 or Char.percent_health < 51 then
-            debug_msg(settings, "Health too low during transfer (" .. Char.health .. ") - restoring")
+            debug_msg(settings, "Health too low during transfer loop (" .. Char.health .. "/" .. Char.percent_health .. "%) - restoring")
             restore_health(settings)
         end
         pre_health = Char.health
-        fput("transfer " .. target_name)
-        pause(0.5)
+        fput("transfer " .. heal_target)
         post_health = Char.health
         total_healed = total_healed + (pre_health - post_health)
-        debug_msg(settings, "Transfer tick: pre=" .. pre_health .. " post=" .. post_health)
+        debug_msg(settings, "Transfer tick: pre=" .. pre_health .. " post=" .. post_health .. " total_healed=" .. total_healed)
         if pre_health == post_health then break end
     end
 
+    -- Report with wound descriptions
     if total_healed > 0 then
-        respond("You healed " .. target_name .. " of " .. total_healed .. " hitpoints.")
+        respond("You healed " .. heal_target .. " of " .. wound_description .. " along with " .. total_healed .. " hitpoints.")
+    else
+        respond("You healed " .. heal_target .. " of " .. wound_description .. ".")
     end
     restore_health(settings)
 end

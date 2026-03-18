@@ -29,7 +29,7 @@ local function is_worthy_gem(name, noun)
     return false
 end
 
-if not GameObj.right_hand.name:match("empty") then
+if not (GameObj.right_hand() or {}).name:match("empty") then
     echo("Right hand must be empty!")
     exit()
 end
@@ -78,7 +78,7 @@ for _, gem_id in ipairs(mygems) do
             shattered = shattered + 1; done = true
         elseif result:match("improves somewhat") or result:match("smoother") then
             purified = purified + 1
-            if not GameObj.right_hand.name:match("empty") then
+            if not (GameObj.right_hand() or {}).name:match("empty") then
                 fput("put #" .. gem_id .. " in my " .. UserVars.PurifyL.sungcontainer)
             end
             done = true

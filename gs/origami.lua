@@ -32,8 +32,10 @@ for _, token in ipairs(script.vars) do
 end
 
 local function has_paper()
-    return (GameObj.right_hand and GameObj.right_hand.name and GameObj.right_hand.name:match("paper"))
-        or (GameObj.left_hand and GameObj.left_hand.name and GameObj.left_hand.name:match("paper"))
+    local rh = GameObj.right_hand()
+    local lh = GameObj.left_hand()
+    return (rh and rh.name and rh.name:match("paper"))
+        or (lh and lh.name and lh.name:match("paper"))
 end
 
 local function get_paper()

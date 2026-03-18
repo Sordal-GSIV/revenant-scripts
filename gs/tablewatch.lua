@@ -18,8 +18,8 @@ if script.vars[1] == "help" then
     exit()
 end
 
-local table_room = Room.current.id
-local table_room_name = Room.current.title or "Unknown"
+local table_room = Room.id
+local table_room_name = Room.title or "Unknown"
 local away = false
 local start_time = os.time()
 
@@ -41,7 +41,7 @@ before_dying(function()
 end)
 
 while true do
-    local current = Room.current.id
+    local current = Room.id
     if current ~= table_room and not away then
         away = true
         echo("WARNING: You left your table at " .. table_room_name .. "!")

@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-audit: validated 2026-03-17
 --- name: mybounty
 --- version: 3.6
 --- author: Luxelle
@@ -22,7 +23,9 @@
 --------------------------------------------------------------------------------
 
 local function bold_message(msg)
+    respond("<pushBold/>")
     respond(msg)
+    respond("<popBold/>")
 end
 
 local function load_mybounty_settings()
@@ -126,13 +129,17 @@ end
 -- Check Bounty Boost
 --------------------------------------------------------------------------------
 
--- Note: Effects::Buffs does not exist in Revenant. We check via active spells.
 local boost_active = false
-local active_spells = Spell.active() or {}
-for _, sp in ipairs(active_spells) do
-    if sp.name and sp.name:find("Bounty Boost") then
-        boost_active = true
-        break
+if Effects and Effects.Buffs and Effects.Buffs.active then
+    boost_active = Effects.Buffs.active("Bounty Boost")
+else
+    -- Fallback: check via active spells
+    local active_spells = Spell.active() or {}
+    for _, sp in ipairs(active_spells) do
+        if sp.name and sp.name:find("Bounty Boost") then
+            boost_active = true
+            break
+        end
     end
 end
 
@@ -222,10 +229,15 @@ end
 -- Helper: ask NPC about bounty at a location
 --------------------------------------------------------------------------------
 
-local function ask_npcs_about_bounty()
+local NPC_FILTER_BASE = Regex.new("\\b(?:familiar|companion|passive|skin)\\b")
+local NPC_FILTER_BANDIT = Regex.new("\\b(?:familiar|companion|passive|skin|aggressive)\\b")
+
+local function ask_npcs_about_bounty(opts)
+    opts = opts or {}
+    local filter = opts.exclude_aggressive and NPC_FILTER_BANDIT or NPC_FILTER_BASE
     local npcs = GameObj.npcs()
     for _, npc in ipairs(npcs) do
-        if not npc.type or not Regex.new("\\b(?:familiar|companion|passive|skin|aggressive)\\b"):test(npc.type) then
+        if not npc.type or not filter:test(npc.type) then
             fput("ask " .. npc.noun .. " about bounty")
         end
     end
@@ -253,7 +265,7 @@ end
 --------------------------------------------------------------------------------
 
 local BOUNTY_TYPES = {
-    { pattern = "bandit",          wanted = bandit,    dest = "advguard" },
+    { pattern = "bandit",          wanted = bandit,    dest = "advguard", exclude_aggressive = true },
     { pattern = "creature problem", wanted = creature, dest = "advguard" },
     { pattern = "urgently needs",  wanted = kidrescue, dest = "advguard" },
     { pattern = "lost heirloom",   wanted = heirloom,  dest = "advguard" },
@@ -280,11 +292,12 @@ while true do
     for _, bt in ipairs(BOUNTY_TYPES) do
         if string.find(line, bt.pattern) then
             if bt.wanted then
+                local npc_opts = bt.exclude_aggressive and { exclude_aggressive = true } or nil
                 echo("Got your " .. bt.pattern .. " right here!")
                 Script.run("go2", bt.dest)
                 wait_while(function() return running("go2") end)
                 pause(0.2)
-                ask_npcs_about_bounty()
+                ask_npcs_about_bounty(npc_opts)
 
                 -- Check for redirect
                 if Bounty.task and Bounty.task:find("Go report to") then
@@ -293,7 +306,7 @@ while true do
                         Script.run("go2", "advguard2")
                         wait_while(function() return running("go2") end)
                         pause(0.2)
-                        ask_npcs_about_bounty()
+                        ask_npcs_about_bounty(npc_opts)
                     end
                 end
                 return  -- Done!
@@ -314,9 +327,10 @@ while true do
     if not matched and FORAGE_PATTERN:test(line) then
         if forage then
             echo("Got your foraging task right here!")
-            -- Determine forage destination based on area
-            local current_room = Room.current()
-            local location = current_room and current_room.location or ""
+            -- Determine forage destination based on nearest town area
+            local nearest_town = Room.find_nearest_by_tag("town")
+            local town_room = nearest_town and nearest_town.id and Map.find_room(nearest_town.id)
+            local location = (town_room and town_room.location) or ""
             if location:find("Icemule") or location:find("Wehnimer") then
                 Script.run("go2", "npchealer")
             else

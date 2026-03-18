@@ -165,8 +165,8 @@ local function change_stance(stance)
 end
 
 local function free_hand()
-    local rh = GameObj.right_hand and GameObj.right_hand()
-    local lh = GameObj.left_hand and GameObj.left_hand()
+    local rh = GameObj.right_hand()
+    local lh = GameObj.left_hand()
     if rh and lh then
         if settings.enable_stow_left then
             fput("stow left")
@@ -460,7 +460,7 @@ local function sell_routine()
                 fput("sell #" .. item.id)
                 matchtimeout(5, "offer", "ask")
                 -- If still in hand, stow it back
-                local rh = GameObj.right_hand and GameObj.right_hand()
+                local rh = GameObj.right_hand()
                 if rh and rh.id == item.id then
                     local itype = (item.type or ""):match("^([^,]+)") or ""
                     put_item(item, sacks[itype] or "")
@@ -510,7 +510,7 @@ local function gather_ammo()
         fput("stow right"); fput("stow left")
         put("gather " .. ammo_noun)
         matchtimeout(5, "^You gather", "^You pick up", "could not")
-        local rh = GameObj.right_hand and GameObj.right_hand()
+        local rh = GameObj.right_hand()
         if rh and Regex.test(rh.noun, "arrow|bolt|dart") then
             local ammo_sack = UserVars and UserVars.ammosack
             if ammo_sack then
@@ -588,13 +588,13 @@ elseif input:match("^deposit$") then
     deposit_coins()
     return
 elseif input:match("^left$") then
-    local lh = GameObj.left_hand and GameObj.left_hand()
+    local lh = GameObj.left_hand()
     if lh and lh.contents then
         loot_room(nil)
     end
     return
 elseif input:match("^right$") then
-    local rh = GameObj.right_hand and GameObj.right_hand()
+    local rh = GameObj.right_hand()
     if rh and rh.contents then
         loot_room(nil)
     end

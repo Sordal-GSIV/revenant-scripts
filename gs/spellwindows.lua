@@ -257,7 +257,7 @@ end
 --------------------------------------------------------------------------------
 
 local function build_target_window()
-    local targets = GameObj.targets and GameObj.targets() or {}
+    local targets = GameObj.targets() or {}
     local group_members = Group and Group.members and Group.members() or {}
     local non_group = Group and Group.nonmembers and Group.nonmembers() or {}
 

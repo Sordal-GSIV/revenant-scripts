@@ -32,7 +32,7 @@ function M.CharacterValidator(opts)
   if opts.should_sleep then fput("sleep") end
 
   if opts.announce then
-    local room_id = Room and Room.current and Room.current.id or "unknown"
+    local room_id = (Room and Room.id) or "unknown"
     respond("[Validator] " .. self.name .. " is up in room " .. tostring(room_id))
   end
 

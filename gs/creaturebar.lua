@@ -229,7 +229,7 @@ local function update_panel(panel)
     end
 
     -- Update border (current target vs other)
-    local current_target_id = XMLData and XMLData.current_target_id
+    local current_target_id = GameState.current_target_id
     local is_current = (tostring(creature_id) == tostring(current_target_id))
     if is_current ~= panel.is_current then
         panel.is_current = is_current
@@ -316,7 +316,7 @@ local function update_display()
 
     local targets = {}
     if GameObj and GameObj.targets then
-        targets = GameObj.targets()
+        targets = GameObj.targets() or {}
     end
 
     -- Get creature IDs (up to max)
@@ -461,7 +461,7 @@ Gui.show(window)
 
 -- Open settings if requested
 if Regex.test(cmd, "^config|^setup") then
-    sleep(0.5)
+    pause(0.5)
     configure_settings()
 end
 
@@ -497,6 +497,6 @@ end)
 
 -- Keep alive
 while running do
-    sleep(1)
+    pause(1)
     if not Script.running(Script.name) then break end
 end

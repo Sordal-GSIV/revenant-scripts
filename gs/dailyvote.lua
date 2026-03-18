@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-audit: validated 2026-03-17
 --- name: dailyvote
 --- version: 1.0.0
 --- author: elanthia-online
@@ -29,6 +30,22 @@ local VOTE_INTERVAL = 86400  -- 24 hours
 
 local USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0"
 
+local BASE_HEADERS = {
+    ["User-Agent"]      = USER_AGENT,
+    ["Accept"]          = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    ["Accept-Language"] = "en-US,en;q=0.5",
+    ["Connection"]      = "keep-alive",
+}
+
+local function merge_headers(extra)
+    local merged = {}
+    for k, v in pairs(BASE_HEADERS) do merged[k] = v end
+    if extra then
+        for k, v in pairs(extra) do merged[k] = v end
+    end
+    return merged
+end
+
 --------------------------------------------------------------------------------
 -- Persistence helpers
 --------------------------------------------------------------------------------
@@ -51,10 +68,13 @@ local function external_ip()
         "https://checkip.amazonaws.com/",
     }
     for _, url in ipairs(providers) do
+        local host = url:match("//([^/]+)")
         local ok, result = pcall(Http.get, url)
         if ok and result and result.body then
             local ip = result.body:match("^%s*(%d+%.%d+%.%d+%.%d+)%s*$")
             if ip then return ip end
+        else
+            echo("Warning: IP provider " .. (host or url) .. " failed, trying next...")
         end
     end
     echo("Warning: all IP providers failed. Using fallback key.")
@@ -96,8 +116,28 @@ end
 
 local function https_get(path)
     local url = "https://" .. HOST .. path
-    local result = Http.get(url)
-    return result.body or "", ""
+    local result = Http.get(url, { headers = BASE_HEADERS })
+    local body = result.body or ""
+    -- Extract Set-Cookie headers for session forwarding
+    local cookies = ""
+    if result.headers then
+        local cookie_parts = {}
+        -- headers may be a table of {name, value} pairs or a map
+        if result.headers["set-cookie"] then
+            local sc = result.headers["set-cookie"]
+            if type(sc) == "table" then
+                for _, c in ipairs(sc) do
+                    cookie_parts[#cookie_parts + 1] = c:match("^([^;]+)")
+                end
+            else
+                cookie_parts[#cookie_parts + 1] = sc:match("^([^;]+)")
+            end
+        end
+        if #cookie_parts > 0 then
+            cookies = table.concat(cookie_parts, "; ")
+        end
+    end
+    return body, cookies
 end
 
 local function extract_hidden_field(html, field_name)
@@ -117,7 +157,17 @@ local function fetch_stats()
         return nil, nil
     end
 
-    -- Parse rank and votes from listing summary
+    -- Primary: parse from listing-rank-summary container
+    local summary = body:match('class="listing%-rank%-summary"[^>]*>(.-)</div>')
+    if summary then
+        local rank = summary:match("ranked%s+#(%d+)")
+        local votes = summary:match("with%s+(%d[%d,]*)%s+votes")
+        if rank and votes then
+            return rank, votes:gsub(",", "")
+        end
+    end
+
+    -- Fallback: individual field scraping
     local rank = body:match('<strong>#(%d+)</strong>%s*with%s*<strong>%d')
     local votes = body:match('<strong>#%d+</strong>%s*with%s*<strong>(%d[%d,]*)</strong>%s*votes')
     if votes then votes = votes:gsub(",", "") end
@@ -134,7 +184,7 @@ end
 
 local function cast_vote()
     echo("Fetching vote page for CSRF token...")
-    local body = https_get(VOTE_PATH)
+    local body, cookies = https_get(VOTE_PATH)
 
     local csrf = extract_hidden_field(body, "csrf_token")
     if not csrf then
@@ -150,14 +200,16 @@ local function cast_vote()
         .. "&listing_id2=" .. LISTING_ID2
         .. "&submit=Vote"
 
-    local ok, result = pcall(Http.post, post_url, {
-        body = form_body,
-        headers = {
-            ["Content-Type"] = "application/x-www-form-urlencoded",
-            ["Referer"] = "https://" .. HOST .. VOTE_PATH,
-            ["User-Agent"] = USER_AGENT,
-        },
+    local post_headers = merge_headers({
+        ["Content-Type"] = "application/x-www-form-urlencoded",
+        ["Referer"] = "https://" .. HOST .. VOTE_PATH,
+        ["Origin"] = "https://" .. HOST,
     })
+    if cookies and cookies ~= "" then
+        post_headers["Cookie"] = cookies
+    end
+
+    local ok, result = pcall(Http.post, post_url, form_body, post_headers)
 
     if ok and result and result.status and result.status < 400 then
         local resp_body = (result.body or ""):lower()
@@ -166,7 +218,8 @@ local function cast_vote()
         end
         return true
     else
-        echo("Error during vote POST")
+        local status_code = (result and result.status) and tostring(result.status) or "unknown"
+        echo("Error during vote POST: HTTP " .. status_code)
         return false
     end
 end
@@ -237,6 +290,10 @@ end
 --------------------------------------------------------------------------------
 -- Dispatch
 --------------------------------------------------------------------------------
+
+-- Script isolation
+if hide_me then hide_me() end
+clear()
 
 local arg1 = Script.vars[1]
 

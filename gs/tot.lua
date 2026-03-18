@@ -19,7 +19,7 @@ pause_script()
 local STARTING_LOCATIONS = {"32033","32038","32026","32029","32000","32009","31990"}
 
 local function handle_combat()
-    if GameObj.targets and #GameObj.targets > 0 then
+    if GameObj.targets and #GameObj.targets() > 0 then
         Script.start("bigshot", "quick")
         wait_while(function() return Script.running("bigshot") end)
         waitrt()
@@ -46,7 +46,7 @@ end
 
 -- Main loop
 while true do
-    if GameObj.targets and #GameObj.targets > 0 then
+    if GameObj.targets and #GameObj.targets() > 0 then
         handle_combat()
     end
 

@@ -39,7 +39,7 @@ fput("pay")
 
 while true do
     local line = get()
-    if line:match("sinister voice announces") and Room.current.id == ARENA_ROOM then
+    if line:match("sinister voice announces") and Room.id == ARENA_ROOM then
         fput("put my cube in my " .. (Vars.lootsack or "pack"))
         fput("stow all")
         UserVars.ebonarena.wave_number = 0
@@ -51,10 +51,10 @@ while true do
         if Script.exists("bigshot") then
             Script.start("bigshot", "quick")
         end
-    elseif line:match("is triumphant") and Room.current.id == ARENA_ROOM then
+    elseif line:match("is triumphant") and Room.id == ARENA_ROOM then
         echo("Victory!")
         fput("store all")
-    elseif line:match("incarnadine vathor") and Room.current.id == REWARD_ROOM then
+    elseif line:match("incarnadine vathor") and Room.id == REWARD_ROOM then
         waitrt()
         fput("store all")
         pause(2)

@@ -12,12 +12,12 @@
 local Safety = {}
 
 function Safety.unsafe()
-    local count = GameObj.targets and #GameObj.targets or 0
+    local count = #GameObj.targets()
     if count >= 3 then
-        echo("Room: " .. Room.current.id .. " -- Creatures: " .. count .. " -- Danger!")
+        echo("Room: " .. Room.id .. " -- Creatures: " .. count .. " -- Danger!")
         return true
     else
-        echo("Room: " .. Room.current.id .. " -- Creatures: " .. count .. " -- Acceptable.")
+        echo("Room: " .. Room.id .. " -- Creatures: " .. count .. " -- Acceptable.")
         return false
     end
 end

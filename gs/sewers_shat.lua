@@ -96,7 +96,8 @@ while true do
     end
 
     -- Navigate to sewer entrance if needed
-    if not Room.current.tags_include("sewer") then
+    local cur = Room.current()
+    if not (cur and cur.tags_include and cur.tags_include("sewer")) then
         Script.run("go2", "u8214001 --disable-confirm")
         wait(1)
     end

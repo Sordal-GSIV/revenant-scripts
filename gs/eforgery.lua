@@ -295,7 +295,8 @@ local function forge_cycle()
             wear_apron()
             fput("go door")
             if rank_mode then
-                trash(GameObj.left_hand and GameObj.left_hand().name or "piece")
+                local lh = GameObj.left_hand()
+                trash(lh and lh.name or "piece")
             else
                 keeper()
             end
@@ -305,7 +306,8 @@ local function forge_cycle()
             wear_apron()
             fput("go door")
             if rank_mode then
-                trash(GameObj.left_hand and GameObj.left_hand().name or "piece")
+                local lh = GameObj.left_hand()
+                trash(lh and lh.name or "piece")
             else
                 average()
             end

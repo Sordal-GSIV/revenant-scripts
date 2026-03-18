@@ -6,6 +6,6 @@
 --- description: Run sell-loot then return to your original room
 --- tags: loot, sell, travel
 
-local room = Room.current.id
+local room = Room.id
 wait_for_script_to_complete("sell_loot")
 DRCT.walk_to(room)

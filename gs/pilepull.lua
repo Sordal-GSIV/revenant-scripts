@@ -22,7 +22,7 @@ end
 
 -- Find the pile
 local pile = nil
-for _, obj in ipairs(GameObj.loot or {}) do
+for _, obj in ipairs(GameObj.loot() or {}) do
     if obj.noun == "pile" or obj.noun == "prizes" then
         pile = obj
         break
@@ -35,7 +35,7 @@ if not pile then
 end
 
 local function bank_run()
-    local current = Room.current.id
+    local current = Room.id
     Script.run("go2", "u8213023")
     fput("deposit all")
     fput("withdraw 100000000 silver")
@@ -44,7 +44,7 @@ end
 
 local function handle_loot()
     waitrt()
-    local rh = GameObj.right_hand
+    local rh = GameObj.right_hand()
     if rh and rh.name then
         if rh.name:match("booklet") then
             fput("redeem booklet")

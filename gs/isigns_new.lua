@@ -99,8 +99,8 @@ while true do
                     end
                 end
                 if anti_magic then
-                    local room = Room.current.id
-                    while room == Room.current.id do
+                    local room = Room.id
+                    while room == Room.id do
                         echo("*** You are in an ANTI-MAGIC zone ***")
                         echo("*** " .. Script.current.name .. " will restart in 10 seconds ***")
                         echo("*** and only if you leave this room ***")

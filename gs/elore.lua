@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-audit: validated 2026-03-17
 --- name: elore
 --- version: 2.1.1
 --- author: elanthia-online
@@ -102,6 +103,20 @@ local function set_setting(key, value)
         echo(key .. " cleared (will use default)")
         return true
     end
+    local info = SETTING_KEYS[key]
+    if info.type == "integer" then
+        if not value:match("^%d+$") then
+            echo("ERROR: Invalid value '" .. tostring(value) .. "' for " .. key .. " (expected integer)")
+            return false
+        end
+    elseif info.type == "boolean" then
+        local lower = value:lower()
+        if lower ~= "true" and lower ~= "yes" and lower ~= "on"
+           and lower ~= "false" and lower ~= "no" and lower ~= "off" then
+            echo("ERROR: Invalid value '" .. tostring(value) .. "' for " .. key .. " (expected true/yes/on/false/no/off)")
+            return false
+        end
+    end
     CharSettings["elore_" .. key] = tostring(value)
     echo(key .. " set to: " .. tostring(value))
     return true
@@ -171,7 +186,7 @@ local function sing_verse(item_noun, verse_type, item_id)
     end
 
     fput(command)
-    local line = waitforre("Roundtime|has more to share|falters and fades|failed to resonate|simply resonates|%.%.%.wait %d+")
+    local line = matchtimeout(5, "Roundtime", "has more to share", "falters and fades", "failed to resonate", "simply resonates", "%.%.%.wait %d+")
 
     if not line then
         return "timeout"
@@ -228,7 +243,7 @@ end
 local function recall_unlocked(item_noun, item_id)
     local cmd = item_id and ("recall #" .. item_id) or ("recall my " .. item_noun)
     fput(cmd)
-    local line = waitforre("permanently unlocked loresong|You are unable to recall")
+    local line = matchtimeout(3, "permanently unlocked loresong", "You are unable to recall")
     if line and line:find("permanently unlocked loresong") then
         return true
     end
@@ -261,35 +276,116 @@ end
 ---------------------------------------------------------------------------
 -- Container processing
 ---------------------------------------------------------------------------
+-- Helper: split search into words and match each in order with possible intervening text
+-- e.g. "brown haversack" matches "a small brown leather haversack"
+local function flexible_match(item_name, search)
+    local words = {}
+    for w in search:lower():gmatch("%S+") do
+        table.insert(words, w)
+    end
+    if #words == 0 then return false end
+
+    local lower_name = item_name:lower()
+    -- Build a pattern: word1.*word2.*word3...
+    local parts = {}
+    for _, w in ipairs(words) do
+        -- Escape Lua pattern specials
+        table.insert(parts, w:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"))
+    end
+    local pattern = table.concat(parts, ".*")
+    return lower_name:find(pattern) ~= nil
+end
+
+-- Helper: match container by flexible word matching or noun match
+local function matches_container(item, search)
+    if not item or not item.id then return false end
+    if flexible_match(item.name, search) then return true end
+    -- Single-word search: also match noun
+    if not search:find(" ") and item.noun:lower():find(search:lower(), 1, true) then
+        return true
+    end
+    return false
+end
+
 local function find_container(name)
-    local name_lower = name:lower()
+    -- Check right hand first — if found, swap to left
+    local rh = GameObj.right_hand()
+    if rh and matches_container(rh, name) then
+        echo("Container in right hand, swapping to left...")
+        fput("swap")
+        pause(0.3)
+        return GameObj.left_hand()
+    end
 
     -- Check left hand
     local lh = GameObj.left_hand()
-    if lh and lh.name:lower():find(name_lower, 1, true) then
+    if lh and matches_container(lh, name) then
         return lh
     end
 
-    -- Check inventory
+    -- Check inventory (worn containers)
     local inv = GameObj.inv()
     if inv then
         for _, item in ipairs(inv) do
-            if item.name:lower():find(name_lower, 1, true) and item.contents then
+            if matches_container(item, name) and item.contents then
                 return item
             end
         end
     end
 
     -- Check room loot
-    local loot = GameObj.loot()
-    if loot then
-        for _, item in ipairs(loot) do
-            if item.name:lower():find(name_lower, 1, true) then
-                if not item.contents then
-                    fput("look in #" .. item.id)
-                    pause(0.5)
+    local loot = GameObj.loot() or {}
+    for _, item in ipairs(loot) do
+        if matches_container(item, name) then
+            if not item.contents then
+                fput("look in #" .. item.id)
+                pause(0.5)
+            end
+            if item.contents then return item end
+        end
+    end
+
+    -- Check room description items (furniture, barrels, etc.)
+    local room_desc = GameObj.room_desc() or {}
+    for _, item in ipairs(room_desc) do
+        if matches_container(item, name) then
+            if not item.contents then
+                fput("look in #" .. item.id)
+                pause(0.5)
+            end
+            if item.contents then return item end
+        end
+    end
+
+    -- Check for containers ON furniture/surfaces
+    local all_furniture = {}
+    for _, item in ipairs(loot) do table.insert(all_furniture, item) end
+    for _, item in ipairs(room_desc) do table.insert(all_furniture, item) end
+
+    for _, furniture in ipairs(all_furniture) do
+        if furniture and furniture.id then
+            local result = dothistimeout("look on #" .. furniture.id, 3, "On the")
+            if result and result:find("On the") then
+                pause(0.3)
+                -- After "look on", check if items on surface match our search
+                local furniture_obj = GameObj[furniture.id]
+                if furniture_obj and furniture_obj.contents then
+                    for _, item_on_surface in ipairs(furniture_obj.contents) do
+                        if matches_container(item_on_surface, name) then
+                            echo("Found on-surface container: " .. item_on_surface.name .. " (ID: " .. item_on_surface.id .. ")")
+                            -- Look in to load its contents
+                            fput("look in #" .. item_on_surface.id)
+                            pause(0.5)
+                            local surface_obj = GameObj[item_on_surface.id]
+                            if surface_obj and surface_obj.contents then
+                                -- Tag it as on-surface for process_container
+                                surface_obj._on_surface = true
+                                surface_obj._surface_container_id = furniture.id
+                                return surface_obj
+                            end
+                        end
+                    end
                 end
-                if item.contents then return item end
             end
         end
     end
@@ -317,13 +413,22 @@ local function process_container(container)
 
     local item_count = #container.contents
     local mode_str = power_mode and "4-line power" or "2-line fast"
-    echo("Processing " .. tostring(item_count) .. " items from " .. container.name .. " (" .. mode_str .. " mode)...")
+    local on_surface = container._on_surface
+    local location_str = on_surface and " (on surface)" or ""
+    echo("Processing " .. tostring(item_count) .. " items from " .. container.name .. location_str .. " (" .. mode_str .. " mode)...")
 
     for i, item in ipairs(container.contents) do
         echo("--- Item " .. tostring(i) .. "/" .. tostring(item_count) .. ": " .. item.name .. " ---")
 
-        fput("get #" .. item.id)
-        local line = waitforre("You remove|You get|You pick up|could not find")
+        -- For on-surface containers, use "get #item from #container" syntax
+        local get_cmd
+        if on_surface then
+            get_cmd = "get #" .. item.id .. " from #" .. container.id
+        else
+            get_cmd = "get #" .. item.id
+        end
+
+        local line = dothistimeout(get_cmd, 5, "You remove|You get|You pick up|could not find")
         if not line or line:find("could not find") then
             echo("Failed to get item, skipping...")
             goto continue
@@ -331,7 +436,7 @@ local function process_container(container)
 
         full_loresong(item.noun, nil)
 
-        fput("put #" .. item.id .. " in #" .. container.id)
+        dothistimeout("put #" .. item.id .. " in #" .. container.id, 5, "You put|You place")
         pause(0.5)
 
         ::continue::
@@ -352,7 +457,12 @@ local function bot_mode()
 
     while true do
         local offer_line = waitforre("offers you")
-        local customer = offer_line and offer_line:match("^(%S+) offers you")
+        -- Handle multi-word names: match everything before " offers you"
+        local customer = offer_line and offer_line:match("^(.+) offers you")
+        if customer then
+            -- Trim whitespace
+            customer = customer:match("^%s*(.-)%s*$")
+        end
 
         if pause_name and running(pause_name) then
             Script.pause(pause_name)
@@ -372,13 +482,23 @@ local function bot_mode()
 
         -- Return item to customer
         if customer then
+            -- Attempt 1: Initial offer
             fput("give " .. customer)
-            local result = waitforre("has accepted|has declined|has expired")
+            local result = matchtimeout(65, "has accepted", "has declined", "has expired")
             if not result or not result:find("has accepted") then
+                -- Attempt 2: Whisper and offer again
                 echo(tostring(customer) .. " did not accept - trying again...")
                 fput("whisper " .. customer .. " Your item is ready! Please ACCEPT my offer.")
                 fput("give " .. customer)
-                result = waitforre("has accepted|has declined|has expired")
+                result = matchtimeout(65, "has accepted", "has declined", "has expired")
+            end
+            if not result or not result:find("has accepted") then
+                -- Attempt 3: Wait, different whisper, final offer
+                echo(tostring(customer) .. " still not accepting - final attempt...")
+                pause(30)
+                fput("whisper " .. customer .. " I still have your item. Please ACCEPT when ready.")
+                fput("give " .. customer)
+                result = matchtimeout(65, "has accepted", "has declined", "has expired")
             end
             if not result or not result:find("has accepted") then
                 echo(tostring(customer) .. " appears unresponsive - please handle manually")
@@ -401,7 +521,9 @@ local function show_settings()
     respond("")
     respond("ELore Settings (Character: " .. GameState.name .. ")")
     respond(string.rep("-", 50))
-    for key, info in pairs(SETTING_KEYS) do
+    local ordered_keys = {"pause", "retry", "mana", "power"}
+    for _, key in ipairs(ordered_keys) do
+        local info = SETTING_KEYS[key]
         local current = get_setting(key)
         local display = current ~= nil and tostring(current) or ("(default: " .. tostring(info.default or "none") .. ")")
         respond(string.format("   %-16s = %s", key, display))
@@ -442,6 +564,12 @@ Settings:
    retry  - Max retries per verse (default: 3)
    mana   - Min mana before singing (default: 50)
    power  - Use 4-line verses by default (default: false)
+
+Features:
+   - Automatic retry when "has more to share" is detected
+   - Skips items that cannot be loresung
+   - Container mode processes all items in a container
+   - Target mode for items you cannot hold (furniture, heavy items)
     ]])
 end
 

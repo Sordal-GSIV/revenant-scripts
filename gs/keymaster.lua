@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-audit: validated 2026-03-17
 --- name: keymaster
 --- version: 1.0.0
 --- author: elanthia-online
@@ -96,6 +97,8 @@ local function get_containers()
                 "exposeContainer", "dialogData", "container",
                 "you glance", "There is nothing", "That is closed",
                 "In the ", "I could not find",
+                "Surrounded by some swirling mist",
+                "contains DOSE", "contains TINCTURE",
             })
             pause(0.3)
         end
@@ -276,7 +279,7 @@ end
 --------------------------------------------------------------------------------
 
 -- Empty hands first
-fput("stow all")
+empty_hands()
 
 local keys, locks = find_items()
 
@@ -300,4 +303,4 @@ end
 print_report()
 
 -- Restore hands
-fput("fill hands")
+fill_hands()

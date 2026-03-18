@@ -317,8 +317,7 @@ end
 -- @return string|nil
 function M.right_hand()
   if GameObj and GameObj.right_hand then
-    local rh = GameObj.right_hand
-    if type(rh) == "function" then rh = rh() end
+    local rh = GameObj.right_hand()
     if rh and rh.name and rh.name ~= "Empty" then
       return rh.name
     end
@@ -330,8 +329,7 @@ end
 -- @return string|nil
 function M.left_hand()
   if GameObj and GameObj.left_hand then
-    local lh = GameObj.left_hand
-    if type(lh) == "function" then lh = lh() end
+    local lh = GameObj.left_hand()
     if lh and lh.name and lh.name ~= "Empty" then
       return lh.name
     end

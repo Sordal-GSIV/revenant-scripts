@@ -37,7 +37,8 @@ local function start_entry()
 end
 
 local function combat()
-    local target = GameObj.npcs and GameObj.npcs[1]
+    local npcs = GameObj.npcs()
+    local target = npcs and npcs[1]
     if not target then return end
 
     while target and not (target.status and target.status:match("dead|gone")) and not dead() do
@@ -60,7 +61,8 @@ local function combat()
             pause(3)
         end
 
-        target = GameObj.npcs and GameObj.npcs[1]
+        npcs = GameObj.npcs()
+        target = npcs and npcs[1]
     end
     fput("stance def")
 end
@@ -73,16 +75,16 @@ local function collect_loot()
 end
 
 -- Navigate to arena
-if not Room.current.title:match("Sands Approach") then
+if not Room.title:match("Sands Approach") then
     Script.run("go2", "23780")
 end
 
 while true do
     if checkleft() and checkleft():match("package") then
         collect_loot()
-    elseif Room.current.title and Room.current.title:match("Dueling Sands") then
+    elseif Room.title and Room.title:match("Dueling Sands") then
         combat()
-    elseif Room.current.title and Room.current.title:match("Sands Approach") then
+    elseif Room.title and Room.title:match("Sands Approach") then
         if use_rest then
             while percentmind() > rest_pct do pause(15) end
         end

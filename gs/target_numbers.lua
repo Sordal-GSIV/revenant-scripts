@@ -39,7 +39,7 @@ add_hook("downstream", "target_numbers", function(xml)
     -- Process "You also see" lines
     if xml:match("You also see") then
         local modified = xml
-        local targets = GameObj.targets or {}
+        local targets = GameObj.targets() or {}
         local target_ids = {}
         for _, t in ipairs(targets) do target_ids[t.id] = true end
 
@@ -49,7 +49,8 @@ add_hook("downstream", "target_numbers", function(xml)
                 local num = noun_counters[noun]
                 monster_assignments[id] = {noun = noun, number = num}
                 local suffix = debug_mode and ("(" .. num .. ")(ID:" .. id .. ")") or ("(" .. num .. ")")
-                if GameObj.target and GameObj.target.id == id then
+                local current_target = GameObj.target()
+                if current_target and current_target.id == id then
                     suffix = suffix .. "(tgt)"
                 end
                 local escaped = name:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1")

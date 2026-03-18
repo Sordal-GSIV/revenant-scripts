@@ -187,7 +187,9 @@ local function grab_loot(loot_obj, sack)
     if not loot_obj then return end
 
     -- Try to get the item
-    if GameObj.right_hand.id ~= loot_obj.id and GameObj.left_hand.id ~= loot_obj.id then
+    local rh = GameObj.right_hand()
+    local lh = GameObj.left_hand()
+    if (not rh or rh.id ~= loot_obj.id) and (not lh or lh.id ~= loot_obj.id) then
         local res = dothistimeout(string.format("get #%s", loot_obj.id), 5, GET_RX)
         if not res then return end
     end
@@ -426,7 +428,7 @@ end
 --------------------------------------------------------------------------------
 
 local function sell_routine()
-    local cur_room = Room.current and Room.current.id
+    local cur_room = Room.id
     local silver_breakdown = {}
 
     -- Sell at various shops based on settings
@@ -664,9 +666,9 @@ for _, critter in ipairs(critters) do
 
     if res and Regex.test(res, "withdraw a (?:cold blue gem|fiery red gem)") then
         if checkright() == "gem" then
-            loot_it({ GameObj.right_hand }, {})
+            loot_it({ GameObj.right_hand() }, {})
         elseif checkleft() then
-            loot_it({ GameObj.left_hand }, {})
+            loot_it({ GameObj.left_hand() }, {})
         end
     end
 

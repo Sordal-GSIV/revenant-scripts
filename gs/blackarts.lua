@@ -153,7 +153,7 @@ function Util.wait_rt()
 end
 
 function Util.is_sunlight()
-    local server_time = XMLData and XMLData.server_time or os.time()
+    local server_time = GameState.server_time or os.time()
     local seconds = (server_time - (5 * 60 * 60)) % (60 * 60 * 24)
     local hours = math.floor(seconds / (60 * 60))
     local minutes = math.floor((seconds % (60 * 60)) / 60)
@@ -213,7 +213,7 @@ function Util.silver_withdraw(amount)
 end
 
 function Util.in_town(room_id)
-    room_id = room_id or (Room.current and Room.current.id)
+    room_id = room_id or Room.id
     if not room_id then return false end
 
     local town_locations = {
@@ -234,13 +234,13 @@ end
 
 function Util.travel(room_id)
     msg("debug", "Util.travel: room - " .. tostring(room_id))
-    if Room.current and Room.current.id == tonumber(room_id) then return end
+    if Room.id == tonumber(room_id) then return end
     go2(tostring(room_id))
 end
 
 function Util.go2(place)
     if hiding() or invisible() then fput("unhide") end
-    if Room.current and Room.current.id == tonumber(place) then return end
+    if Room.id == tonumber(place) then return end
     go2(tostring(place))
 end
 
@@ -257,25 +257,30 @@ local PUT_RX = Regex.new("^You (?:put|tuck|attach|toss|place|slip|drop)|^The .+ 
 function Inventory.free_hands(opts)
     opts = opts or {}
     if (opts.right or opts.both) and checkright() then
-        if GameObj.right_hand.id then
+        local rh = GameObj.right_hand()
+        if rh and rh.id then
             fput("stow right")
         end
     end
     if (opts.left or opts.both) and checkleft() then
-        if GameObj.left_hand.id then
+        local lh = GameObj.left_hand()
+        if lh and lh.id then
             fput("stow left")
         end
     end
 end
 
 function Inventory.free_hand()
-    if not GameObj.right_hand.id or not GameObj.left_hand.id then return end
+    local rh = GameObj.right_hand()
+    local lh = GameObj.left_hand()
+    if not (rh and rh.id) or not (lh and lh.id) then return end
     Inventory.free_hands({ right = true })
 end
 
 function Inventory.drag(item)
     if not item or not item.id then return false end
-    local to = GameObj.right_hand.id and "left" or "right"
+    local rh = GameObj.right_hand()
+    local to = (rh and rh.id) and "left" or "right"
     local res = dothistimeout(string.format("_drag #%s %s", item.id, to), 3, GET_RX)
     if not res then return false end
     sleep(0.2)
@@ -810,7 +815,8 @@ function Guild.activity(guild_status, skill)
             Util.wait_rt()
             fput("illusion rose")
             sleep(2)
-            if GameObj.right_hand.name and GameObj.right_hand.name:find("rose") then
+            local rh_ill = GameObj.right_hand()
+            if rh_ill and rh_ill.name and rh_ill.name:find("rose") then
                 fput("eat my rose")
             end
             Util.wait_rt()
@@ -824,7 +830,8 @@ function Guild.activity(guild_status, skill)
             Util.wait_rt()
             fput("illusion rose")
             sleep(1)
-            if GameObj.right_hand.name and GameObj.right_hand.name:find("rose") then
+            local rh_ill2 = GameObj.right_hand()
+            if rh_ill2 and rh_ill2.name and rh_ill2.name:find("rose") then
                 fput("eat my rose")
             end
             Util.wait_rt()

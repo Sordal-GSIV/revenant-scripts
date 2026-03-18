@@ -6,6 +6,7 @@
 --- game: gs
 --- description: Society power manager with anti-magic room tracking
 --- tags: col,sunfist,voln,society,society-powers
+--- @lic-audit: validated 2026-03-17
 ---
 --- Changelog (from Lich5):
 ---   v0.8.2 (2026-01-13) - Disable deprecated Settings.save
@@ -82,7 +83,7 @@ local function add_antimagic_room(room_id)
     for _, id in ipairs(rooms) do
         if id == room_id then return end
     end
-    respond("adding " .. tostring(room_id) .. " as antimagic")
+    respond("<pushBold/>adding " .. tostring(room_id) .. " as antimagic<popBold/>")
     rooms[#rooms + 1] = room_id
     save_antimagic_rooms(rooms)
 end
@@ -224,12 +225,25 @@ local function run_setup()
 
     win:set_root(scroll)
     win:show()
+
+    before_dying(function()
+        if win then win:close() end
+    end)
+
     Gui.wait(win, "close")
 end
 
 --------------------------------------------------------------------------------
 -- CLI dispatch
 --------------------------------------------------------------------------------
+
+-- Wait for repository to finish before proceeding
+wait_while(function() return running("repository") end)
+
+-- Warn if infomon is not running
+if not running("infomon") then
+    echo("Warning: infomon not running")
+end
 
 local args0 = Script.vars[0] or ""
 

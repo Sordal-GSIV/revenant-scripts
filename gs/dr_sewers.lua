@@ -80,15 +80,15 @@ local function search_sewers()
 end
 
 -- Main loop
-if not Room.current.title:match("Sewer") then
+if not Room.title:match("Sewer") then
     Script.run("go2", "u8214001")
     enter_sewers()
 end
 
 while true do
-    if Room.current.title:match("Cesspool") then
+    if Room.title:match("Cesspool") then
         Script.run("go2", "u8214001")
-    elseif Room.current.uid and Room.current.uid == 8214001 then
+    elseif Room.id == 8214001 then
         enter_sewers()
     else
         local total = search_sewers()

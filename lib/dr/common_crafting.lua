@@ -344,7 +344,7 @@ end
 -- @param min_count number Minimum uses required (default 3)
 function M.check_consumables(name, room, number, bag, bag_items, belt, min_count)
   min_count = min_count or 3
-  local current_room = Room and Room.current and Room.current.id
+  local current_room = Room and Room.id
 
   local result = DRC.bput("get my " .. name .. " from my " .. bag,
     M.CONSUMABLE_GET_SUCCESS, M.CONSUMABLE_GET_NOT_FOUND)
