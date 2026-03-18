@@ -1,7 +1,23 @@
 --- @revenant-script
 --- name: webhooks
 --- version: 1.0.0
---- description: Webhook notification management (Discord, Slack, Telegram, raw HTTP)
+--- author: Sordal
+--- game: any
+--- tags: utility, notifications, webhooks, discord
+--- description: Webhook endpoint management — add, remove, enable, disable, test, and send to Discord/Slack/Telegram/raw HTTP endpoints
+---
+--- Revenant-native script. No Lich5 equivalent.
+---
+--- Usage:
+---   ;webhooks                          List configured endpoints
+---   ;webhooks list                     List configured endpoints
+---   ;webhooks add <name> <url>         Add endpoint (default format: raw)
+---   ;webhooks add <name> <url> --format=discord|slack|telegram|raw
+---   ;webhooks remove <name>            Remove endpoint
+---   ;webhooks enable <name>            Enable endpoint
+---   ;webhooks disable <name>           Disable endpoint
+---   ;webhooks test <name>              Send a test notification
+---   ;webhooks send <message>           Send message to all enabled endpoints
 
 local input = Script.vars[0] or ""
 local first = input:match("^%s*(%S+)") or ""
