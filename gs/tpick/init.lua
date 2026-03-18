@@ -6,7 +6,7 @@
 --- game: gs
 --- description: Comprehensive lockpicking — traps, picks, pool, calipers, loresing, plinites, bashing, GUI
 --- tags: lockpicking, boxes, traps, loot, thief, rogue, pool
---- @lic-audit: validated 2026-03-17
+--- @lic-certified: complete 2026-03-18
 
 ---------------------------------------------------------------------------
 -- Submodule requires
