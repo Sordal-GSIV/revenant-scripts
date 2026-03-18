@@ -183,6 +183,7 @@ In Lich5, game state is accessed via `XMLData.field_name`. In Revenant, use `Gam
 | `XMLData.name` / `checkname` | `GameState.name` | Character name |
 | `XMLData.game` | `GameState.game` | Game code (e.g., "GS3") |
 | `XMLData.level` | `GameState.level` | Character level |
+| `XMLData.next_level_text` | `GameState.next_level_text` | Human-readable exp-to-next string, e.g. "5,000 experience until level 50." Empty string if not yet received. |
 | `XMLData.bounty_task` / `checkbounty` | `Bounty.task` | Bounty task string |
 | `XMLData.society_task` | `Society.task` | Society task string |
 
