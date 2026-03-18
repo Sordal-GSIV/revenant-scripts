@@ -3,7 +3,7 @@
 --- version: 2.1.0
 --- author: Elanthia-Online
 --- contributors: LostRanger
---- game: gs
+--- game: all
 --- description: Iterate commands over container items or targets with flexible filtering
 --- tags: utility,inventory
 --- @lic-certified: complete 2026-03-18
@@ -346,6 +346,10 @@ local function collect_from_loot(preposition)
 end
 
 local function collect_from_locker()
+    if GameState.game ~= "GS3" then
+        echo("LOCKER target is only available in GemStone IV.")
+        return {}
+    end
     local items = {}
     -- Open locker first
     put("open locker")
@@ -658,8 +662,12 @@ local function execute_command(cmd, item, container, container_key, opts)
                     fput("drop " .. what)
                 end
             else
-                -- Open locker if moving to locker
+                -- Open locker if moving to locker (GS only)
                 if lower_where == "locker" then
+                    if GameState.game ~= "GS3" then
+                        echo("MOVE TO LOCKER is only available in GemStone IV.")
+                        return
+                    end
                     put("open locker")
                     waitforre("Your locker is currently holding|already open|What were you referring to")
                 end
@@ -680,7 +688,11 @@ local function execute_command(cmd, item, container, container_key, opts)
         fput("get " .. what)
         fput("trash " .. what)
     elseif string.find(lower_cmd, "^locker$") then
-        -- Shortcut: "locker" alone means "move to locker"
+        -- Shortcut: "locker" alone means "move to locker" (GS only)
+        if GameState.game ~= "GS3" then
+            echo("LOCKER command is only available in GemStone IV.")
+            return
+        end
         local ref = "#" .. item.id
         fput("get " .. ref)
         fput("put " .. ref .. " in locker")
@@ -721,7 +733,7 @@ local function show_help(full)
         respond("  ROOM               - All items in the room (floor + desc objects)")
         respond("  DESC               - Room description objects only")
         respond("  LOOT               - Contents of containers on the floor")
-        respond("  LOCKER             - Contents of your locker (auto-opens/closes)")
+        respond("  LOCKER             - Contents of your locker (auto-opens/closes) [GS only]")
         respond("  PREVIOUS/LAST      - Items from the previous run of foreach")
         respond("")
         respond("PREPOSITIONS: in, on, under, behind")
@@ -734,7 +746,7 @@ local function show_help(full)
         respond("  ECHO <message>           - Echo text")
         respond("  UNMARK [item]            - Unmark an item")
         respond("  TRASH [item]             - Trash an item")
-        respond("  LOCKER                   - Shortcut for MOVE TO LOCKER")
+        respond("  LOCKER                   - Shortcut for MOVE TO LOCKER [GS only]")
         respond("  PAUSE                    - Pause script")
         respond("  SLEEP <seconds>          - Wait N seconds")
         respond("  WAITRT / WAITRT?         - Wait for roundtime (? only waits if in RT)")
