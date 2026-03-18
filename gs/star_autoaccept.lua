@@ -7,7 +7,7 @@
 --- description: Automatically ACCEPTs trade offers. Whitelist mode restricts to named players only.
 --- tags: accept, offer, give, trade
 ---
---- Reconstructed from community Lich5 usage patterns; original .lic not in mirror.
+--- Original Lich5 sources: star-autoaccept.lic (core loop), autoaccept.lic by Ondreian (whitelist)
 --- Ported to Revenant Lua.
 ---
 --- Usage:
@@ -126,11 +126,13 @@ end
 local pending_offerer = nil
 local accepting       = false
 
--- GS4 offer line (stripped): "Playername offers you a/an/the <item>."
--- Offerer is always a single capitalized word (player names, no spaces in GS4).
+-- DownstreamHook receives raw XML; strip tags before pattern matching.
+-- GS4 offer (stripped): "Playername offers you a/an/the <item>.  Click ACCEPT..."
+-- Offerer is always a single capitalized word (GS4 player names have no spaces).
 DownstreamHook.add(HOOK_NAME, function(line)
     if not line then return line end
-    local offerer = line:match("^([A-Z][%a'%-]+) offers you ")
+    local stripped = line:gsub("<[^>]*>", "")
+    local offerer  = stripped:match("^([A-Z][%a'%-]+) offers you ")
     if offerer then
         if not whitelist_mode or wl_set[offerer:lower()] then
             if not accepting then
