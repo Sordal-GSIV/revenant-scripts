@@ -251,6 +251,18 @@ if parsed.attack_script then
 end
 local travel_cost = parsed.travel_cost and tonumber(parsed.travel_cost) or nil
 
+-- Echo unrecognized --flags (matches Ruby behavior)
+local known_flags = {
+    poach = true, hide = true, haste = true, useherbs = true,
+    ["attack-script"] = true, ["travel-cost"] = true,
+}
+for opt in (Script.vars[0] or ""):gmatch("%-%-%S+") do
+    local flag = opt:match("^%-%-([%w%-]+)")
+    if flag and not known_flags[flag] then
+        echo("ignoring unrecognized option: " .. opt)
+    end
+end
+
 -- ============================================================
 -- Data tables
 -- ============================================================
@@ -378,6 +390,7 @@ end)
 
 before_dying(function()
     DownstreamHook.remove(AMBUSH_HOOK_NAME)
+    UserVars.ego2_escort_id = nil
 end)
 
 -- ============================================================
@@ -388,10 +401,11 @@ local function hide_me()
     if not do_hide then return end
     local room_id = Map.current_room()
     if hidden() or invisible() or (room_id and no_hide_rooms[room_id]) then return end
-    waitrt()
+    Spell.lock_cast()
     fput("hide")
     pause(0.5)
     waitrt()
+    Spell.unlock_cast()
 end
 
 local function haste_me()
@@ -1072,7 +1086,14 @@ local function find_path_to_dest()
     end
 
     path = { ids = room_ids, commands = raw_path }
-    respond("ETA: ~" .. #raw_path .. " rooms to move through.")
+
+    -- ETA: weighted Dijkstra cost (seconds) + 1.8s per room overhead, formatted as "Xm Ys"
+    -- Matches Ruby: (shortest_distances[dest] + 1.8 * path.length) / 60.0).as_time
+    local cost = Map.path_cost(current, destination_room) or 0
+    local total_mins = (cost + 1.8 * #raw_path) / 60.0
+    local m = math.floor(total_mins)
+    local s = math.floor((total_mins - m) * 60)
+    respond(string.format("ETA: %dm %ds (%d rooms to move through).", m, s, #raw_path))
 end
 
 local function go_next_room()
@@ -1130,6 +1151,8 @@ local function go_next_room()
                         if count > 5 then
                             echo("fixing map database...")
                             echo("deleting: " .. current .. " -> " .. way_cmd .. " -> " .. next_id)
+                            Map.delete_wayto(current, next_id)
+                            path = nil
                             break
                         end
                         pause(0.2)
@@ -1236,6 +1259,7 @@ for _, npc in ipairs(GameObj.npcs()) do
             "gives you a strange look")
         if result and Regex.test("nods and says to you|But I already am", result) then
             escort_id = npc.id
+            UserVars.ego2_escort_id = escort_id
             break
         end
     end
@@ -1277,6 +1301,7 @@ if not escort_id then
                     "gives you a strange look")
                 if result and Regex.test("nods and says to you|But I already am", result) then
                     escort_id = npc.id
+                    UserVars.ego2_escort_id = escort_id
                     break
                 end
             end
