@@ -1089,8 +1089,12 @@ local function compress_combat(line)
         echo("  Cleaned: " .. clean_line)
     end
 
+    -- :captures(text) returns a table indexed from 0: [0]=full match, [1]=first capture group,
+    -- [2]=second, etc. Returns nil when the pattern does not match. Use this, not match_all
+    -- (match_all does not exist in the Revenant Regex API).
+
     -- Standard combat regex
-    -- Capture groups: 1=player, 2=exist_id, 3=verb, 4=full target <pushBold/>...<popBold/>, 5=inner target
+    -- Capture groups: [1]=player, [2]=exist_id, [3]=verb, [4]=full target <pushBold/>...<popBold/>, [5]=inner target
     local caps = combat_re:captures(clean_line)
     if caps then
         local player_str = caps[1] or ""
@@ -1120,11 +1124,11 @@ local function compress_combat(line)
     end
 
     -- Target-first combat regex
-    -- Capture groups: 1=player, 2=exist_id, 3=full target <pushBold/>...<popBold/>, 4=inner target, 5=verb
+    -- Capture groups: [1]=player, [2]=exist_id, [3]=full target <pushBold/>...<popBold/>, [4]=inner target, [5]=verb
     caps = combat_target_first_re:captures(clean_line)
     if caps then
         local player_str = caps[1] or ""
-        local target_string = caps[3]  -- group 3 = full <pushBold/>...<popBold/> target
+        local target_string = caps[3]  -- [3] = full <pushBold/>...<popBold/> target (not [2], which is exist_id)
         is_self = (player_str == "You")
 
         local excluded = false
@@ -1142,7 +1146,7 @@ local function compress_combat(line)
     end
 
     -- Ambient combat regex
-    -- Capture groups: 1=full target <pushBold/>...<popBold/>, 2=inner target
+    -- Capture groups: [1]=full target <pushBold/>...<popBold/> (optional), [2]=inner target
     caps = combat_ambient_re:captures(clean_line)
     if caps then
         local target_string = caps[1]  -- nil if no target (optional group)
@@ -1151,7 +1155,7 @@ local function compress_combat(line)
     end
 
     -- Ambient2 combat regex
-    -- Capture groups: 1=full target <pushBold/>...<popBold/>, 2=inner target
+    -- Capture groups: [1]=full target <pushBold/>...<popBold/>, [2]=inner target
     caps = combat_ambient_2_re:captures(clean_line)
     if caps then
         local target_string = caps[1]
