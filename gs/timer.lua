@@ -2,8 +2,10 @@
 --- name: timer
 --- version: 1.1
 --- author: Revenant contributors
---- game: gs
+--- game: any
 --- description: Simple elapsed-time counter. Displays elapsed time every second until stopped.
+---
+--- @lic-certified: complete 2026-03-18
 
 local count = 0
 
