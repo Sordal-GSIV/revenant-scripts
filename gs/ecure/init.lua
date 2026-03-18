@@ -1,5 +1,5 @@
 --- @revenant-script
---- @lic-audit: validated 2026-03-17
+--- @lic-certified: complete 2026-03-18
 --- name: ecure
 --- version: 2.0.3
 --- author: elanthia-online

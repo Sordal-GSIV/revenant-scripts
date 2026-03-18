@@ -138,23 +138,8 @@ local function appraise_target(settings, target_name)
     for attempt = 1, 3 do
         debug_msg(settings, "Appraising " .. target_name .. " (attempt " .. attempt .. "/3)")
         waitrt()
-
-        -- Install a downstream hook to capture the appraisal output
-        local captured = {}
-        local capture_done = false
-        DownstreamHook.add("Appraising", function(line)
-            if not capture_done then
-                table.insert(captured, line)
-            end
-            return line
-        end)
-
         fput("appraise " .. target_name)
         pause(1)
-        capture_done = true
-        DownstreamHook.remove("Appraising")
-
-        -- Also check reget for the appraisal output
         local lines = reget(20)
         for _, rawline in ipairs(lines) do
             local line = strip_xml(rawline)
@@ -268,7 +253,7 @@ local function check_signs(settings)
     if not sign_spell then return end
     if Spell.active_p(sign_spell) then return end
     debug_msg(settings, "Casting sign spell " .. sign_spell)
-    wait_until(function() return Char.mana >= (Spell[sign_spell].mana_cost or 5) end)
+    wait_until(function() return Char.mana >= (tonumber(Spell[sign_spell].mana_cost) or 5) end)
     fput("incant " .. sign_spell)
     waitcastrt()
 end
@@ -278,7 +263,7 @@ local function cast_trolls_blood(settings)
     if not Spell.known_p(TROLLS_BLOOD_SPELL) then return end
     if Spell.active_p(TROLLS_BLOOD_SPELL) then return end
     debug_msg(settings, "Casting Troll's Blood (1125)")
-    local cost = Spell[TROLLS_BLOOD_SPELL].mana_cost or 25
+    local cost = tonumber(Spell[TROLLS_BLOOD_SPELL].mana_cost) or 25
     wait_for_mana(settings, cost)
     fput("incant 1125")
     waitcastrt()
