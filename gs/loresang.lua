@@ -1,20 +1,25 @@
 --- @revenant-script
 --- name: loresang
---- version: 2.0.0
+--- version: 2.1.0
 --- author: Kyrandos
 --- contributors: EduBarbarian
 --- game: gs
 --- description: Bard loresinging utility — single item (right hand) or bulk
 ---   container-to-container loresinging with custom songs, mana checks, value
----   threshold alerts, room announcements, CSV export, Discord webhook alerts,
----   and GUI setup via Gui.* API.
---- tags: utility,economy,bard,loresong,loresing,csv,export
+---   threshold alerts, room announcements, HTML report, CSV export, Discord
+---   webhook alerts, and GUI setup via Gui.* API.
+--- tags: utility,economy,bard,loresong,loresing,html,csv,export
+--- @lic-certified: complete 2026-03-18
 ---
 --- Changelog (from Lich5 loresang.lic v1.2.1):
+---   v2.1.0 (2026-03-18): Added HTML report (html_report_enabled setting) — full
+---     parity with v1.2.0/v1.2.1 HTML output: expandable recall text, localStorage
+---     pinning, notes, CSV export and backup buttons. Report written to
+---     data/loresang/<char>_loresang_report.html after each run.
+---     Fixed: announce_successes save was incorrectly ANDed with value_alert state.
 ---   v2.0.0 (2026-03-18): Full Revenant rewrite — no GTK/Ruby deps, uses
 ---     Revenant primitives (fput, waitrt, reget, CharSettings, Gui.*, Json, File).
 ---     Discord webhook via lib/webhooks. CSV export via File.write.
----     HTML report replaced with CSV export + webhook.
 ---   v1.2.1 (Lich5): Updated HTML output directory
 ---   v1.2.0 (Lich5): HTML report output with localStorage pinning
 ---   v1.1.0 (Lich5): Detect weak song / insufficient power, mana recovery
@@ -27,7 +32,7 @@
 ---   ;loresang log            - Show CSV log path and summary
 ---   ;loresang help           - Show this help
 
-local VERSION = "2.0.0"
+local VERSION = "2.1.0"
 
 --------------------------------------------------------------------------------
 -- Settings (CharSettings-backed, JSON-serialized hash)
@@ -55,6 +60,7 @@ local DEFAULTS = {
     tag_containers       = false,
     tag_magic            = false,
     csv_export_enabled   = false,
+    html_report_enabled  = false,
     webhook_enabled      = false,
     webhook_name         = "",
 }
@@ -64,14 +70,12 @@ local function load_settings()
     if raw and raw ~= "" then
         local ok, data = pcall(Json.decode, raw)
         if ok and type(data) == "table" then
-            -- Merge with defaults
             for k, v in pairs(DEFAULTS) do
                 if data[k] == nil then data[k] = v end
             end
             return data
         end
     end
-    -- Return a copy of defaults
     local s = {}
     for k, v in pairs(DEFAULTS) do s[k] = v end
     return s
@@ -144,7 +148,6 @@ end
 
 local function format_silver(value)
     local s = tostring(value)
-    -- Insert commas
     local result = ""
     local count = 0
     for i = #s, 1, -1 do
@@ -170,12 +173,10 @@ local function already_unlocked(recall_text)
     if not recall_text then return false end
     local text = string.lower(recall_text)
 
-    -- Not unlocked indicators
     if string.find(text, "must reveal the entire loresong", 1, true) then return false end
     if string.find(text, "you have not yet unlocked", 1, true) then return false end
     if string.find(text, "needs to be unlocked", 1, true) then return false end
 
-    -- Unlocked indicators
     return string.find(text, "permanently unlocked", 1, true) ~= nil
         or string.find(text, "has a permanently unlocked loresong", 1, true) ~= nil
         or string.find(text, "harmonies reveal nothing", 1, true) ~= nil
@@ -265,6 +266,231 @@ local function append_csv_row(item_name, noun, status, value, recall_text)
 end
 
 --------------------------------------------------------------------------------
+-- HTML Report
+--------------------------------------------------------------------------------
+
+local function html_report_path()
+    File.mkdir("data/loresang")
+    return "data/loresang/" .. string.lower(GameState.name or "character") .. "_loresang_report.html"
+end
+
+local function html_escape(str)
+    if not str then return "" end
+    str = tostring(str)
+    str = string.gsub(str, "&", "&amp;")
+    str = string.gsub(str, "<", "&lt;")
+    str = string.gsub(str, ">", "&gt;")
+    str = string.gsub(str, '"', "&quot;")
+    return str
+end
+
+local function generate_html(batch_json, timestamp, char_name, newly_sung, already_done, failed_count)
+    return string.format([=[<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Loresang Report - %s</title>
+<style>
+body{font-family:monospace;background:#1c1c1c;color:#c0c0c0;max-width:860px;margin:0 auto;padding:20px;position:relative}
+h1{color:#d4af37;margin-bottom:4px}
+h2{color:#999;border-bottom:1px solid #3a3a3a;padding-bottom:4px;margin-top:28px}
+.summary{color:#777;font-size:.85em;margin-bottom:8px}
+.item{margin:2px 0}
+.item-header{display:flex;align-items:center;gap:8px;padding:3px 6px;border-radius:3px}
+.item-header:hover{background:#252525}
+.item-name{cursor:pointer;font-weight:bold}
+.item-name:hover{text-decoration:underline}
+.completed{color:#7ec850}.already_unlocked{color:#6699cc}.failed{color:#cc5555}
+.value{color:#d4af37;font-size:.85em;margin-left:4px}
+.recall{display:none;margin:2px 0 6px 28px;padding:8px 10px;background:#111;border-left:3px solid #3a3a3a;font-size:.82em;white-space:pre-wrap;color:#888;line-height:1.5}
+.recall.open{display:block}
+input[type=checkbox]{cursor:pointer;accent-color:#d4af37}
+#empty-saved{color:#555;font-style:italic;padding:4px 6px}
+.pending-removal{opacity:0.55}
+.pending-removal .item-name{text-decoration:line-through;font-style:italic;color:#666}
+.note-icon{margin-left:auto;font-size:.82em;opacity:0.4;user-select:none;flex-shrink:0;padding:0 3px}
+.note-icon.has-notes{opacity:1;color:#d4af37}
+.note-input{flex-shrink:0;width:220px;background:transparent;border:none;border-bottom:1px dashed #2e2e2e;color:#777;font-family:monospace;font-size:.76em;padding:1px 4px;outline:none}
+.note-input:focus{border-bottom-color:#555;color:#bbb}
+.note-input::placeholder{color:#2a2a2a}
+#btn-group{position:absolute;top:20px;right:20px;display:flex;gap:8px;z-index:100}
+.action-btn{background:#2a2a2a;border:1px solid #3a3a3a;color:#c0c0c0;cursor:pointer;padding:8px 14px;border-radius:6px;text-align:center;font-family:monospace;font-size:.78em;line-height:1.4}
+.action-btn:hover{background:#333;border-color:#d4af37;color:#d4af37}
+.action-btn .btn-icon{font-size:2em;display:block;line-height:1.1;margin-bottom:3px}
+</style>
+</head>
+<body>
+<div id="btn-group">
+  <button class="action-btn" onclick="exportCSV()"><span class="btn-icon">&#x1F3EA;</span>Export saved items .csv<br>for Shops</button>
+  <button class="action-btn" onclick="backupHTML()"><span class="btn-icon">&#x1F4BE;</span>Create backup</button>
+</div>
+<h1>Loresang Report</h1>
+<div class="summary">%s &nbsp;|&nbsp; %s &nbsp;|&nbsp; %d newly sung &nbsp;|&nbsp; %d already unlocked &nbsp;|&nbsp; %d failed</div>
+<h2>Saved Items</h2>
+<div id="saved-items"></div>
+<h2>New Batch</h2>
+<div id="new-batch"></div>
+<script type="application/json" id="batch-data">%s</script>
+<script>
+var BATCH=[];
+try{BATCH=JSON.parse(document.getElementById('batch-data').textContent);}catch(e){console.error('[Loresang] Failed to parse batch JSON:',e);document.getElementById('new-batch').innerHTML='<div style="color:#c55">[Failed to parse batch data: '+e.message+']</div>';}
+function load(){try{return JSON.parse(localStorage.getItem('loresang_pinned')||'[]')}catch(e){return[]}}
+function save(a){localStorage.setItem('loresang_pinned',JSON.stringify(a))}
+function isPinned(id){return load().some(function(x){return x.id===id})}
+function updateNote(id,text){
+  var p=load();
+  p.forEach(function(x){if(x.id===id)x.notes=text;});
+  save(p);
+}
+function makeItem(item,inSaved){
+  var d=document.createElement('div');d.className='item';
+  var h=document.createElement('div');h.className='item-header';
+  var cb=document.createElement('input');cb.type='checkbox';cb.checked=isPinned(item.id);
+  cb.title=inSaved?'Uncheck to remove from Saved Items':'Pin to Saved Items';
+  cb.onchange=function(){
+    if(inSaved){
+      if(!cb.checked){
+        save(load().filter(function(x){return x.id!==item.id}));
+        d.classList.add('pending-removal');
+      } else {
+        d.classList.remove('pending-removal');
+        var p=load();
+        if(!p.some(function(x){return x.id===item.id}))p.push(item);
+        save(p);
+      }
+    } else {
+      var p=load();
+      if(cb.checked){if(!p.some(function(x){return x.id===item.id}))p.push(item);save(p);}
+      else{save(p.filter(function(x){return x.id!==item.id}));}
+      renderSaved();
+    }
+  };
+  var n=document.createElement('span');n.className='item-name '+item.status;
+  n.textContent=item.name;
+  var r=document.createElement('div');r.className='recall';
+  r.textContent=item.recall_text||'(no recall data)';
+  n.onclick=function(){r.classList.toggle('open')};
+  h.appendChild(cb);h.appendChild(n);
+  if(item.value){
+    var v=document.createElement('span');v.className='value';
+    v.textContent='~'+item.value.toLocaleString()+' silvers';
+    h.appendChild(v);
+  }
+  if(inSaved){
+    var ni=document.createElement('span');
+    ni.className='note-icon'+(item.notes?' has-notes':'');
+    ni.textContent=String.fromCharCode(9999);
+    var inp=document.createElement('input');
+    inp.type='text';inp.className='note-input';inp.placeholder='notes...';inp.value=item.notes||'';
+    inp.oninput=function(){
+      updateNote(item.id,inp.value);
+      ni.className='note-icon'+(inp.value.trim()?' has-notes':'');
+    };
+    h.appendChild(ni);h.appendChild(inp);
+    d.appendChild(h);d.appendChild(r);
+  } else {
+    d.appendChild(h);d.appendChild(r);
+  }
+  return d;
+}
+function renderSaved(){
+  var c=document.getElementById('saved-items');c.innerHTML='';
+  var p=load();
+  if(!p.length){c.innerHTML='<div id="empty-saved">No saved items yet. Check the box next to any item in New Batch to pin it here.</div>';return;}
+  p.forEach(function(item){c.appendChild(makeItem(item,true));});
+}
+function renderBatch(){
+  var c=document.getElementById('new-batch');c.innerHTML='';
+  BATCH.forEach(function(item){c.appendChild(makeItem(item,false))});
+}
+function backupHTML(){
+  var now=new Date();
+  var pad=function(n){return n<10?'0'+n:String(n);};
+  var ts=now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate())+'_'+pad(now.getHours())+'-'+pad(now.getMinutes())+'-'+pad(now.getSeconds());
+  var html='<!DOCTYPE html>\n'+document.documentElement.outerHTML;
+  var blob=new Blob([html],{type:'text/html'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='loresang_backup_'+ts+'.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function exportCSV(){
+  var p=load();
+  if(!p.length){alert('No saved items to export.');return;}
+  var rows=[['Name','Noun','Status','Value (silvers)','Notes','Recall']];
+  p.forEach(function(x){
+    var clean=function(s){return String(s||'').replace(/,/g,'').replace(/[\r\n]+/g,' ').trim();};
+    rows.push([clean(x.name),clean(x.noun),clean(x.status),x.value||'',clean(x.notes),clean(x.recall_text)]);
+  });
+  var csv=rows.map(function(r){return r.join(',');}).join('\r\n');
+  var blob=new Blob([csv],{type:'text/csv'});
+  var a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='loresang_saved.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+try{renderSaved();}catch(e){console.error('[Loresang] renderSaved failed:',e);document.getElementById('saved-items').innerHTML='<div id="empty-saved" style="color:#c55">[Error loading saved items - localStorage may have stale data. Try clearing site data.]</div>';}
+try{renderBatch();}catch(e){console.error('[Loresang] renderBatch failed:',e);document.getElementById('new-batch').innerHTML='<div style="color:#c55">[Error rendering batch - see browser console (F12) for details.]</div>';}
+</script>
+</body>
+</html>]=], html_escape(char_name), timestamp, html_escape(char_name),
+        newly_sung, already_done, failed_count, batch_json)
+end
+
+local function write_html_report(report_items)
+    if not settings.html_report_enabled then return end
+    if #report_items == 0 then return end
+
+    local char_name = GameState.name or "Unknown"
+    local timestamp = os.date("%Y-%m-%d %H:%M")
+    local newly_sung = 0
+    local already_done = 0
+    local failed_count = 0
+
+    local batch_data = {}
+    for _, item in ipairs(report_items) do
+        if item.status == "completed" then newly_sung = newly_sung + 1
+        elseif item.status == "already_unlocked" then already_done = already_done + 1
+        elseif item.status == "failed" then failed_count = failed_count + 1
+        end
+
+        -- Make a safe ID from name
+        local safe_id = string.lower(string.gsub(item.name or "", "[^a-zA-Z0-9]", "-"))
+        local recall_clean = item.recall_text or ""
+        recall_clean = string.gsub(recall_clean, "\r", "")
+        recall_clean = (recall_clean:match("^%s*(.-)%s*$") or recall_clean)
+
+        table.insert(batch_data, {
+            id          = safe_id,
+            name        = item.name or "",
+            noun        = item.noun or "",
+            status      = item.status or "failed",
+            recall_text = recall_clean,
+            value       = item.value,
+        })
+    end
+
+    local ok, batch_json = pcall(Json.encode, batch_data)
+    if not ok then
+        msg("HTML report: failed to encode batch JSON: " .. tostring(batch_json))
+        return
+    end
+    -- Prevent </script> in embedded JSON from closing the script tag early
+    batch_json = string.gsub(batch_json, "</", "<\\/")
+
+    local html = generate_html(batch_json, timestamp, char_name, newly_sung, already_done, failed_count)
+    local path = html_report_path()
+    local write_ok, write_err = pcall(File.write, path, html)
+    if write_ok then
+        msg("HTML report written: " .. path)
+    else
+        msg("HTML report failed: " .. tostring(write_err))
+    end
+end
+
+--------------------------------------------------------------------------------
 -- Mana management
 --------------------------------------------------------------------------------
 
@@ -314,7 +540,6 @@ local function check_item_value(noun, item_name, items_remaining)
     pause(0.8)
 
     local recall_lines = reget(35) or {}
-    -- Find the start of recall text
     local start_idx = nil
     for i = #recall_lines, 1, -1 do
         if string.find(recall_lines[i], "As you recall your song") then
@@ -344,7 +569,7 @@ local function check_item_value(noun, item_name, items_remaining)
 
     if settings.value_alert_enabled and threshold and raw_val >= threshold then
         local formatted = format_silver(raw_val)
-        local message = "Item " .. item_name .. " worth " .. formatted .. " silvers - over your threshold!"
+        local message = "Your item " .. item_name .. " was found to be worth " .. formatted .. " silvers. This is over your value threshold! Congrats!"
         if items_remaining then
             message = message .. " " .. items_remaining .. " items to go!"
         end
@@ -359,7 +584,6 @@ local function check_item_value(noun, item_name, items_remaining)
 
         table.insert(high_value_items, { name = item_name, value = raw_val })
 
-        -- Send webhook alert
         send_webhook(message, "high_value_item")
     end
 end
@@ -367,7 +591,6 @@ end
 local function sing_item(item_name, noun, items_remaining)
     msg("Starting loresong for " .. noun .. "...")
 
-    -- Low mana callout
     if settings.low_mana_enabled and settings.low_mana_text ~= "" then
         local mana_pct = (checkmana() / maxmana()) * 100
         if mana_pct < (settings.low_mana_pct or 15) then
@@ -447,7 +670,6 @@ local function sing_item(item_name, noun, items_remaining)
             msg("Insufficient mana (" .. checkmana() .. "/" .. maxmana() .. ") after verse 1 - waiting for recovery...")
             cycle_count = cycle_count - 1
             wait_for_mana_recovery()
-            -- Continue to next iteration (retry)
         elseif string.find(line, "falters and fades") then
             msg("Song faltered - no loresong or fully identified.")
             break
@@ -495,7 +717,6 @@ local function sing_item(item_name, noun, items_remaining)
                 msg("Insufficient mana (" .. checkmana() .. "/" .. maxmana() .. ") after verse 2 - waiting for recovery...")
                 cycle_count = cycle_count - 1
                 wait_for_mana_recovery()
-                -- Loop back
             elseif string.find(line, "falters and fades") then
                 msg("Song faltered - no loresong or fully identified.")
                 break
@@ -533,7 +754,7 @@ local function announce_high_value_summary()
     for _, item in ipairs(high_value_items) do
         table.insert(parts, item.name .. "(" .. format_silver(item.value) .. ")")
     end
-    local summary = #high_value_items .. " valuable items found! " .. table.concat(parts, ", ")
+    local summary = #high_value_items .. " valuable items found! The following deserve attention: " .. table.concat(parts, ", ")
     msg(summary)
 
     if settings.announce_successes then
@@ -575,23 +796,25 @@ local function run_hand_mode()
         pause(0.5)
     end
 
+    local status = completed and "completed" or "failed"
+
     -- CSV export
     if settings.csv_export_enabled then
-        local status = completed and "completed" or "failed"
         append_csv_row(item_name, noun, status, last_item_value, last_recall_text)
     end
 
-    -- Report item for summary
+    -- Report item for summary and HTML
     table.insert(report_items, {
         name = item_name,
         noun = noun,
-        status = completed and "completed" or "failed",
+        status = status,
         recall_text = last_recall_text,
         value = last_item_value,
     })
 
     msg(completed and "Finished." or "Did not complete.")
     announce_high_value_summary()
+    write_html_report(report_items)
 end
 
 --------------------------------------------------------------------------------
@@ -602,7 +825,6 @@ local function open_containers(sing_container, sung_container)
     for _, cont in ipairs({ sing_container, sung_container }) do
         fput("look in #" .. cont.id)
         pause(0.6)
-        -- Check if closed
         local recent = reget(5) or {}
         for _, rline in ipairs(recent) do
             if string.find(rline, "closed") then
@@ -626,7 +848,6 @@ local function run_container_mode()
         return
     end
 
-    -- Find containers in inventory
     local sing_container = nil
     local sung_container = nil
     local inv = GameObj.inv()
@@ -651,7 +872,6 @@ local function run_container_mode()
     clear_hands()
     open_containers(sing_container, sung_container)
 
-    -- Get items to sing (filtered by type tags)
     local items_to_sing = {}
     if sing_container.contents then
         for _, item in ipairs(sing_container.contents) do
@@ -675,7 +895,6 @@ local function run_container_mode()
         fput("get #" .. item.id .. " from #" .. sing_container.id)
         pause(0.8)
 
-        -- Check if it ended up in left hand instead
         local rh = GameObj.right_hand()
         local lh = GameObj.left_hand()
         if (not rh or rh.name == "Empty") and lh and lh.id == item.id then
@@ -684,7 +903,6 @@ local function run_container_mode()
             rh = GameObj.right_hand()
         end
 
-        -- Verify item is in right hand
         rh = GameObj.right_hand()
         if not rh or rh.id ~= item.id then
             msg("Could not get " .. item.name .. " into right hand. Skipping.")
@@ -719,14 +937,13 @@ local function run_container_mode()
         end
 
         if already_unlocked(recall_text) then
-            -- Check value even for already-unlocked items
             local threshold_str = string.gsub(settings.value_threshold or "", ",", "")
             local threshold = tonumber(threshold_str)
             if settings.value_alert_enabled and threshold then
                 local item_value = parse_item_value(recall_text)
                 if item_value >= threshold then
                     local formatted = format_silver(item_value)
-                    local message = "Item " .. item_name .. " worth " .. formatted .. " silvers - over your threshold! " .. items_remaining .. " items to go!"
+                    local message = "Your item " .. item_name .. " was found to be worth " .. formatted .. " silvers. This is over your value threshold! Congrats! " .. items_remaining .. " items to go!"
                     msg(message)
                     if settings.announce_successes then
                         fput("speak common")
@@ -739,14 +956,14 @@ local function run_container_mode()
                 end
             end
 
+            local raw_val = parse_item_value(recall_text)
             if settings.csv_export_enabled then
-                local raw_val = parse_item_value(recall_text)
                 append_csv_row(item_name, noun, "already_unlocked", raw_val > 0 and raw_val or nil, recall_text)
             end
 
             table.insert(report_items, {
                 name = item_name, noun = noun, status = "already_unlocked",
-                recall_text = recall_text, value = parse_item_value(recall_text) > 0 and parse_item_value(recall_text) or nil,
+                recall_text = recall_text, value = raw_val > 0 and raw_val or nil,
             })
 
             msg(noun .. " already fully unlocked - moving to sung container.")
@@ -810,8 +1027,8 @@ local function run_container_mode()
         already_unlocked_count .. " items already found unlocked. All moved to " .. sung_name .. "!")
 
     announce_high_value_summary()
+    write_html_report(report_items)
 
-    -- Session webhook summary
     if #report_items > 0 then
         send_webhook(
             "Session complete: " .. successfully_unlocked .. " unlocked, " ..
@@ -828,10 +1045,9 @@ end
 --------------------------------------------------------------------------------
 
 local function show_setup()
-    local win = Gui.window("Loresang Setup", { width = 700, height = 680, resizable = true })
+    local win = Gui.window("Loresang Setup", { width = 700, height = 740, resizable = true })
     local root = Gui.vbox()
 
-    -- Header
     local header = Gui.label("Loresang Configuration\nSettings for container mode mostly; some apply to hand mode too.")
     root:add(header)
     root:add(Gui.separator())
@@ -845,6 +1061,9 @@ local function show_setup()
 
     local csv_cb = Gui.checkbox("Enable CSV log export?", settings.csv_export_enabled)
     general_box:add(csv_cb)
+
+    local html_cb = Gui.checkbox("Maintain HTML report after each session?", settings.html_report_enabled)
+    general_box:add(html_cb)
 
     local webhook_cb = Gui.checkbox("Enable Discord webhook alerts?", settings.webhook_enabled)
     general_box:add(webhook_cb)
@@ -936,7 +1155,7 @@ local function show_setup()
     local verse_box = Gui.vbox()
 
     verse_box:add(Gui.label("Verse 1:"))
-    local v1_input = Gui.input({ text = settings.verse1 or "", placeholder = "Custom first verse (use {noun} for item noun)" })
+    local v1_input = Gui.input({ text = settings.verse1 or "", placeholder = "Custom first verse (use #{item.noun} for item noun)" })
     verse_box:add(v1_input)
 
     verse_box:add(Gui.label("Verse 2:"))
@@ -977,6 +1196,7 @@ local function show_setup()
     save_btn:on_click(function()
         settings.use_guildspeak = guildspeak_cb:get_checked()
         settings.csv_export_enabled = csv_cb:get_checked()
+        settings.html_report_enabled = html_cb:get_checked()
         settings.webhook_enabled = webhook_cb:get_checked()
         settings.webhook_name = webhook_input:get_text() or ""
         settings.low_mana_enabled = low_mana_cb:get_checked()
@@ -990,7 +1210,7 @@ local function show_setup()
         end
         settings.value_alert_enabled = value_cb:get_checked()
         settings.value_threshold = value_input:get_text() or ""
-        settings.announce_successes = announce_cb:get_checked() and value_cb:get_checked()
+        settings.announce_successes = announce_cb:get_checked()
         settings.rt_skew_enabled = rt_cb:get_checked()
         settings.rt_skew = rt_input:get_text() or "0"
 
@@ -1041,11 +1261,15 @@ local function show_log()
         for _ in string.gmatch(content, "[^\n]+") do
             line_count = line_count + 1
         end
-        -- Subtract header row
         msg("Total entries: " .. math.max(0, line_count - 1))
     else
         msg("No CSV log found yet. Run ;loresang to create one.")
         msg("Expected path: " .. path)
+    end
+
+    local html_path = html_report_path()
+    if File.exists(html_path) then
+        msg("HTML report path: " .. html_path)
     end
 end
 
@@ -1061,7 +1285,7 @@ local function show_help()
     msg("  ;loresang               - Sing all items from Sing Container to Sung Container")
     msg("  ;loresang hand          - Sing item in right hand until complete")
     msg("  ;loresang setup         - Open configuration GUI window")
-    msg("  ;loresang log           - Show CSV log path and summary")
+    msg("  ;loresang log           - Show CSV/HTML log paths and summary")
     msg("  ;loresang help          - This help")
     respond("")
     msg("Container mode requires setup first (;loresang setup).")
@@ -1072,6 +1296,7 @@ local function show_help()
     msg("  - Custom song verses (verse 1 and verse 2)")
     msg("  - Mana checks and low-mana callout")
     msg("  - Value threshold alerts (chat + optional room announcement)")
+    msg("  - HTML report: expandable recall text, pin/save items, notes, CSV export for Shops")
     msg("  - Discord webhook alerts via lib/webhooks")
     msg("  - CSV export of all results")
     msg("  - Roundtime skew adjustment")
