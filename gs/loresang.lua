@@ -1,3 +1,32 @@
+--- @revenant-script
+--- name: loresang
+--- version: 2.0.0
+--- author: Kyrandos
+--- contributors: EduBarbarian
+--- game: gs
+--- description: Bard loresinging utility — single item (right hand) or bulk
+---   container-to-container loresinging with custom songs, mana checks, value
+---   threshold alerts, room announcements, CSV export, Discord webhook alerts,
+---   and GUI setup via Gui.* API.
+--- tags: utility,economy,bard,loresong,loresing,csv,export
+---
+--- Changelog (from Lich5 loresang.lic v1.2.1):
+---   v2.0.0 (2026-03-18): Full Revenant rewrite — no GTK/Ruby deps, uses
+---     Revenant primitives (fput, waitrt, reget, CharSettings, Gui.*, Json, File).
+---     Discord webhook via lib/webhooks. CSV export via File.write.
+---     HTML report replaced with CSV export + webhook.
+---   v1.2.1 (Lich5): Updated HTML output directory
+---   v1.2.0 (Lich5): HTML report output with localStorage pinning
+---   v1.1.0 (Lich5): Detect weak song / insufficient power, mana recovery
+---   v1.0.x (Lich5): Initial release by Kyrandos
+---
+--- Usage:
+---   ;loresang               - Sing all items from Sing Container to Sung Container
+---   ;loresang hand           - Sing item in right hand until complete
+---   ;loresang setup          - Open configuration GUI window
+---   ;loresang log            - Show CSV log path and summary
+---   ;loresang help           - Show this help
+
 local VERSION = "2.0.0"
 
 --------------------------------------------------------------------------------
