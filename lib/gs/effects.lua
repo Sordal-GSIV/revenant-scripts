@@ -146,8 +146,12 @@ end
 
 -------------------------------------------------------------------------------
 -- Public API — mirroring Lich5: Effects::Spells, ::Buffs, ::Debuffs, ::Cooldowns
+--
+-- Overwrite the global Effects table (the Rust binding has Instant-based semantics
+-- and is missing expiration/each/to_table).  Scripts that access Effects.* directly
+-- without requiring this module will now also get the full Lich5-compatible API.
 -------------------------------------------------------------------------------
-local Effects = {
+Effects = {
     Spells    = make_registry("Active Spells"),
     Buffs     = make_registry("Buffs"),
     Debuffs   = make_registry("Debuffs"),
