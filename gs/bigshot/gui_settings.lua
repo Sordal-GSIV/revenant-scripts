@@ -224,6 +224,49 @@ local function build_attack_tab(state)
 end
 
 ---------------------------------------------------------------------------
+-- Build Boons Tab
+---------------------------------------------------------------------------
+local function build_boons_tab(state)
+    local vbox = Gui.vbox()
+
+    section(vbox, "Boon Creatures (bigshot.lic boon tables)")
+
+    local boons_all = labeled_input(vbox, "Boons ALL:", table.concat(state.boons_all or {}, ", "),
+        "Always apply boon handling to these creatures (comma-separated)")
+    local boons_ignore = labeled_input(vbox, "Boons IGNORE:", table.concat(state.boons_ignore or {}, ", "),
+        "Never apply boon handling to these creatures")
+    local boons_flee = labeled_input(vbox, "Boons FLEE:", table.concat(state.boons_flee or {}, ", "),
+        "Flee from rooms containing these boon creatures")
+
+    section(vbox, "Creature Type Tables")
+
+    local immunity = labeled_input(vbox, "Immunity:", table.concat(state.immunity or {}, ", "),
+        "Creatures immune to your attack type")
+    local misc = labeled_input(vbox, "Misc:", table.concat(state.misc or {}, ", "),
+        "Miscellaneous boon creatures")
+    local offensive = labeled_input(vbox, "Offensive:", table.concat(state.offensive or {}, ", "),
+        "Boon creatures that have strong offensive abilities")
+    local defensive = labeled_input(vbox, "Defensive:", table.concat(state.defensive or {}, ", "),
+        "Boon creatures with strong defensive abilities")
+
+    section(vbox, "Boon Behavior")
+    local boon_flee = labeled_checkbox(vbox, "Flee from boon creature rooms", state.boon_flee_from)
+
+    local root = Gui.scroll(vbox)
+
+    return root, function()
+        state.boons_all     = config.parse_csv(boons_all:get_text())
+        state.boons_ignore  = config.parse_csv(boons_ignore:get_text())
+        state.boons_flee    = config.parse_csv(boons_flee:get_text())
+        state.immunity      = config.parse_csv(immunity:get_text())
+        state.misc          = config.parse_csv(misc:get_text())
+        state.offensive     = config.parse_csv(offensive:get_text())
+        state.defensive     = config.parse_csv(defensive:get_text())
+        state.boon_flee_from = boon_flee:get_checked()
+    end
+end
+
+---------------------------------------------------------------------------
 -- Build Commands Tab
 ---------------------------------------------------------------------------
 local function build_commands_tab(state)
@@ -372,15 +415,17 @@ function M.open(state)
     local hunt_tab, save_hunt = build_hunting_tab(state)
     local atk_tab, save_atk = build_attack_tab(state)
     local cmd_tab, save_cmd = build_commands_tab(state)
+    local boon_tab, save_boon = build_boons_tab(state)
     local misc_tab, save_misc = build_misc_tab(state)
 
     -- Tab bar
-    local tabs = Gui.tab_bar({"Resting", "Hunting", "Attack", "Commands", "Misc"})
+    local tabs = Gui.tab_bar({"Resting", "Hunting", "Attack", "Commands", "Boons", "Misc"})
     tabs:set_tab_content(1, rest_tab)
     tabs:set_tab_content(2, hunt_tab)
     tabs:set_tab_content(3, atk_tab)
     tabs:set_tab_content(4, cmd_tab)
-    tabs:set_tab_content(5, misc_tab)
+    tabs:set_tab_content(5, boon_tab)
+    tabs:set_tab_content(6, misc_tab)
     root:add(tabs)
 
     -- Profile section
@@ -410,7 +455,7 @@ function M.open(state)
         local name = prof_input:get_text()
         if name and name ~= "" then
             -- Collect all tab data first
-            save_rest(); save_hunt(); save_atk(); save_cmd(); save_misc()
+            save_rest(); save_hunt(); save_atk(); save_cmd(); save_boon(); save_misc()
             config.save_profile(state, name)
         end
     end)
@@ -430,7 +475,7 @@ function M.open(state)
     end)
 
     save_btn:on_click(function()
-        save_rest(); save_hunt(); save_atk(); save_cmd(); save_misc()
+        save_rest(); save_hunt(); save_atk(); save_cmd(); save_boon(); save_misc()
         config.save(state)
         respond("[bigshot] Settings saved")
         win:close()

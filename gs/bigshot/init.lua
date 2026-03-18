@@ -6,7 +6,7 @@
 --- depends: go2 >= 1.0, eloot >= 1.0
 --- description: Full hunting automation — combat, navigation, rest, bounty, group
 --- game: gs
---- @lic-audit: validated 2026-03-18
+--- @lic-certified: complete 2026-03-18
 ---
 --- Port of bigshot.lic v5.12.1 from Elanthia-Online
 --- Setup Instructions: https://gswiki.play.net/Script_Bigshot
