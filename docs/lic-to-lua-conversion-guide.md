@@ -11,7 +11,7 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | Hooks | Procs that return modified string (or nil to squelch) | Lua functions registered by name |
 | Settings | `Settings[]`, `CharSettings[]`, `Vars[]`, `UserVars[]` | `Settings.key`, `CharSettings.key`, `UserVars.key` (metatable-based) |
 | Error model | Exceptions (begin/rescue/ensure) | pcall/xpcall |
-| Regex | Ruby Regexp (`=~`, `.match`, `Regexp.new`) | Lua patterns (`string.find`, `string.match`) or PCRE via future lib |
+| Regex | Ruby Regexp (`=~`, `.match`, `Regexp.new`) | Lua patterns for simple matches; `Regex.new(pattern)` for full PCRE/regex |
 | Nil semantics | `nil` is falsy; `false` is also falsy | `nil` is falsy; `false` is also falsy (same) |
 | String interpolation | `"hello #{name}"` | `"hello " .. name` or `string.format("hello %s", name)` |
 
@@ -842,7 +842,111 @@ end
 
 ---
 
-## 21. Game-Specific File Organization
+## 21. Regex
+
+Revenant exposes a full PCRE regex engine via the `Regex` global. Use it when the Ruby original uses `Regexp` (especially for complex patterns that Lua patterns cannot express).
+
+### Compiled Object API
+
+```lua
+local re = Regex.new("Wall of Thorns Poison.*")  -- compile once, reuse
+re:test("Wall of Thorns Poison (5)")              -- → true
+re:match("foo bar")                               -- → matched string or nil
+re:find("foo bar")                                -- → start, end (1-indexed) or nil, nil
+re:captures("2024-03-18")                         -- → table: [0]=full, [1]=group1, named keys
+re:replace("hello world", "goodbye")             -- → first match replaced
+re:replace_all("aabbcc", "x")                    -- → all matches replaced
+re:split("one,two,three")                         -- → {"one","two","three"}
+re:pattern()                                      -- → original pattern string
+```
+
+### Convenience (one-off, no reuse)
+
+```lua
+Regex.test("pattern", text)                       -- → bool
+Regex.match("pattern", text)                      -- → matched string or nil
+Regex.replace("pattern", text, replacement)       -- → string
+Regex.replace_all("pattern", text, replacement)   -- → string
+Regex.split("pattern", text)                      -- → table
+```
+
+### Ruby → Lua Regex Translation
+
+```ruby
+# Ruby
+str =~ /Wall of Thorns Poison/
+str.match(/(\d+):(\d+):(\d+)/)
+str.scan(/\d+/)
+str.gsub(/foo/, "bar")
+hash.any? { |k, _| k.to_s =~ /pattern/ }
+```
+```lua
+-- Lua
+Regex.test("Wall of Thorns Poison", str)
+local caps = Regex.new("(\\d+):(\\d+):(\\d+)"):captures(str)
+-- caps[1], caps[2], caps[3] are the groups
+-- no scan equivalent; use gmatch for simple patterns, or loop with find
+Regex.replace_all("foo", str, "bar")
+local re = Regex.new("pattern")
+local found = false
+for k, _ in pairs(hash) do
+    if type(k) == "string" and re:test(k) then found = true; break end
+end
+```
+
+**Rule:** Prefer Lua's built-in `string.find` / `string.match` / `string.gmatch` for simple patterns. Use `Regex.new()` when the Ruby source uses named captures, alternation (`|`), lookahead/lookbehind, or other constructs that Lua patterns cannot express.
+
+---
+
+## 22. Effects (GemStone IV only)
+
+Revenant implements `Effects::Spells`, `Effects::Buffs`, `Effects::Debuffs`, and `Effects::Cooldowns` as `Effects.Spells`, `Effects.Buffs`, `Effects.Debuffs`, and `Effects.Cooldowns`. These are auto-loaded as globals when the game is GemStone IV (via `lib/gs/effects.lua`).
+
+Each registry is populated by parsing the game's PSM3 XML stream (`<dialogData>` / `<progressBar>` elements).
+
+### API
+
+| Lich5 Ruby | Revenant Lua | Notes |
+|-----------|-------------|-------|
+| `Effects::Debuffs.active?("Bind")` | `Effects.Debuffs.active("Bind")` | Returns bool |
+| `Effects::Buffs.active?(140)` | `Effects.Buffs.active(140)` | Numeric bar ID lookup |
+| `Effects::Spells.expiration("Shroud of Deception")` | `Effects.Spells.expiration("Shroud of Deception")` | Unix timestamp, 0 if absent |
+| `Effects::Spells.time_left("Minor Summoning")` | `Effects.Spells.time_left("Minor Summoning")` | **Minutes** remaining (same as Lich5) |
+| `Effects::Cooldowns.to_h` | `Effects.Cooldowns.to_table()` | Shallow copy `{name/id → expiry_ts}` |
+| `Effects::Buffs.each { \|k, v\| }` | `Effects.Buffs.each(function(k, v) end)` | Iterate all entries |
+| `Effects::Debuffs.to_h.keys & list` | `(loop over Effects.Debuffs.to_table())` | No set-intersection operator in Lua |
+
+### Regex argument (mirrors Lich5's Regexp branch)
+
+When passed a `Regex` object, `active()` and `expiration()` test each string key against the pattern and return the first match:
+
+```lua
+-- Lich5: Effects::Debuffs.to_h.keys.any? { |k| k.to_s =~ /Wall of Thorns Poison/ }
+local re = Regex.new("Wall of Thorns Poison")
+if Effects.Debuffs.active(re) then ... end
+```
+
+### time_left unit
+
+`time_left()` returns **minutes** (matching Lich5). Comparisons in converted scripts are always minute-based:
+
+```lua
+if Effects.Spells.time_left("Shroud of Deception") < 2 then   -- less than 2 minutes
+if Effects.Buffs.time_left("Rapid Fire") > 0.05 then           -- more than ~3 seconds
+```
+
+### Blocking-debuff pattern (echild.lic style)
+
+```lua
+local blocking = { "Bind", "Corrupt Essence", "Calm", "Mind Jolt", "Net", "Silenced", "Sleep", "Web" }
+for _, debuff in ipairs(blocking) do
+    if Effects.Debuffs.active(debuff) then return false end
+end
+```
+
+---
+
+## 23. Game-Specific File Organization
 
 Revenant organizes scripts and libraries by game to keep GS-only and DR-only code separate.
 
