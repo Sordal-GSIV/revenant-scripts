@@ -11,16 +11,10 @@
 local M = {}
 
 --- Check current silver on hand.
+-- Uses Currency.silver (GS infomon cache) — avoids sending a game command.
 -- @return number silver amount
 function M.check_silver()
-    -- Use the game's INVENTORY command to check silver
-    -- In Revenant, we parse the silver from game output
-    local result = dothistimeout("info", 3, "Silver:")
-    if result then
-        local silver = string.match(result, "(%d+)")
-        return tonumber(silver) or 0
-    end
-    return 0
+    return Currency.silver or 0
 end
 
 --- Get the contents of a container by name.
