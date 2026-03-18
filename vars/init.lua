@@ -1,8 +1,12 @@
 --- @revenant-script
 --- name: vars
---- version: 1.0.0
+--- version: 1.2.1
 --- author: Sordal
+--- original-authors: Tillmen, Elanthia-Online
 --- description: User variable editor with GUI
+--- game: Gemstone
+--- tags: core
+--- @lic-certified: complete 2026-03-18
 
 local args_lib = require("lib/args")
 require("lib/vars")  -- registers global Vars
@@ -13,33 +17,37 @@ local cmd    = parsed.args[1]
 
 local function show_list()
     local all = Vars.list()
-    local count = 0
+    if next(all) == nil then
+        respond("\n--- no variables are set\n\n")
+        return
+    end
     local keys = {}
+    local max_len = 0
     for k in pairs(all) do
         keys[#keys + 1] = k
-        count = count + 1
+        if #k > max_len then max_len = #k end
     end
     table.sort(keys)
-    respond("User variables (" .. count .. "):")
+    local output = "\n--- " .. (GameState.name or "Character") .. "'s variables:\n\n"
     for _, k in ipairs(keys) do
         local v = all[k]
-        local t = type(v)
-        respond(string.format("  %-25s  %-8s  %s", k, t, tostring(v)))
+        local padded = string.rep(" ", max_len - #k) .. k
+        output = output .. "   " .. padded .. ":  " .. tostring(v) .. "\n"
     end
+    output = output .. "\n"
+    respond(output)
 end
 
 local function show_help()
-    respond("Usage: ;vars [command]")
-    respond("")
-    respond("Commands:")
-    respond("  (no args)            List all variables")
-    respond("  set <name> <value>   Set a variable")
-    respond("  set <name>=<value>   Set a variable (alt syntax)")
-    respond("  get <name>           Show a single variable")
-    respond("  unset <name>         Delete a variable")
-    respond("  clear yes            Delete ALL variables")
-    respond("  setup                Open GUI editor")
-    respond("  help                 Show this help")
+    local output = "\n"
+    output = output .. "   ;vars setup              open a window to edit variables\n"
+    output = output .. "   ;vars set NAME=VALUE     add or change a variable\n"
+    output = output .. "   ;vars delete NAME        delete a variable\n"
+    output = output .. "   ;vars list               show current variables\n"
+    output = output .. "   ;vars get NAME           show a single variable\n"
+    output = output .. "   ;vars clear yes          delete ALL variables\n"
+    output = output .. "\n"
+    respond(output)
 end
 
 if not cmd then
@@ -52,10 +60,10 @@ if cmd == "help" then
 
 elseif cmd == "set" then
     local name, value
-    -- Support NAME=VALUE syntax
+    -- Support NAME=VALUE syntax (original format)
     local eq_name, eq_value = input:match("^set%s+([^%s=]+)%s*=%s*(.+)$")
     if eq_name then
-        name, value = eq_name, eq_value
+        name, value = eq_name, eq_value:match("^(.-)%s*$")
     else
         name = parsed.args[2]
         if parsed.args[3] then
@@ -66,24 +74,26 @@ elseif cmd == "set" then
     end
 
     if not name or not value then
-        respond("Usage: ;vars set <name> <value>  or  ;vars set <name>=<value>")
+        respond("Usage: ;vars set <name>=<value>")
         return
     end
 
-    -- Boolean coercion
+    local old_value = Vars[name]
+    -- Boolean coercion only (matches original behavior)
     if value:lower() == "true" then
         Vars[name] = true
     elseif value:lower() == "false" then
         Vars[name] = false
     else
-        local num = tonumber(value)
-        if num then
-            Vars[name] = num
-        else
-            Vars[name] = value
-        end
+        Vars[name] = value
     end
-    respond("Set: " .. name .. " = " .. tostring(Vars[name]) .. " (" .. type(Vars[name]) .. ")")
+
+    if old_value == nil then
+        respond('\n--- variable "' .. name .. '" set to: "' .. tostring(Vars[name]) .. '"\n\n')
+    else
+        respond('\n--- variable ' .. name .. ' changed to: ' .. tostring(Vars[name]) ..
+            ' (was ' .. tostring(old_value) .. ')\n\n')
+    end
 
 elseif cmd == "get" then
     local name = parsed.args[2]
@@ -95,17 +105,24 @@ elseif cmd == "get" then
     if val ~= nil then
         respond(name .. " = " .. tostring(val) .. " (" .. type(val) .. ")")
     else
-        respond(name .. " is not set")
+        respond("\n--- variable " .. name .. " does not exist\n\n")
     end
 
-elseif cmd == "unset" then
+elseif cmd == "delete" or cmd == "del" or cmd == "remove" or cmd == "rem" or cmd == "unset" then
     local name = parsed.args[2]
     if not name then
-        respond("Usage: ;vars unset <name>")
+        respond("Usage: ;vars delete <name>")
         return
     end
-    Vars[name] = nil
-    respond("Unset: " .. name)
+    if Vars[name] == nil then
+        respond("\n--- variable " .. name .. " does not exist\n\n")
+    else
+        Vars[name] = nil
+        respond("\n--- variable " .. name .. " was deleted\n\n")
+    end
+
+elseif cmd == "list" then
+    show_list()
 
 elseif cmd == "clear" then
     if parsed.args[2] ~= "yes" then
@@ -118,7 +135,7 @@ elseif cmd == "clear" then
         Vars[k] = nil
         count = count + 1
     end
-    respond("Cleared " .. count .. " variables")
+    respond("Cleared " .. count .. " variables.")
 
 elseif cmd == "setup" then
     local gui = require("gui_settings")
