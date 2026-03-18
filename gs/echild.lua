@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-18
 --- name: echild
 --- version: 1.20.3
 --- author: elanthia-online
@@ -262,6 +263,10 @@ if custom_disabler_raw and custom_disabler_raw ~= "" and custom_disabler_raw ~= 
     end
 end
 local stop_1011 = false
+
+-- Save go2 seeking state and disable for this escort run (parity: $go2_use_seeking)
+local seeking_save = UserVars.mapdb_use_seeking
+UserVars.mapdb_use_seeking = false
 
 --------------------------------------------------------------------------------
 -- CLI argument handling
@@ -550,6 +555,7 @@ end
 
 before_dying(function()
     DownstreamHook.remove(Script.name .. "_check_justice")
+    UserVars.mapdb_use_seeking = seeking_save  -- restore go2 seeking state
     if stop_1011 then
         waitrt()
         fput("stop 1011")
@@ -654,7 +660,7 @@ if room_num_match then
     local from_room = tonumber(room_num_match)
     place = Map.find_nearest_room(from_room, dropoff_points)
 else
-    local child_response = "Please, take me home to ([^!]+)!"
+    local child_response = 'The child says, "Please, take me home to ([^!]+)!"'
     local line = dothistimeout("ask child about destination", 5, {child_response})
     if line then
         local dest_name = line:match(child_response)
