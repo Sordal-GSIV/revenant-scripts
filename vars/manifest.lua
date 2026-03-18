@@ -8,7 +8,7 @@ return {
     tags = { "core" },
     depends = {},
     changelog = {
-        ["1.2.1"] = "2026-03-18: del/delete/rem/remove aliases, new-vs-update message, existence check on delete, right-justified list, empty-list message, remove numeric coercion, original authors",
+        ["1.2.1"] = "2026-03-18: del/delete/rem/remove subcommand synonyms, new-vs-update set message, existence check on delete, right-justified list, empty-list message, remove numeric coercion, original authors",
         ["1.2.0"] = "Allowed setting of vars to boolean values true/false",
         ["1.0.0"] = "Initial Revenant port",
     },
