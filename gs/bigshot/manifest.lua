@@ -1,6 +1,6 @@
 return {
     name = "bigshot",
-    version = "1.0.0",
+    version = "5.12.1",
     author = "elanthia-online",
     contributors = "SpiffyJr, Tillmen, Kalros, Hazado, Tysong, Athias, Falicor, Deysh, Nisugi",
     game = "gs",
