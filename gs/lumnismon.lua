@@ -6,7 +6,7 @@
 --- game: gs
 --- description: Lumnis experience boost tracking and monitoring across multiple characters
 --- tags: character,experience,lumnis,tracking
---- @lic-audit: validated 2026-03-17
+--- @lic-certified: complete 2026-03-18
 
 --------------------------------------------------------------------------------
 -- LumnisMon - Multi-Character Lumnis Tracking
@@ -553,6 +553,7 @@ end
 local function get_exp_info()
     local cur_mind = 0
     local cur_deed = 0
+    local cur_expnext = nil  -- nil until captured; fallback to GameState.next_level_text
     local exp_done = false
     local filter = false
 
@@ -568,15 +569,21 @@ local function get_exp_info()
         if filter then
             if string.match(s, "^%s*$") then return nil end
 
-            -- Squelch misc experience output lines
+            -- Squelch / capture misc experience output lines
             if string.find(s, "Ascension Exp:")
                 or string.find(s, "Total Exp:")
                 or string.find(s, "Exp to next TP:")
-                or string.find(s, "Exp until lvl:")
                 or string.find(s, "PTPs/MTPs:")
                 or string.find(s, "Your mind")
                 or string.find(s, "strange sense of serenity")
                 or string.find(s, "recent adventures echo") then
+                return nil
+            end
+
+            -- Capture exp until next level (squelch from display)
+            local xpn = string.match(s, "Exp until lvl:%s*([%d,]+)")
+            if xpn then
+                cur_expnext = tonumber(string.gsub(xpn, ",", "")) or 0
                 return nil
             end
 
@@ -612,7 +619,7 @@ local function get_exp_info()
     put("experience")
     wait_until(function() return exp_done end)
 
-    return {mind = cur_mind, deed = cur_deed}
+    return {mind = cur_mind, deed = cur_deed, expnext = cur_expnext}
 end
 
 --------------------------------------------------------------------------------
@@ -794,7 +801,14 @@ local function update_char_info(all, uv, lumnis, exp_data, res_data, bps_raw, av
     ci.supports_4x_5x = lumnis.supports_4x_5x
     ci.nextschedulestring = calculate_next_schedule(lumnis.schedule, lumnis.f2p)
 
-    ci.expnext = (Char.level == 100) and "Cap" or exp_until_next()
+    -- Prefer hook-captured expnext; fall back to GameState.next_level_text if available
+    if Char.level == 100 then
+        ci.expnext = "Cap"
+    elseif exp_data.expnext ~= nil then
+        ci.expnext = exp_data.expnext
+    else
+        ci.expnext = exp_until_next()
+    end
 
     -- Update lumnis status
     if lumnis.f2p then
@@ -1074,8 +1088,12 @@ local function colorize_cell_value(header, value)
 end
 
 --------------------------------------------------------------------------------
--- Report display
+-- Report display (forward declarations for mutually-dependent locals)
 --------------------------------------------------------------------------------
+
+local display_single_table
+local display_by_account
+local display_legacy
 
 local function display_report(all, uv)
     prepare_char_data(all)
@@ -1151,7 +1169,7 @@ local function render_colorized_table(tbl, headers)
     return table.concat(lines, "\n")
 end
 
-function display_single_table(sorted, headers, uv)
+display_single_table = function(sorted, headers, uv)
     local repeat_interval = uv.header_repeat_rows or 10
 
     if repeat_interval == 0 or #sorted <= repeat_interval then
@@ -1180,7 +1198,7 @@ function display_single_table(sorted, headers, uv)
     end
 end
 
-function display_by_account(sorted, headers, uv)
+display_by_account = function(sorted, headers, uv)
     local tbl = TableRender.new(headers)
     local current_account = nil
 
@@ -1206,7 +1224,7 @@ function display_by_account(sorted, headers, uv)
     respond('<output class=""/>')
 end
 
-function display_legacy(sorted, headers, uv)
+display_legacy = function(sorted, headers, uv)
     -- Calculate column widths
     local just = {}
     for i, h in ipairs(headers) do
