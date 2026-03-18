@@ -13,18 +13,28 @@ function M.should_hunt()
         return false, "Spirit too low"
     end
 
-    -- Death recovery check
     local enh = Stats.enhanced_aur
     local base = Stats.aur
     if enh and base and enh[1] < base[1] then
         return false, "Recovering from Death"
     end
 
+    local btask = Bounty.task or ""
+    if btask:find("Come back in about") then
+        return false, "Bounty cooldown"
+    end
+
+    local now = os.time()
+    if now - (util.state.info_time or 0) >= 60 then
+        put("info")
+        util.state.info_time = now
+        pause(0.5)
+    end
+
     if GameState.mind == "saturated" and st.exp_pause then
         return false, "Mind saturated"
     end
 
-    local btask = Bounty.task or ""
     if btask:find("succeeded") and GameState.mind == "saturated"
        and not st.keep_hunting then
         return false, "Bounty complete but mind saturated"
@@ -43,11 +53,49 @@ function M.wait_for_ready()
         local now = os.time()
         if now - last_msg >= 60 then
             util.msg("yellow", "Not Hunting: " .. reason)
-            util.msg("yellow", "Elapsed: " .. util.duration(os.time() - util.state.start_time))
+            util.msg("yellow", "Elapsed: " .. util.elapsed())
             last_msg = now
         end
         pause(0.5)
         ready, reason = M.should_hunt()
+    end
+end
+
+function M.set_eval()
+    local st = util.state.settings
+    local info = Bounty.parse()
+    if not info then return end
+
+    local bt = info.type or "none"
+
+    if bt == "skin" and info.number then
+        util.state.remaining_skins = (info.number or 1) + (st.extra_skin or 0)
+        util.state.skin = info.skin
+    end
+
+    if bt == "gem" and info.number then
+        util.state.remaining_gems = info.number or 1
+        util.state.gem = info.gem
+    end
+
+    if st.exp_pause then
+        util.state.complete_mind = "saturated"
+    else
+        util.state.complete_mind = nil
+    end
+end
+
+function M.keep_hunting()
+    util.msg("debug", "keep_hunting loop")
+    local original = Bounty.task or ""
+    while true do
+        local ok, _ = M.should_hunt()
+        if not ok then break end
+        Script.run("bigshot", "single")
+        pause(1)
+        if (Bounty.task or "") ~= original then break end
+        if (Bounty.task or ""):find("succeeded") then break end
+        if (Bounty.task or ""):find("not currently assigned") then break end
     end
 end
 
@@ -116,9 +164,24 @@ function M.go_hunting()
     if btask:find("You are not currently assigned") then return end
     if btask:find("succeeded") and GameState.mind ~= "saturated" then return end
 
-    -- Run bigshot for actual hunting
+    M.set_eval()
+
     local creature = util.state.creature
-    if creature and util.state.settings.ranger_track then
+    local st = util.state.settings
+
+    if creature == "bandits" then
+        local bandit_args = "bounty"
+        if util.state.location_start then
+            bandit_args = bandit_args .. " --hunting-room " .. tostring(util.state.location_start)
+        end
+        if util.state.location_boundaries then
+            bandit_args = bandit_args .. " --boundaries " .. util.state.location_boundaries
+        end
+        if st.wander_wait and st.wander_wait > 0 then
+            bandit_args = bandit_args .. " --wander-wait " .. tostring(st.wander_wait)
+        end
+        Script.run("bigshot", bandit_args)
+    elseif creature and st.ranger_track then
         local last_word = creature:match("(%S+)$") or creature
         Script.run("bigshot", "bounty " .. last_word)
     else

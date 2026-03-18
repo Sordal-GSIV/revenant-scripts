@@ -6,7 +6,7 @@
 --- game: gs
 --- description: Loot/sell pipeline — skin, search, box, sell, pool, hoard, bounty integration
 --- tags: loot, sell, skin, boxes, pool, hoard, bounty
---- @lic-audit: validated 2026-03-18
+--- @lic-certified: complete 2026-03-18
 ---
 --- Changelog (recent):
 ---   v2.7.0  (2026-01-19) ground looting, group disk box support, ingot selling, trash verb

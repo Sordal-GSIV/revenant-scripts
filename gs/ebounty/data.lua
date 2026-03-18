@@ -101,6 +101,40 @@ M.stance_names = {
     [60]  = "neutral",   [80]  = "guarded",  [100] = "defensive",
 }
 
+M.get_results = {
+    "You remove", "You draw", "You grab", "You reach", "You slip",
+    "You tuck", "You retrieve", "already have", "You unsheathe",
+    "You detach", "You swap", "Get what%?", "Why don't you leave some",
+    "You need a free hand", "You already have that",
+}
+
+M.put_results = {
+    "You put", "You tuck", "You attach", "You toss", "You place",
+    "You slip", "wipe off the blade and sheathe", "You find an incomplete bundle",
+    "is already a bundle", "would be too large", "is too large to be bundled",
+    "won't fit in",
+}
+
+M.taskmaster_responses = {
+    "The local gem dealer", "The local furrier",
+    "It appears they have a", "It appears that a local resident",
+    "The local healer", "The local herbalist",
+    "You have already been assigned a task",
+    "It appears they need your help in tracking down",
+    "Come back in about", "I have removed you",
+    "Who are you trying to ask",
+}
+
+M.boost_types = {"Any", "Kill", "Heirloom", "Skin", "Gem", "Escort", "Herb", "Dangerous", "Child", "Bandit"}
+
+M.herb_fixes = {
+    ["ayana weed"] = "ayana leaf", ["ayana lichen"] = "ayana leaf",
+    ["ayana berry"] = "ayana leaf", ["ayana root"] = "ayana leaf",
+    ["ayana'al weed"] = "ayana leaf", ["ayana'al lichen"] = "ayana leaf",
+    ["ayana'al berry"] = "ayana leaf", ["ayana'al root"] = "ayana leaf",
+    ["trollear mushroom"] = "trollfear mushroom",
+}
+
 function M.matches_any(name, patterns)
     for _, pat in ipairs(patterns) do
         if name:find(pat) then return true end

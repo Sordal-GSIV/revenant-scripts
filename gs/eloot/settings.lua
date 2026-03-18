@@ -61,11 +61,16 @@ M.DEFAULTS = {
     sell_keep_silver       = 0,
 
     -- Locksmith pool
-    locksmith_withdraw_amount       = 10000,
+    locksmith_withdraw_amount       = 8000,
     display_box_contents            = true,
     use_standard_tipping            = true,
     sell_locksmith_pool_tip         = 15,
     sell_locksmith_pool_tip_percent = true,
+    locksmith_when_gem_bounty       = false,
+    use_incremental_tipping         = false,
+    base_tip                        = 200,
+    max_tip                         = 2000,
+    alpha_rate                      = 2.5,
 
     -- Skinning
     skin_enable       = false,
@@ -76,11 +81,13 @@ M.DEFAULTS = {
     skin_weapon       = "",
     skin_sheath_blunt = "",
     skin_weapon_blunt = "",
+    skin_exclude      = {},
+    between           = {},
 
     -- Display / debug
     silence    = false,
     debug      = false,
-    debug_file = "",
+    debug_file = false,
 
     -- Containers / coin hand
     coin_hand_name       = "",
@@ -114,7 +121,9 @@ M.DEFAULTS = {
     keep_closed       = false,
 
     -- Misc
-    between_scripts   = {},
+    between_scripts      = {},
+    sell_deposit_coinhand = false,
+    gambling_toss_min    = 1000,
 
     -- Sigil determination
     sigil_determination_on_fail = false,

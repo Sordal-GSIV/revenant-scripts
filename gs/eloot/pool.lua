@@ -310,68 +310,72 @@ function M.locksmith_pool(boxes, deposit, data)
     Util().wait_for_disk(data)
 
     for _, box in ipairs(boxes) do
-        -- Get box into hand if not already there
-        rh = GameObj.right_hand()
-        lh = GameObj.left_hand()
-        if not ((rh.type and string.find(rh.type, "box")) or (lh.type and string.find(lh.type, "box"))) then
-            Inventory().drag(box, nil, data)
-        end
-
-        -- Make sure box is in right hand
-        rh = GameObj.right_hand()
-        if rh.id ~= box.id then
-            fput("swap")
-            Util().wait_rt()
-        end
-
-        box = Util().box_unphase(box, data)
-
-        -- Determine tip amount
-        local tip_amount
-        if data.settings.use_standard_tipping then
-            tip_amount = tostring(data.settings.sell_locksmith_pool_tip or 0) .. percent
-        else
-            tip_amount = tostring(M.locksmith_determine_tip(pool_count, 1, data))
-        end
-
         local redo_needed = false
-        for i = 1, 2 do
-            local confirm = (i == 1) and "" or " confirm"
-            local result = dothistimeout("give #" .. worker.id .. " " .. tip_amount .. confirm,
-                3, match_patterns)
+        repeat
+            redo_needed = false
 
-            if result and string.find(result, "totaling ([%d,]+) silvers?") then
-                local silver_str = result:match("totaling ([%d,]+) silvers?")
-                local silver = tonumber(silver_str and silver_str:gsub(",", "") or "0") or 0
-                data.silver_breakdown["Locksmith Pool"] = (data.silver_breakdown["Locksmith Pool"] or 0) - silver
-                pool_count = pool_count + 1
-                data.silver_breakdown["Pool Dropoff"] = (data.silver_breakdown["Pool Dropoff"] or 0) + 1
+            -- Get box into hand if not already there
+            rh = GameObj.right_hand()
+            lh = GameObj.left_hand()
+            if not ((rh.type and string.find(rh.type, "box")) or (lh.type and string.find(lh.type, "box"))) then
+                Inventory().drag(box, nil, data)
+            end
 
-                if pool_count > 99 then
+            -- Make sure box is in right hand
+            rh = GameObj.right_hand()
+            if rh.id ~= box.id then
+                fput("swap")
+                Util().wait_rt()
+            end
+
+            box = Util().box_unphase(box, data)
+
+            -- Determine tip amount
+            local tip_amount
+            if data.settings.use_standard_tipping then
+                tip_amount = tostring(data.settings.sell_locksmith_pool_tip or 0) .. percent
+            else
+                tip_amount = tostring(M.locksmith_determine_tip(pool_count, 1, data))
+            end
+
+            for i = 1, 2 do
+                local confirm = (i == 1) and "" or " confirm"
+                local result = dothistimeout("give #" .. worker.id .. " " .. tip_amount .. confirm,
+                    3, match_patterns)
+
+                if result and string.find(result, "totaling ([%d,]+) silvers?") then
+                    local silver_str = result:match("totaling ([%d,]+) silvers?")
+                    local silver = tonumber(silver_str and silver_str:gsub(",", "") or "0") or 0
+                    data.silver_breakdown["Locksmith Pool"] = (data.silver_breakdown["Locksmith Pool"] or 0) - silver
+                    pool_count = pool_count + 1
+                    data.silver_breakdown["Pool Dropoff"] = (data.silver_breakdown["Pool Dropoff"] or 0) + 1
+
+                    if pool_count > 99 then
+                        local new_count = M.handle_full_pool(worker, data)
+                        if deposit then return true end
+                        pool_count = new_count
+                    end
+                elseif result and string.find(result, "You don't have that much") then
+                    Util().silver_withdraw(data.settings.locksmith_withdraw_amount, data)
+                    Util().go2(original_pool, data)
+                    redo_needed = true
+                    break
+                elseif result and string.find(result, "already holding as many boxes") then
+                    if not box_in_hand then
+                        Inventory().single_drag(box, nil, data)
+                    end
                     local new_count = M.handle_full_pool(worker, data)
                     if deposit then return true end
                     pool_count = new_count
+                    redo_needed = true
+                    break
+                elseif result and (string.find(result, "already unlocked") or string.find(result, "already open")) then
+                    Loot().box_loot(box, "Locksmith Pool", data)
                 end
-            elseif result and string.find(result, "You don't have that much") then
-                Util().silver_withdraw(data.settings.locksmith_withdraw_amount, data)
-                Util().go2(original_pool, data)
-                redo_needed = true
-            elseif result and string.find(result, "already holding as many boxes") then
-                if not box_in_hand then
-                    Inventory().single_drag(box, nil, data)
-                end
-                local new_count = M.handle_full_pool(worker, data)
-                if deposit then return true end
-                pool_count = new_count
-                redo_needed = true
-            elseif result and (string.find(result, "already unlocked") or string.find(result, "already open")) then
-                Loot().box_loot(box, "Locksmith Pool", data)
             end
-        end
+        until not redo_needed
 
         if pool_count > 99 then break end
-        -- Note: redo logic in Lua uses a different pattern than Ruby's redo
-        -- The outer loop iteration handles retries naturally
     end
 
     Inventory().free_hands({ both = true }, data)

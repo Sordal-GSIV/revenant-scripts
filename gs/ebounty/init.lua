@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-audit: validated 2026-03-18
 --- name: ebounty
 --- version: 2.0.0
 --- author: elanthia-online
@@ -144,7 +145,6 @@ local util = require("util")
 local task = require("task")
 local gui = require("gui_settings")
 
--- Runtime state
 local state = {
     settings = nil,
     creature = nil,
@@ -154,6 +154,15 @@ local state = {
     only_required = false,
     close_containers = {},
     bad_rooms = {},
+    remaining_skins = 0,
+    remaining_gems = 0,
+    complete_mind = nil,
+    bandit_flag = false,
+    location_start = nil,
+    location_boundaries = nil,
+    info_time = 0,
+    skin = nil,
+    gem = nil,
 }
 
 util.state = state
@@ -170,6 +179,9 @@ local function setup_death_monitor()
                 util.run_scripts(state.settings.death_script)
             end
         end
+        if line and line:find("suppress bandit activity") then
+            state.bandit_flag = true
+        end
         return line
     end)
 end
@@ -177,6 +189,9 @@ end
 -- Cleanup
 before_dying(function()
     DownstreamHook.remove("ebounty_death_watch")
+    if state.settings.return_to_group and state.leader ~= "" then
+        fput("join " .. state.leader)
+    end
     if state.settings.basic and state.start_room then util.go2(state.start_room) end
     if Script.running("bigshot") then Script.kill("bigshot") end
     for _, bag_id in ipairs(state.close_containers) do fput("close #" .. bag_id) end
@@ -188,10 +203,18 @@ local function show_help()
     respond("  ;ebounty           - Run bounty loop")
     respond("  ;ebounty once      - Run one bounty and quit")
     respond("  ;ebounty setup     - Open settings GUI")
+    respond("  ;ebounty setup <key> <value> - Update single setting")
     respond("  ;ebounty remove    - Remove current bounty")
     respond("  ;ebounty forage bounty")
     respond("  ;ebounty forage \"herb\" <qty> [\"loc\"]")
-    respond("  ;ebounty list|location|creature|bounty|debug|version")
+    respond("  ;ebounty load      - Reload settings from disk")
+    respond("  ;ebounty list      - List all settings")
+    respond("  ;ebounty location  - Show current bounty location")
+    respond("  ;ebounty creature  - Show current bounty creature")
+    respond("  ;ebounty bounty    - Show current bounty details")
+    respond("  ;ebounty debug     - Toggle debug mode")
+    respond("  ;ebounty version   - Show version")
+    respond("  ;ebounty test      - Dump all settings")
 end
 
 -- CLI routing
@@ -207,6 +230,18 @@ elseif arg1 == "debug" then
     state.settings.debug = not state.settings.debug
     settings_mod.save(state.settings)
     echo("Debug mode: " .. tostring(state.settings.debug))
+
+elseif arg1 == "load" then
+    state.settings = settings_mod.load()
+    state.bad_rooms = settings_mod.build_bad_rooms(state.settings)
+    echo("Settings reloaded.")
+
+elseif arg1 == "test" then
+    echo("EBounty v2.0.0 (Revenant)")
+    for k, v in pairs(state.settings) do
+        if type(v) == "table" then echo("  " .. k .. ": " .. table.concat(v, ", "))
+        else echo("  " .. k .. ": " .. tostring(v)) end
+    end
 
 elseif arg1 == "list" then
     respond("[ebounty] Settings:")
@@ -284,6 +319,10 @@ else
 
     state.start_room = Map.current_room()
     if arg1 == "once" then state.settings.once_and_done = true end
+
+    if grouped() then
+        state.leader = Group.leader or ""
+    end
 
     setup_death_monitor()
     task.bounty_check()
