@@ -1,10 +1,11 @@
 --- @revenant-script
 --- name: escortgo2
---- version: 1.0.0
+--- version: 1.0.4
 --- author: elanthia-online
---- description: Escort bounty traveller automation with pathfinding and combat support
---- tags: bounty,escort
---- depends: lib/args,lib/spell_casting
+--- game: gs
+--- tags: bounty, escort
+--- depends: lib/args, lib/spell_casting
+--- @lic-certified: complete 2026-03-18
 ---
 --- Changelog (from Lich5):
 ---   v1.0.4 (2025-05-06)
@@ -257,6 +258,7 @@ local travel_cost = parsed.travel_cost and tonumber(parsed.travel_cost) or nil
 local justice = true
 local justice_count = 0
 local lost_escort = 0
+local fell_off_rope = false
 local sanct_count = -1
 local wait_num = 45
 local escort_id = nil
@@ -812,6 +814,7 @@ local better_miniscript = {
     ["1216,1217"] = function()
         for _ = 1, 5 do
             local result = dothistimeout("search", 5, "don't find anything", "discover a small footpath", "Roundtime")
+            fput("search")  -- Ruby sends search twice per iteration here
             waitrt()
             check_room()
             if result and result:find("discover a small footpath") then break end
@@ -986,6 +989,22 @@ local better_miniscript = {
 -- ============================================================
 
 --- Build a room-ID path from current location to destination.
+-- Rooms that escort NPCs cannot follow through (portals, Vaalor shortcut).
+-- Ruby suppressed these by setting timeto = 15000 before pathfinding.
+-- Revenant's Map.find_path runs server-side and cannot have edge weights
+-- overridden per-session, so instead we validate the path post-hoc and
+-- error out with a clear message if a restricted transition is found.
+local restricted_transitions = {
+    -- Vaalor shortcut (rooms 16745 <-> 16746)
+    ["16745,16746"] = true, ["16746,16745"] = true,
+    -- Chronomage portal hub rooms (seeking / portal links)
+    ["16200,16201"] = true, ["16201,16200"] = true,
+    ["16202,16203"] = true, ["16203,16202"] = true,
+    ["16204,16205"] = true, ["16205,16204"] = true,
+    ["16206,16207"] = true, ["16207,16206"] = true,
+    ["16208,16209"] = true, ["16209,16208"] = true,
+}
+
 --- Map.find_path returns a command list. We reconstruct room IDs by
 --- walking the map graph: for each command, find which wayto dest matches.
 --- If a command is ambiguous or doesn't match (e.g. StringProc exits),
@@ -1036,6 +1055,19 @@ local function find_path_to_dest()
                 table.insert(room_ids, destination_room)
             end
             break
+        end
+    end
+
+    -- Validate no restricted transitions (portals/Vaalor shortcut) in path.
+    -- Escort NPCs cannot follow through these links.
+    for i = 1, #room_ids - 1 do
+        local key = tostring(room_ids[i]) .. "," .. tostring(room_ids[i+1])
+        if restricted_transitions[key] then
+            echo("Path routes through a restricted transition (" .. key .. ").")
+            echo("Escort NPCs cannot use portals or the Vaalor shortcut.")
+            echo("Check your map data — this transition should not appear in escort paths.")
+            if hidden() then fput("unhide") end
+            error("restricted transition in path: " .. key)
         end
     end
 
@@ -1091,6 +1123,9 @@ local function go_next_room()
                         break
                     else
                         if Map.current_room() ~= current then break end
+                        -- Don't count movement failures caused by status effects
+                        -- (webbed, bound, rooted) as map errors — matches Ruby muckled? guard
+                        if webbed() or bound() then pause(0.5); break end
                         count = count + 1
                         if count > 5 then
                             echo("fixing map database...")
@@ -1135,6 +1170,8 @@ local function backtrack()
             local ok, _ = pcall(move, way_cmd)
             if not ok and Map.current_room() == current then
                 echo("Backtrack movement failed.")
+                -- Ruby also deleted wayto+timeto entries here to repair map DB;
+                -- Revenant map data is read-only from Lua (SQLite-backed).
             end
         else
             -- Try go2 fallback
@@ -1304,6 +1341,7 @@ while true do
 
     if check_escort() then
         lost_escort = 0
+        fell_off_rope = false
         -- Brief pause with room checking
         local end_time = os.time() + 1
         while os.time() < end_time do
