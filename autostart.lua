@@ -1,7 +1,19 @@
 --- @revenant-script
 --- name: autostart
---- version: 0.2.0
+--- version: 0.3.0
+--- author: Tillmen (tillmen@lichproject.org)
+--- maintained-by: Elanthia-Online
+--- contributors: Athias
+--- game: any
+--- tags: core
 --- description: Launch scripts automatically on character connect
+---
+--- Original Lich5 author: Tillmen
+--- Maintained by: Elanthia-Online
+--- Contributors: Athias
+--- Ported to Revenant Lua from autostart.lic v0.66
+---
+--- @lic-certified: complete 2026-03-18
 
 -- ── Game-agnostic module loading ────────────────────────────────────────────
 Flags = require("lib/flags")
@@ -196,14 +208,22 @@ end
 
 local function show_help()
   respond("Usage:")
-  respond("  ;autostart                              Show config + start daemon")
+  respond("  ;autostart                               Show config + start daemon")
   respond("  ;autostart list                          Show configured scripts")
   respond("  ;autostart add <script> [args] [--global] Add script to autostart")
   respond("  ;autostart remove <script> [--global]    Remove script from autostart")
   respond("  ;autostart enable                        Enable autostart")
   respond("  ;autostart disable                       Disable autostart")
-  respond("  ;autostart pkg-update [true|false]        Toggle pkg update on connect")
+  respond("  ;autostart pkg-update [true|false]       Toggle pkg update on connect")
   respond("  ;autostart help                          Show this help")
+  if GameState.game == "DR" then
+    respond("")
+    respond("  ########################################################")
+    respond("  # DR-Scripts do not normally use this script.          #")
+    respond("  # Please read the autostart sections in:               #")
+    respond("  # https://elanthipedia.play.net/Lich_script_repository #")
+    respond("  ########################################################")
+  end
 end
 
 -- ── Command routing ──────────────────────────────────────────────────────────
