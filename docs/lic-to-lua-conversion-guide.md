@@ -56,6 +56,7 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | `matchfind "pat1", "pat2"` | `matchfind("pat1", "pat2")` | Search last 100 lines for patterns |
 | `matchwait "pat1", "pat2"` | `matchwait("pat1", "pat2")` | Block until any pattern matches |
 | `matchtimeout secs, "p1", "p2"` | `matchtimeout(secs, "p1", "p2")` | matchwait with timeout |
+| `dothistimeout cmd, secs, "p1"` | `dothistimeout(cmd, secs, "p1", "p2", ...)` | Send cmd, return first matching line within timeout; accepts multiple patterns as varargs OR a single table |
 
 ### Roundtime
 
@@ -76,6 +77,7 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | `ne` / `se` / `sw` / `nw` | `ne()` / `se()` / `sw()` / `nw()` | Diagonal shortcuts |
 | `u` / `d` / `out` | `u()` / `d()` / `out()` | Up/down/out |
 | `multimove("n","e","n")` | Sequential `move()` calls | Not a built-in; use a loop |
+| `walk` (random exit) | `walk()` | Takes a random available exit; uses `GameState.room_exits`; returns true on success |
 
 ### Flow Control
 
@@ -352,6 +354,8 @@ Full skill list: `two_weapon_combat`, `armor_use`, `shield_use`, `combat_maneuve
 | `Spell.active` | `Spell.active()` | Array of active spell tables |
 | `Spell[101].active_p` (num) | `Spell.active_p(101)` | Is spell num active? |
 | `Spell[101].known_p` (num) | `Spell.known_p(101)` | Is spell num known? |
+| `Spell[101].affordable?` | `Spell[101]:affordable()` | **CRITICAL**: `affordable` is a method defined in `lib/gs/spell_casting.lua`. `Spell[101].affordable` returns the function itself (always truthy). Always call as `Spell[101]:affordable()` to get a boolean. |
+| `Spell[101].cast(target)` | `Spell[101]:cast(target)` | Cast spell at optional target; defined in `lib/gs/spell_casting.lua` |
 
 ### Pattern: checkspell
 ```ruby
