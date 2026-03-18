@@ -27,9 +27,10 @@ function M.build_index()
             -- Initialize map entry if not seen
             if not index.maps[img] then
                 index.maps[img] = {
-                    name = img,
+                    name = nil,  -- filled from meta:mapname or defaults to img
                     shortname = nil,
-                    category = "Uncategorized",
+                    categories = {},  -- supports multiple categories
+                    filename = img,
                 }
             end
 
@@ -38,15 +39,25 @@ function M.build_index()
                 for _, tag in ipairs(room.tags) do
                     local mapname = tag:match("^meta:mapname:(.+)$")
                     if mapname then
-                        index.maps[img].name = mapname
+                        index.maps[img].name = index.maps[img].name or mapname
                     end
                     local shortname = tag:match("^meta:mapshortname:(.+)$")
                     if shortname then
-                        index.maps[img].shortname = shortname
+                        index.maps[img].shortname = index.maps[img].shortname or shortname
                     end
+                    -- Support multiple categories per map (mapcategory:Cat or mapcategory:Cat:SubName)
                     local category = tag:match("^meta:mapcategory:(.+)$")
                     if category then
-                        index.maps[img].category = category
+                        if not index.maps[img].categories then
+                            index.maps[img].categories = {}
+                        end
+                        -- Parse "Category:SubName" format
+                        local cat, subname = category:match("^(.-):(.*)")
+                        if cat then
+                            index.maps[img].categories[cat] = subname
+                        else
+                            index.maps[img].categories[category] = nil
+                        end
                     end
                     -- Collect non-meta tags
                     if not tag:match("^meta:") then
@@ -62,14 +73,35 @@ function M.build_index()
         end
     end
 
-    -- Build category index
+    -- Build category index — maps can appear under multiple categories
     for img, info in pairs(index.maps) do
-        local cat = info.category
-        if not index.categories[cat] then
-            index.categories[cat] = {}
+        -- Fill in defaults for name/shortname
+        info.name = info.name or info.filename or img
+        info.shortname = info.shortname or info.name
+
+        if info.categories and next(info.categories) then
+            -- Map has categories — index under each one
+            for cat, subname in pairs(info.categories) do
+                if not index.categories[cat] then
+                    index.categories[cat] = {}
+                end
+                local list = index.categories[cat]
+                list[#list + 1] = img
+                -- Store the per-category subname if available
+                if subname and subname ~= "" then
+                    info.categories[cat] = subname
+                else
+                    info.categories[cat] = info.shortname
+                end
+            end
+        else
+            -- No categories: put in Uncategorized
+            if not index.categories["Uncategorized"] then
+                index.categories["Uncategorized"] = {}
+            end
+            local list = index.categories["Uncategorized"]
+            list[#list + 1] = img
         end
-        local list = index.categories[cat]
-        list[#list + 1] = img
     end
     -- Sort each category's map list
     for _, list in pairs(index.categories) do
