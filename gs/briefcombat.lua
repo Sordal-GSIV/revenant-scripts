@@ -1,5 +1,5 @@
 --- @revenant-script
---- @lic-audit: validated 2026-03-17
+--- @lic-certified: complete 2026-03-18
 --- name: briefcombat
 --- version: 1.0.3
 --- author: Daedeus
@@ -1090,14 +1090,11 @@ local function compress_combat(line)
     end
 
     -- Standard combat regex
-    local m = combat_re:match_all(clean_line)
-    if m and #m > 0 then
-        local match = m[1]
-        -- match[1] = full player string (with <a> tag or "You")
-        -- Captures depend on regex group structure
-        -- We need player string, verb, and target string
-        local player_str = match[1] or ""
-        local target_string = match[4] or match[3] or nil -- target with pushBold
+    -- Capture groups: 1=player, 2=exist_id, 3=verb, 4=full target <pushBold/>...<popBold/>, 5=inner target
+    local caps = combat_re:captures(clean_line)
+    if caps then
+        local player_str = caps[1] or ""
+        local target_string = caps[4]  -- nil if no target (optional group)
 
         is_self = (player_str == "You")
 
@@ -1123,11 +1120,11 @@ local function compress_combat(line)
     end
 
     -- Target-first combat regex
-    m = combat_target_first_re:match_all(clean_line)
-    if m and #m > 0 then
-        local match = m[1]
-        local player_str = match[1] or ""
-        local target_string = match[2] or nil
+    -- Capture groups: 1=player, 2=exist_id, 3=full target <pushBold/>...<popBold/>, 4=inner target, 5=verb
+    caps = combat_target_first_re:captures(clean_line)
+    if caps then
+        local player_str = caps[1] or ""
+        local target_string = caps[3]  -- group 3 = full <pushBold/>...<popBold/> target
         is_self = (player_str == "You")
 
         local excluded = false
@@ -1145,19 +1142,19 @@ local function compress_combat(line)
     end
 
     -- Ambient combat regex
-    m = combat_ambient_re:match_all(clean_line)
-    if m and #m > 0 then
-        local match = m[1]
-        local target_string = match[1] or nil
+    -- Capture groups: 1=full target <pushBold/>...<popBold/>, 2=inner target
+    caps = combat_ambient_re:captures(clean_line)
+    if caps then
+        local target_string = caps[1]  -- nil if no target (optional group)
         begin_compress(line, target_string, nil)
         return nil
     end
 
     -- Ambient2 combat regex
-    m = combat_ambient_2_re:match_all(clean_line)
-    if m and #m > 0 then
-        local match = m[1]
-        local target_string = match[1] or nil
+    -- Capture groups: 1=full target <pushBold/>...<popBold/>, 2=inner target
+    caps = combat_ambient_2_re:captures(clean_line)
+    if caps then
+        local target_string = caps[1]
         begin_compress(line, target_string, nil)
         return nil
     end
