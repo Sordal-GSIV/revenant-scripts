@@ -440,6 +440,30 @@ function M.EquipmentManager(settings)
     return true
   end
 
+  --- Remove all worn items matching a predicate function.
+  -- @param predicate function Function(item) -> boolean
+  -- @return table List of removed Item objects (for later re-wearing)
+  function em.remove_gear_by(self, predicate)
+    local removed = {}
+    for _, item in ipairs(self:items()) do
+      if item.worn and predicate(item) then
+        if self:remove_item(item) then
+          removed[#removed + 1] = item
+        end
+      end
+    end
+    return removed
+  end
+
+  --- Wear a list of Item objects (re-equip previously removed gear).
+  -- @param items table List of Item objects to wear
+  function em.wear_items(self, items)
+    if not items then return end
+    for _, item in ipairs(items) do
+      self:wear_item(item)
+    end
+  end
+
   --- Empty both hands, preferring return_held_gear over generic stow.
   function em.empty_hands(self)
     if not em:return_held_gear() then

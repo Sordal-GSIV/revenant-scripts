@@ -214,6 +214,65 @@ function M.ask_for_item(room, name, item)
   return result:find("hands you") ~= nil
 end
 
+--- Refill a lockpick container (ring/stacker) by buying lockpicks in a town.
+-- Walks to the locksmithing shop for the given town, buys lockpicks one at a time,
+-- and loads them onto the container.
+-- @param lockpick_type string Type of lockpick to buy (e.g. "ordinary", "stout", "slim")
+-- @param town string Hometown name (e.g. "Crossing", "Riverhaven")
+-- @param container string Lockpick container item name
+-- @param count number Number of lockpicks to buy
+function M.refill_lockpick_container(lockpick_type, town, container, count)
+  if not count or count < 1 then return end
+
+  -- Town -> locksmith room ID mapping (from base-town.yaml)
+  local LOCKSMITH_ROOMS = {
+    ["Crossing"]     = 19125,
+    ["Riverhaven"]   = 19096,
+    ["Shard"]        = 9817,
+    ["Ain Ghazal"]   = 13190,
+    ["Hibarnhvidar"] = 13190,
+    ["Muspar'i"]     = 7613,
+  }
+
+  local room_id = LOCKSMITH_ROOMS[town]
+  if not room_id then
+    respond("[DRCT] No locksmith location found for town '" .. tostring(town) .. "'. Skipping refill.")
+    return
+  end
+
+  M.walk_to(room_id)
+
+  if Room and Room.id ~= room_id then
+    respond("[DRCT] Could not reach locksmith in '" .. town .. "'. Skipping refill.")
+    return
+  end
+
+  for _ = 1, count do
+    M.buy_item(room_id, lockpick_type .. " lockpick")
+    -- Load the just-purchased lockpick onto the ring
+    local result = DRC.bput("put my lockpick on my " .. container,
+      "You put", "You slide", "You place",
+      "What were you referring to", "There's no room",
+      "mixing types is not allowed", "is too .* to fit")
+    if result:find("mixing types") or result:find("no room") or result:find("too .* to fit") then
+      respond("[DRCT] Failed to put lockpick on " .. container .. ". Stopping refill.")
+      break
+    end
+  end
+
+  -- Leave the shop (be polite to Thieves who need the room empty)
+  DRC.fix_standing()
+  local exits = Room and Room.exits
+  if exits then
+    for _, exit in ipairs(exits) do
+      if exit == "out" then
+        fput("out")
+        break
+      end
+    end
+  end
+end
+
 --- Order an item by number from a menu.
 -- @param room number Room ID of merchant
 -- @param item_number number|string Order number

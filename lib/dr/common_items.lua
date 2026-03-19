@@ -231,6 +231,64 @@ function M.stow_hands()
   M.stow_hand("left")
 end
 
+--- Stow an item into its default container (STORE command).
+-- Equivalent to Lich5's DRCI.stow_item?
+-- @param item string Item name
+-- @return boolean true on success
+function M.stow_item(item)
+  return M.put_away_item(item, nil)
+end
+
+--- Give an item to a target (NPC or player).
+-- Equivalent to Lich5's DRCI.give_item?
+-- For NPC repair shops the response is immediate; player-to-player offers
+-- are handled via retry (GIVE it again / already has an outstanding offer).
+-- @param target string Target name (NPC or player)
+-- @param item string|nil Item to give (nil = give whatever is held)
+-- @return boolean true if the target accepted
+function M.give_item(target, item)
+  local cmd
+  if item then
+    cmd = "give " .. M.item_ref(item) .. " to " .. target
+  else
+    cmd = "give " .. target
+  end
+
+  local result = DRC.bput(cmd,
+    "has accepted your offer",
+    "your ticket and are handed back",
+    "Please don't lose this ticket!",
+    "You hand .* gives you back a repair ticket",
+    "You hand .* your ticket and are handed back",
+    "I don't repair those here",
+    "There isn't a scratch on that",
+    "give me a few more moments",
+    "I will not repair something that isn't broken",
+    "I can't fix those",
+    "has declined the offer",
+    "Your offer to .* has expired",
+    "You may only have one outstanding offer",
+    "What is it you're trying to give",
+    "Lucky for you!  That isn't damaged!",
+    "GIVE it again",
+    "give it to me again",
+    "already has an outstanding offer")
+
+  if result:find("GIVE it again") or result:find("give it to me again") then
+    if waitrt then waitrt() end
+    return M.give_item(target, item)
+  end
+  if result:find("already has an outstanding offer") then
+    pause(5)
+    return M.give_item(target, item)
+  end
+
+  return result:find("has accepted your offer") ~= nil
+      or result:find("your ticket and are handed back") ~= nil
+      or result:find("Please don't lose this ticket!") ~= nil
+      or result:find("gives you back a repair ticket") ~= nil
+end
+
 --- Lower an item to the ground.
 -- @param item string Item to lower
 -- @return boolean true on success
@@ -512,6 +570,132 @@ function M.put_away_item_unsafe(item, container, preposition)
       or result:find("You tuck") ~= nil
       or result:find("You slide") ~= nil
       or result:find("You place") ~= nil
+end
+
+-------------------------------------------------------------------------------
+-- Lockpicking helpers
+-------------------------------------------------------------------------------
+
+--- Box material+noun patterns used by rummage /B results.
+M.BOX_NOUNS = {
+  "box", "caddy", "casket", "chest", "coffer", "crate", "skippet", "strongbox", "trunk",
+}
+
+--- Get list of box items in a container using rummage /B.
+-- Returns adj+noun strings like "deobar strongbox", "iron chest".
+-- @param container string Container to rummage
+-- @return table Array of box item strings
+function M.get_box_list_in_container(container)
+  if not container then return {} end
+
+  local result = DRC.bput("rummage /B my " .. container,
+    "but there is nothing in there like that",
+    "looking for .* and see",
+    "While it's closed",
+    "I could not find",
+    "You feel about",
+    "That would accomplish nothing")
+
+  if result:find("You feel about") then
+    if DRC and DRC.release_invisibility then DRC.release_invisibility() end
+    return M.get_box_list_in_container(container)
+  end
+
+  if not result:find("looking for") then return {} end
+
+  local text = result:match("looking for .* and see (.+)%.")
+  if not text then return {} end
+
+  -- Parse each item, stripping "a/an/some" article prefixes
+  local items = DRC.list_to_array(text)
+  local boxes = {}
+  for _, item in ipairs(items) do
+    local clean = item:gsub("^[Aa]n? ", ""):gsub("^[Ss]ome ", "")
+    -- Normalize ironwood -> iron (Lich5 compatibility)
+    clean = clean:gsub("ironwood", "iron"):match("^%s*(.-)%s*$")
+    if clean ~= "" then
+      boxes[#boxes + 1] = clean
+    end
+  end
+  return boxes
+end
+
+--- Count how many more lockpicks a lockpick container (ring/stacker) can hold.
+-- Uses the APPRAISE QUICK command on the container.
+-- @param container string Lockpick container name
+-- @return number Number of additional lockpicks the container can accept (0 = full)
+function M.count_lockpick_container(container)
+  if not container then return 0 end
+
+  local result = DRC.bput("appraise " .. M.item_ref(container) .. " quick",
+    "it appears to be full",
+    "it might hold an additional %d+",
+    "%d+ lockpicks would probably fit",
+    "I could not find",
+    "What were you referring to")
+  if waitrt then waitrt() end
+
+  local count = result:match("(%d+)")
+  return tonumber(count) or 0
+end
+
+--- Get a list of items in a container using look or rummage.
+-- @param container string Container to inspect
+-- @param verb string "look" or "rummage" (default "rummage")
+-- @return table Array of item short-description strings (articles stripped)
+function M.get_item_list(container, verb)
+  if not container then return {} end
+  verb = (verb or "rummage"):lower()
+
+  if verb:sub(1, 1) == "l" then
+    -- LOOK IN container
+    local result = DRC.bput("look in " .. M.item_ref(container),
+      "In the .* you see",
+      "That is already open",
+      "That is closed",
+      "There is nothing in there",
+      "I could not find")
+
+    if result:find("I could not find") or result:find("That is closed")
+        or result:find("nothing in there") then
+      return {}
+    end
+    if result:find("That is already open") then
+      result = DRC.bput("look in " .. M.item_ref(container),
+        "In the .* you see", "There is nothing in there", "I could not find")
+    end
+
+    local contents = result:match("[Yy]ou see (.+)%.")
+    if not contents then return {} end
+
+    local arr = DRC.list_to_array(contents)
+    local out = {}
+    for _, item in ipairs(arr) do
+      out[#out + 1] = item:gsub("^[Aa]n? ", ""):gsub("^[Ss]ome ", ""):match("^%s*(.-)%s*$")
+    end
+    return out
+  else
+    -- RUMMAGE container
+    local result = DRC.bput("rummage " .. M.item_ref(container),
+      "You rummage through .* and see",
+      "but there is nothing in there",
+      "While it's closed",
+      "I could not find",
+      "You feel about",
+      "That would accomplish nothing")
+
+    if not result:find("You rummage") then return {} end
+
+    local contents = result:match("You rummage through .* and see (.+)%.")
+    if not contents then return {} end
+
+    local arr = DRC.list_to_array(contents)
+    local out = {}
+    for _, item in ipairs(arr) do
+      out[#out + 1] = item:gsub("^[Aa]n? ", ""):gsub("^[Ss]ome ", ""):match("^%s*(.-)%s*$")
+    end
+    return out
+  end
 end
 
 return M
