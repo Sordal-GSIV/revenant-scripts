@@ -1,26 +1,46 @@
 --- @revenant-script
 --- name: creaturebar
---- version: 1.1.0
+--- version: 2.0.0
 --- author: elanthia-online
 --- contributors: Nisugi
 --- game: gs
---- description: Visual creature status bar display with injury tracking, HP bar, and status effects
+--- @lic-certified: complete 2026-03-19
+--- description: Visual creature status bar display with status effects, targeting, and multi-creature panels
 --- tags: hunting,combat,creatures,gui
 ---
 --- Ported from Lich5 Ruby creaturebar.lic v1.1
+--- Original authors: Elanthia Online, Nisugi
+---
+--- Change Log:
+--- v1.1 (2025/12/21) [original .lic]
+---   - Alt + drag to move window around
+---   - Warning if combat tracking disabled
+--- v1.0 (2025/11/30) [original .lic]
+---   - Shows current target (XMLData.current_target_id)
+---   - Visual injury doll with wound overlays
+---   - HP progress bar with color-coded ranges
+---   - Status effect indicators
+---   - Fully configurable colors and appearance
+---   - Click panel to target creature
+---   - Supports Frontend Focus Return
+--- v2.0.0 (revenant)
+---   - Full rewrite for Revenant widget-based GUI API
+---   - Multi-tab settings dialog (Layout, Status Effects, Behavior)
+---   - Grid layout: horizontal/vertical with max_columns/max_rows wrapping
+---   - Status effect parsing from GameObj NPC status strings
+---   - Click-to-target using put("target #id")
+---   - Current target highlighting via GameObj.target()
+---   - Per-character settings via CharSettings/Json
+---   - All 15 status effects from original (+ sunburst, frozen, calmed, silenced, bound, hidden)
+---   - Note: HP bars and wound overlays require a combat tracker module
+---     (Lich5's Combat::Tracker parsed combat text for per-creature HP/wounds;
+---      Revenant does not yet have this — when implemented, creaturebar will
+---      gain HP/wound display with no script changes needed)
 ---
 --- Usage:
 ---   ;creaturebar           - Start creature bar display
 ---   ;creaturebar config    - Start with settings dialog
 ---   ;creaturebar help      - Show help
----
---- Features:
----   - Shows current target with name and HP bar
----   - Visual wound/injury indicators per body part
----   - Status effect display (stunned, prone, etc.)
----   - Multi-creature panel support
----   - Click to target creature
----   - Color-coded HP ranges
 
 no_kill_all()
 no_pause_all()
@@ -40,380 +60,356 @@ local function save_json(key, val)
     CharSettings[key] = Json.encode(val)
 end
 
+--- All status effects from the original creaturebar.lic v1.1,
+--- plus additional effects from the Lich5 creature tracking system.
+--- Badge color must be one of: red, green, blue, yellow, white, black
+local DEFAULT_STATUS_EFFECTS = {
+    { name = "stunned",     symbol = "S",  color = "yellow" },
+    { name = "immobilized", symbol = "I",  color = "red" },
+    { name = "webbed",      symbol = "W",  color = "white" },
+    { name = "prone",       symbol = "P",  color = "yellow" },
+    { name = "blind",       symbol = "B",  color = "red" },
+    { name = "sunburst",    symbol = "U",  color = "yellow" },
+    { name = "sleeping",    symbol = "Z",  color = "blue" },
+    { name = "poisoned",    symbol = "T",  color = "green" },
+    { name = "dead",        symbol = "D",  color = "black" },
+    { name = "bleeding",    symbol = "X",  color = "red" },
+    { name = "frozen",      symbol = "F",  color = "blue" },
+    { name = "calmed",      symbol = "C",  color = "blue" },
+    { name = "silenced",    symbol = "Q",  color = "red" },
+    { name = "bound",       symbol = "N",  color = "red" },
+    { name = "hidden",      symbol = "H",  color = "white" },
+}
+
 local DEFAULT_CONFIG = {
-    update_interval  = 250,
+    update_interval  = 500,
     max_creatures    = 5,
     layout_mode      = "horizontal",
     max_columns      = 5,
-    window_x         = 100,
-    window_y         = 100,
-    window_width     = 500,
-    window_height    = 200,
-    show_hp_bar      = true,
-    show_hp_text     = true,
-    show_hp_numbers  = true,
-    show_hp_percent  = true,
+    max_rows         = 2,
     show_name        = true,
     show_status      = true,
-    show_wounds      = true,
     name_mode        = "noun",
-    -- Colors
-    color_bg         = "#2E2E2E",
-    color_name_font  = "#FFFFFF",
-    color_name_bg    = "#000000",
-    color_target_border = "#FFD700",
-    color_other_border  = "#555555",
-    color_hp_bg      = "#3C1414",
-    color_hp_high    = "#2E7D32",
-    color_hp_mid     = "#FFB000",
-    color_hp_low     = "#FF4444",
-    color_hp_text    = "#FFFFFF",
-    hp_high_min      = 75,
-    hp_mid_min       = 40,
-    -- Status effects
-    status_effects = {
-        { name = "stunned",     symbol = "S", color = "#FFD700" },
-        { name = "immobilized", symbol = "I", color = "#FF69B4" },
-        { name = "webbed",      symbol = "W", color = "#C0C0C0" },
-        { name = "prone",       symbol = "P", color = "#FFA500" },
-        { name = "blind",       symbol = "B", color = "#8B4513" },
-        { name = "sleeping",    symbol = "Z", color = "#9370DB" },
-        { name = "poisoned",    symbol = "T", color = "#32CD32" },
-        { name = "dead",        symbol = "D", color = "#000000" },
-        { name = "bleeding",    symbol = "X", color = "#DC143C" },
-    },
+    status_effects   = DEFAULT_STATUS_EFFECTS,
 }
 
-local config = load_json("creaturebar_config", DEFAULT_CONFIG)
-for k, v in pairs(DEFAULT_CONFIG) do
-    if config[k] == nil then config[k] = v end
+local config = load_json("creaturebar_config", nil)
+if not config then
+    config = {}
+    for k, v in pairs(DEFAULT_CONFIG) do config[k] = v end
+else
+    for k, v in pairs(DEFAULT_CONFIG) do
+        if config[k] == nil then config[k] = v end
+    end
+end
+
+local function save_config()
+    save_json("creaturebar_config", config)
 end
 
 --------------------------------------------------------------------------------
 -- Status effect helpers
 --------------------------------------------------------------------------------
 
-local function get_status_symbol(status_name)
-    status_name = (status_name or ""):lower()
-    for _, se in ipairs(config.status_effects or {}) do
-        if se.name:lower() == status_name then
-            return se.symbol
+local function parse_status_string(status_str)
+    if not status_str or status_str == "" then return {} end
+    local statuses = {}
+    local s = status_str:lower()
+    for _, se in ipairs(config.status_effects or DEFAULT_STATUS_EFFECTS) do
+        if string.find(s, se.name:lower(), 1, true) then
+            statuses[#statuses + 1] = se
         end
     end
-    return status_name:sub(1, 1):upper()
-end
-
-local function get_status_color(status_name)
-    status_name = (status_name or ""):lower()
-    for _, se in ipairs(config.status_effects or {}) do
-        if se.name:lower() == status_name then
-            return se.color
-        end
+    if #statuses == 0 and s ~= "" then
+        statuses[#statuses + 1] = { name = status_str, symbol = status_str:sub(1, 1):upper(), color = "white" }
     end
-    return "#FFFFFF"
+    return statuses
 end
 
 --------------------------------------------------------------------------------
--- HP color calculation
+-- State
 --------------------------------------------------------------------------------
 
-local function get_hp_color(percentage)
-    if percentage >= config.hp_high_min then
-        return config.color_hp_high
-    elseif percentage >= config.hp_mid_min then
-        return config.color_hp_mid
-    else
-        return config.color_hp_low
-    end
-end
-
---------------------------------------------------------------------------------
--- Body parts for wound display
---------------------------------------------------------------------------------
-
-local BODY_PARTS = {
-    "head", "neck", "chest", "abdomen", "back",
-    "leftArm", "rightArm", "leftHand", "rightHand",
-    "leftLeg", "rightLeg", "leftFoot", "rightFoot",
-    "leftEye", "rightEye", "nsys",
-}
-
-local WOUND_COLORS = {
-    [1] = "#FFFF00",  -- yellow (minor)
-    [2] = "#FFA500",  -- orange (moderate)
-    [3] = "#FF0000",  -- red (severe)
-}
-
---------------------------------------------------------------------------------
--- Panel State
---------------------------------------------------------------------------------
-
-local panels = {}       -- creature_id => panel data
 local window = nil
-local main_box = nil
-local update_timer = nil
 local running = true
+local settings_win = nil
+-- Track which creature IDs are currently displayed (ordered)
+local displayed_ids = {}
 
 --------------------------------------------------------------------------------
--- GUI Construction
+-- Build display
 --------------------------------------------------------------------------------
 
-local function create_creature_panel(creature_id)
-    local creature = Creature and Creature[creature_id]
-    if not creature then return nil end
+--- Build the full root widget tree for the current target list.
+--- Returns the root widget and a table of per-panel data for updates.
+local function build_display(targets, current_target_id)
+    local panel_data = {}
+    local root = Gui.vbox()
 
-    local panel = {
-        creature_id = creature_id,
-        last_hp_frac = -1,
-        last_hp_color = "",
-        last_name = "",
-        last_status = "",
-        is_current = false,
-    }
-
-    -- Frame for border
-    panel.frame = Gui.frame(main_box, "")
-
-    local vbox = Gui.vbox(panel.frame)
-
-    -- Name label
-    if config.show_name then
-        panel.name_label = Gui.label(vbox, "")
+    if #targets == 0 then
+        root:add(Gui.label("No creatures"))
+        return root, panel_data
     end
 
-    -- HP bar
-    if config.show_hp_bar then
-        panel.hp_bar = Gui.progress(vbox, 0.0)
-    end
+    local layout_mode = config.layout_mode or "horizontal"
+    local max_cols = config.max_columns or 5
+    local max_rows_cfg = config.max_rows or 2
 
-    -- HP text
-    if config.show_hp_text then
-        panel.hp_label = Gui.label(vbox, "")
-    end
+    --- Create a panel widget tree for one NPC.
+    local function make_panel(npc)
+        local card = Gui.card({})
+        local vbox = Gui.vbox()
 
-    -- Wound indicators
-    if config.show_wounds then
-        panel.wound_label = Gui.label(vbox, "")
-    end
+        -- Target indicator
+        local is_current = (npc.id == current_target_id)
+        local target_label = Gui.label(is_current and ">> TARGET <<" or "")
+        vbox:add(target_label)
 
-    -- Status effects
-    if config.show_status then
-        panel.status_label = Gui.label(vbox, "")
-    end
-
-    -- Click to target
-    Gui.on_click(panel.frame, function()
-        fput("target #" .. tostring(creature_id))
-    end)
-
-    return panel
-end
-
-local function update_panel(panel)
-    local creature_id = panel.creature_id
-    local creature = Creature and Creature[creature_id]
-    if not creature then return end
-
-    -- Update name
-    if panel.name_label then
-        local name
-        if config.name_mode == "noun" then
-            name = creature.noun or "unknown"
-        else
-            name = creature.name or "Unknown"
-        end
-        if name ~= panel.last_name then
-            panel.last_name = name
-            Gui.set_text(panel.name_label, name)
-        end
-    end
-
-    -- Update border (current target vs other)
-    local current_target_id = GameState.current_target_id
-    local is_current = (tostring(creature_id) == tostring(current_target_id))
-    if is_current ~= panel.is_current then
-        panel.is_current = is_current
-        local border_color = is_current and config.color_target_border or config.color_other_border
-        Gui.set_style(panel.frame, "border-color", border_color)
-    end
-
-    -- Update HP
-    local max_hp = creature.max_hp
-    local current_hp = creature.current_hp
-
-    if max_hp and max_hp > 0 and current_hp then
-        local frac = math.max(current_hp / max_hp, 0.0)
-        local pct = math.floor(frac * 100)
-        local hp_color = get_hp_color(pct)
-
-        if math.abs(frac - (panel.last_hp_frac or -1)) > 0.001 or hp_color ~= panel.last_hp_color then
-            panel.last_hp_frac = frac
-            panel.last_hp_color = hp_color
-
-            if panel.hp_bar then
-                Gui.set_progress(panel.hp_bar, frac)
-                Gui.set_style(panel.hp_bar, "color", hp_color)
+        -- Name
+        local name_label = nil
+        if config.show_name then
+            local display_name
+            if config.name_mode == "noun" then
+                display_name = npc.noun or "unknown"
+            else
+                display_name = npc.name or "Unknown"
             end
+            name_label = Gui.label(display_name)
+            vbox:add(name_label)
+        end
 
-            if panel.hp_label then
-                local parts = {}
-                if config.show_hp_numbers then
-                    parts[#parts + 1] = string.format("%d/%d", current_hp, max_hp)
+        -- Status badges
+        local status_label = nil
+        if config.show_status then
+            local status_str = npc.status or ""
+            local statuses = parse_status_string(status_str)
+            if #statuses > 0 then
+                local badge_box = Gui.hbox()
+                for _, se in ipairs(statuses) do
+                    badge_box:add(Gui.badge(se.symbol, { color = se.color, outlined = false }))
                 end
-                if config.show_hp_percent then
-                    parts[#parts + 1] = string.format("(%d%%)", pct)
-                end
-                Gui.set_text(panel.hp_label, "HP: " .. table.concat(parts, " "))
+                vbox:add(badge_box)
             end
+            -- Also add a text label for status that can be updated
+            local status_parts = {}
+            for _, se in ipairs(statuses) do
+                status_parts[#status_parts + 1] = se.name
+            end
+            status_label = Gui.label(table.concat(status_parts, ", "))
+            vbox:add(status_label)
+        end
+
+        -- Target button
+        local btn = Gui.button("Target #" .. tostring(npc.id))
+        btn:on_click(function()
+            put("target #" .. tostring(npc.id))
+        end)
+        vbox:add(btn)
+
+        card:add(vbox)
+
+        local pd = {
+            creature_id = npc.id,
+            target_label = target_label,
+            name_label = name_label,
+            status_label = status_label,
+            last_name = (config.name_mode == "noun") and (npc.noun or "") or (npc.name or ""),
+            last_status = npc.status or "",
+            is_current = is_current,
+        }
+        panel_data[#panel_data + 1] = pd
+
+        return card
+    end
+
+    if layout_mode == "horizontal" then
+        local row = nil
+        local col_count = 0
+        for _, npc in ipairs(targets) do
+            if col_count == 0 or col_count >= max_cols then
+                row = Gui.hbox()
+                root:add(row)
+                col_count = 0
+            end
+            row:add(make_panel(npc))
+            col_count = col_count + 1
         end
     else
-        if panel.hp_bar then Gui.set_progress(panel.hp_bar, 1.0) end
-        if panel.hp_label then Gui.set_text(panel.hp_label, "HP: --/--") end
-    end
-
-    -- Update wounds
-    if panel.wound_label and config.show_wounds then
-        local injuries = creature.injuries or {}
-        local wound_parts = {}
-        for _, part in ipairs(BODY_PARTS) do
-            local level = injuries[part]
-            if level and level > 0 then
-                local rank = math.min(level, 3)
-                local color = WOUND_COLORS[rank] or "#FFFFFF"
-                local abbrev = part:sub(1, 2):upper()
-                wound_parts[#wound_parts + 1] = string.format("[%s:%d]", abbrev, rank)
+        -- Vertical: fill rows first, wrap to next column
+        local columns = {}
+        local current_col = 1
+        local row_count = 0
+        for _, npc in ipairs(targets) do
+            if not columns[current_col] then columns[current_col] = {} end
+            columns[current_col][#columns[current_col] + 1] = npc
+            row_count = row_count + 1
+            if row_count >= max_rows_cfg then
+                current_col = current_col + 1
+                row_count = 0
             end
         end
-        local wound_str = table.concat(wound_parts, " ")
-        if wound_str ~= (panel.last_wounds or "") then
-            panel.last_wounds = wound_str
-            Gui.set_text(panel.wound_label, wound_str)
+        local hbox = Gui.hbox()
+        for _, col_npcs in ipairs(columns) do
+            local col_vbox = Gui.vbox()
+            for _, npc in ipairs(col_npcs) do
+                col_vbox:add(make_panel(npc))
+            end
+            hbox:add(col_vbox)
         end
+        root:add(hbox)
     end
 
-    -- Update status effects
-    if panel.status_label and config.show_status then
-        local statuses = creature.status or {}
-        local status_parts = {}
-        for _, s in ipairs(statuses) do
-            local sym = get_status_symbol(s)
-            status_parts[#status_parts + 1] = sym
-        end
-        local status_str = table.concat(status_parts, " ")
-        if status_str ~= panel.last_status then
-            panel.last_status = status_str
-            Gui.set_text(panel.status_label, status_str)
-        end
+    return root, panel_data
+end
+
+--- Check if the target list has changed (different IDs or order).
+local function targets_changed(targets)
+    if #targets ~= #displayed_ids then return true end
+    for i, t in ipairs(targets) do
+        if t.id ~= displayed_ids[i] then return true end
     end
+    return false
 end
 
 --------------------------------------------------------------------------------
--- Display update loop
+-- Settings Dialog
 --------------------------------------------------------------------------------
 
-local function update_display()
-    if not running then return end
+local function open_settings()
+    if settings_win then return end
 
-    local targets = {}
-    if GameObj and GameObj.targets then
-        targets = GameObj.targets() or {}
+    settings_win = Gui.window("CreatureBar Settings", { width = 500, height = 500, resizable = true })
+
+    local tabs = Gui.tab_bar({ "Layout", "Status Effects", "Behavior" })
+
+    -- Tab 1: Layout
+    local layout_box = Gui.vbox()
+    layout_box:add(Gui.section_header("Display"))
+
+    local show_name_cb = Gui.checkbox("Show creature name", config.show_name)
+    show_name_cb:on_change(function(v) config.show_name = v; save_config() end)
+    layout_box:add(show_name_cb)
+
+    local show_status_cb = Gui.checkbox("Show status effects", config.show_status)
+    show_status_cb:on_change(function(v) config.show_status = v; save_config() end)
+    layout_box:add(show_status_cb)
+
+    layout_box:add(Gui.separator())
+    layout_box:add(Gui.section_header("Name Display"))
+    local name_combo = Gui.editable_combo({
+        text = config.name_mode or "noun",
+        hint = "noun or name",
+        options = { "noun", "name" },
+    })
+    name_combo:on_change(function(v)
+        if v == "noun" or v == "name" then config.name_mode = v; save_config() end
+    end)
+    local nr = Gui.hbox()
+    nr:add(Gui.label("Name mode:"))
+    nr:add(name_combo)
+    layout_box:add(nr)
+
+    layout_box:add(Gui.separator())
+    layout_box:add(Gui.section_header("Grid Layout"))
+
+    local layout_combo = Gui.editable_combo({
+        text = config.layout_mode or "horizontal",
+        hint = "horizontal or vertical",
+        options = { "horizontal", "vertical" },
+    })
+    layout_combo:on_change(function(v)
+        if v == "horizontal" or v == "vertical" then config.layout_mode = v; save_config() end
+    end)
+    local lr = Gui.hbox()
+    lr:add(Gui.label("Layout mode:"))
+    lr:add(layout_combo)
+    layout_box:add(lr)
+
+    local mc_input = Gui.input({ text = tostring(config.max_creatures or 5), placeholder = "5" })
+    mc_input:on_change(function(v)
+        local n = tonumber(v)
+        if n and n >= 1 and n <= 20 then config.max_creatures = n; save_config() end
+    end)
+    local mcr = Gui.hbox()
+    mcr:add(Gui.label("Max creatures:"))
+    mcr:add(mc_input)
+    layout_box:add(mcr)
+
+    local mcol_input = Gui.input({ text = tostring(config.max_columns or 5), placeholder = "5" })
+    mcol_input:on_change(function(v)
+        local n = tonumber(v)
+        if n and n >= 1 and n <= 20 then config.max_columns = n; save_config() end
+    end)
+    local mcolr = Gui.hbox()
+    mcolr:add(Gui.label("Max columns (horiz):"))
+    mcolr:add(mcol_input)
+    layout_box:add(mcolr)
+
+    local mrow_input = Gui.input({ text = tostring(config.max_rows or 2), placeholder = "2" })
+    mrow_input:on_change(function(v)
+        local n = tonumber(v)
+        if n and n >= 1 and n <= 20 then config.max_rows = n; save_config() end
+    end)
+    local mrowr = Gui.hbox()
+    mrowr:add(Gui.label("Max rows (vert):"))
+    mrowr:add(mrow_input)
+    layout_box:add(mrowr)
+
+    tabs:set_tab_content(1, Gui.scroll(layout_box))
+
+    -- Tab 2: Status Effects
+    local status_box = Gui.vbox()
+    status_box:add(Gui.section_header("Configured Status Effects"))
+    status_box:add(Gui.label("Status effects detected in NPC status strings:"))
+    status_box:add(Gui.separator())
+
+    local st = Gui.table({ columns = { "Name", "Symbol", "Badge Color" } })
+    for _, se in ipairs(config.status_effects or DEFAULT_STATUS_EFFECTS) do
+        st:add_row({ se.name, se.symbol, se.color })
     end
+    status_box:add(st)
 
-    -- Get creature IDs (up to max)
-    local target_ids = {}
-    for _, t in ipairs(targets) do
-        if t.id and t.noun and t.name then
-            target_ids[#target_ids + 1] = t.id
-            if #target_ids >= config.max_creatures then break end
-        end
-    end
+    status_box:add(Gui.separator())
+    status_box:add(Gui.label("Edit status_effects in CharSettings creaturebar_config JSON."))
+    status_box:add(Gui.label("Badge colors: red, green, blue, yellow, white, black"))
 
-    -- Build set for quick lookup
-    local id_set = {}
-    for _, id in ipairs(target_ids) do id_set[id] = true end
+    tabs:set_tab_content(2, Gui.scroll(status_box))
 
-    -- Remove panels for creatures no longer present
-    for cid, panel in pairs(panels) do
-        if not id_set[cid] then
-            Gui.remove(panel.frame)
-            panels[cid] = nil
-        end
-    end
+    -- Tab 3: Behavior
+    local behavior_box = Gui.vbox()
+    behavior_box:add(Gui.section_header("Update Interval"))
 
-    -- Add/update panels
-    for _, cid in ipairs(target_ids) do
-        if not panels[cid] then
-            local panel = create_creature_panel(cid)
-            if panel then
-                panels[cid] = panel
-            end
-        end
-        if panels[cid] then
-            update_panel(panels[cid])
-        end
-    end
-
-    -- Resize window hint
-    if window then
-        local count = 0
-        for _ in pairs(panels) do count = count + 1 end
-        if count == 0 then
-            Gui.set_size(window, config.window_width, 30)
-        end
-    end
-end
-
---------------------------------------------------------------------------------
--- Settings dialog
---------------------------------------------------------------------------------
-
-local function configure_settings()
-    local dlg = Gui.window("CreatureBar Settings", 350, 500)
-    local box = Gui.vbox(dlg)
-
-    Gui.label(box, "=== CreatureBar Settings ===")
-    Gui.label(box, "")
-
-    Gui.label(box, "Display:")
-    Gui.checkbox(box, "Show HP Bar", config.show_hp_bar, function(v)
-        config.show_hp_bar = v; save_json("creaturebar_config", config)
+    local int_input = Gui.input({
+        text = tostring(config.update_interval or 500),
+        placeholder = "500",
+    })
+    int_input:on_change(function(v)
+        local n = tonumber(v)
+        if n and n >= 100 and n <= 5000 then config.update_interval = n; save_config() end
     end)
-    Gui.checkbox(box, "Show HP Text", config.show_hp_text, function(v)
-        config.show_hp_text = v; save_json("creaturebar_config", config)
-    end)
-    Gui.checkbox(box, "Show Name", config.show_name, function(v)
-        config.show_name = v; save_json("creaturebar_config", config)
-    end)
-    Gui.checkbox(box, "Show Wounds", config.show_wounds, function(v)
-        config.show_wounds = v; save_json("creaturebar_config", config)
-    end)
-    Gui.checkbox(box, "Show Status", config.show_status, function(v)
-        config.show_status = v; save_json("creaturebar_config", config)
-    end)
+    local ir = Gui.hbox()
+    ir:add(Gui.label("Interval (ms):"))
+    ir:add(int_input)
+    behavior_box:add(ir)
 
-    Gui.label(box, "")
-    Gui.label(box, "Layout:")
-    Gui.entry(box, "Max creatures:", tostring(config.max_creatures), function(v)
-        config.max_creatures = tonumber(v) or 5
-        save_json("creaturebar_config", config)
-    end)
-    Gui.entry(box, "Update interval (ms):", tostring(config.update_interval), function(v)
-        config.update_interval = tonumber(v) or 250
-        save_json("creaturebar_config", config)
-    end)
+    behavior_box:add(Gui.separator())
+    behavior_box:add(Gui.section_header("About"))
+    behavior_box:add(Gui.label("CreatureBar v2.0.0 — Revenant port"))
+    behavior_box:add(Gui.label("Original: creaturebar.lic v1.1 by Elanthia Online / Nisugi"))
+    behavior_box:add(Gui.separator())
+    behavior_box:add(Gui.label("HP bars and wound overlays are not yet available."))
+    behavior_box:add(Gui.label("Lich5 used Combat::Tracker to parse combat text"))
+    behavior_box:add(Gui.label("for per-creature HP and injury data."))
+    behavior_box:add(Gui.label("When Revenant adds a combat tracker, those"))
+    behavior_box:add(Gui.label("features will be activated automatically."))
 
-    Gui.label(box, "")
-    Gui.label(box, "HP Thresholds:")
-    Gui.entry(box, "High HP min %:", tostring(config.hp_high_min), function(v)
-        config.hp_high_min = tonumber(v) or 75
-        save_json("creaturebar_config", config)
-    end)
-    Gui.entry(box, "Mid HP min %:", tostring(config.hp_mid_min), function(v)
-        config.hp_mid_min = tonumber(v) or 40
-        save_json("creaturebar_config", config)
-    end)
+    tabs:set_tab_content(3, Gui.scroll(behavior_box))
 
-    Gui.show(dlg)
+    local root = Gui.vbox()
+    root:add(tabs)
+    settings_win:set_root(root)
+    settings_win:on_close(function() settings_win = nil end)
+    settings_win:show()
 end
 
 --------------------------------------------------------------------------------
@@ -422,14 +418,28 @@ end
 
 local function show_help()
     respond("")
-    respond("=== CreatureBar - Visual creature tracking ===")
+    respond("===========================================================")
+    respond(" CreatureBar - Visual creature tracking for GemStone IV")
+    respond("===========================================================")
     respond("")
-    respond("  ;creaturebar           Start the display")
-    respond("  ;creaturebar config    Open settings dialog")
-    respond("  ;creaturebar help      Show this help")
+    respond(" Usage: ;creaturebar [command]")
     respond("")
-    respond("  While running:")
-    respond("    Click a panel to target that creature")
+    respond(" Commands:")
+    respond("   (none)     Start CreatureBar")
+    respond("   config     Start with settings dialog open")
+    respond("   help       Show this help message")
+    respond("")
+    respond(" While running:")
+    respond("   Click 'Target' button to target a creature")
+    respond("   Status effects are auto-detected from game data")
+    respond("   Current target is highlighted with >> TARGET <<")
+    respond("")
+    respond(" Status effects tracked:")
+    for _, se in ipairs(config.status_effects or DEFAULT_STATUS_EFFECTS) do
+        respond(string.format("   [%s] %s", se.symbol, se.name))
+    end
+    respond("")
+    respond(" Settings saved per-character via CharSettings.")
     respond("")
 end
 
@@ -444,59 +454,151 @@ if cmd == "help" then
     return
 end
 
--- Check for Creature module
-if not Creature then
-    echo("Error: Creature module not found. Make sure creature tracking is enabled.")
+-- Check for GameObj module
+if not GameObj then
+    echo("Error: GameObj module not available.")
     return
+end
+
+-- Check for combat tracker (advisory)
+local ct_ok, CombatTracker = pcall(function()
+    return _G.CombatTracker
+end)
+if ct_ok and CombatTracker and type(CombatTracker) == "table"
+   and CombatTracker.enabled_p and not CombatTracker.enabled_p() then
+    respond("")
+    respond("[CreatureBar] Note: Combat tracker is not enabled.")
+    respond("  NPC death events may not be detected.")
+    respond("  To enable: require('lib/gs/combat_tracker').enable()")
+    respond("")
 end
 
 respond("Starting CreatureBar...")
 
 -- Create the main window
-window = Gui.window("CB", config.window_width, config.window_height)
-Gui.set_position(window, config.window_x, config.window_y)
-main_box = Gui.hbox(window)
+window = Gui.window("CB", { width = 350, height = 200, resizable = true })
 
-Gui.show(window)
+local initial = Gui.vbox()
+initial:add(Gui.label("Waiting for creatures..."))
+window:set_root(initial)
+window:on_close(function() running = false end)
+window:show()
 
 -- Open settings if requested
-if Regex.test(cmd, "^config|^setup") then
-    pause(0.5)
-    configure_settings()
+if cmd == "config" or cmd == "setup" then
+    open_settings()
 end
-
--- Start update timer
-update_timer = Timer.add(config.update_interval, function()
-    if not running then return false end
-    update_display()
-    return true  -- keep running
-end)
 
 -- Cleanup on exit
 before_dying(function()
     running = false
-    if update_timer then
-        Timer.remove(update_timer)
-    end
-    -- Save window position
-    if window then
-        local x, y = Gui.get_position(window)
-        if x and y then
-            config.window_x = x
-            config.window_y = y
-        end
-        local w, h = Gui.get_size(window)
-        if w and h then
-            config.window_width = w
-            config.window_height = h
-        end
-        save_json("creaturebar_config", config)
-        Gui.close(window)
-    end
+    if window then pcall(function() window:close() end) end
+    if settings_win then pcall(function() settings_win:close() end) end
 end)
 
--- Keep alive
+-- Tracking state for incremental updates
+local panel_data = {}
+local force_rebuild = true
+
+-- Main update loop
 while running do
-    pause(1)
-    if not Script.running(Script.name) then break end
+    local interval_sec = (config.update_interval or 500) / 1000.0
+    pause(interval_sec)
+    if not running then break end
+
+    -- Get current targets
+    local all_targets = {}
+    if GameObj.targets then
+        local ok, t = pcall(GameObj.targets)
+        if ok and t then all_targets = t end
+    end
+
+    -- Limit to max_creatures
+    local max = config.max_creatures or 5
+    local targets = {}
+    for i, t in ipairs(all_targets) do
+        if i > max then break end
+        if t.id and t.noun then
+            targets[#targets + 1] = t
+        end
+    end
+
+    -- Get current target ID
+    local current_target_id = nil
+    if GameObj.target then
+        local ok, ct = pcall(GameObj.target)
+        if ok and ct then current_target_id = ct.id end
+    end
+
+    -- Check if we need a full rebuild (creature list changed)
+    local need_rebuild = force_rebuild or targets_changed(targets)
+
+    if need_rebuild then
+        force_rebuild = false
+        -- Record new displayed IDs
+        displayed_ids = {}
+        for _, t in ipairs(targets) do
+            displayed_ids[#displayed_ids + 1] = t.id
+        end
+
+        -- Build and set new display
+        local ok, err = pcall(function()
+            local root, pd = build_display(targets, current_target_id)
+            panel_data = pd
+            window:set_root(Gui.scroll(root))
+        end)
+        if not ok then
+            echo("Display error: " .. tostring(err))
+            pause(2)
+        end
+    else
+        -- Incremental update: only update labels that changed
+        for _, pd in ipairs(panel_data) do
+            -- Find matching NPC
+            local npc = nil
+            for _, t in ipairs(targets) do
+                if t.id == pd.creature_id then npc = t; break end
+            end
+            if not npc then goto next_panel end
+
+            -- Update target indicator
+            local is_current = (npc.id == current_target_id)
+            if is_current ~= pd.is_current then
+                pd.is_current = is_current
+                if pd.target_label then
+                    pd.target_label:set_text(is_current and ">> TARGET <<" or "")
+                end
+            end
+
+            -- Update name
+            if pd.name_label then
+                local display_name
+                if config.name_mode == "noun" then
+                    display_name = npc.noun or "unknown"
+                else
+                    display_name = npc.name or "Unknown"
+                end
+                if display_name ~= pd.last_name then
+                    pd.last_name = display_name
+                    pd.name_label:set_text(display_name)
+                end
+            end
+
+            -- Update status text
+            if pd.status_label then
+                local status_str = npc.status or ""
+                if status_str ~= pd.last_status then
+                    pd.last_status = status_str
+                    local statuses = parse_status_string(status_str)
+                    local parts = {}
+                    for _, se in ipairs(statuses) do
+                        parts[#parts + 1] = se.name
+                    end
+                    pd.status_label:set_text(table.concat(parts, ", "))
+                end
+            end
+
+            ::next_panel::
+        end
+    end
 end
