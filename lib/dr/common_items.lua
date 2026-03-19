@@ -411,6 +411,78 @@ function M.tap(item)
     "You tap", "I could not find", "What were you referring to")
 end
 
+--- Check if a worn item is currently being worn (uses tap command).
+-- @param item string Item name
+-- @return boolean
+function M.wearing(item)
+  if not item then return false end
+  local result = M.tap(item)
+  return result:find("wearing") ~= nil
+end
+
+--- Check if an item exists in inventory (optional container scope).
+-- @param item string Item name
+-- @param container string|nil Container to look inside, or nil for general inventory
+-- @return boolean
+function M.exists(item, container)
+  if not item then return false end
+  if container then
+    return M.inside(item, container)
+  end
+  local result = M.tap(item)
+  return not (result:find("I could not find") or result:find("What were you referring to"))
+end
+
+--- Count boxes across all configured picking containers.
+-- Checks picking_box_source, pick.picking_box_sources, pick.blacklist_container,
+-- pick.too_hard_container from settings.
+-- @param settings table Settings table with picking config
+-- @return number Total box count
+function M.count_all_boxes(settings)
+  if not settings then return 0 end
+
+  -- Gather all container names to check
+  local seen = {}
+  local containers = {}
+
+  local function add(c)
+    if type(c) == "table" then
+      for _, v in ipairs(c) do add(v) end
+    elseif type(c) == "string" and c ~= "" and not seen[c] then
+      seen[c] = true
+      containers[#containers + 1] = c
+    end
+  end
+
+  add(settings.picking_box_source)
+  if settings.pick then
+    add(settings.pick.picking_box_sources)
+    add(settings.pick.blacklist_container)
+    add(settings.pick.too_hard_container)
+  end
+
+  local total = 0
+  for _, container in ipairs(containers) do
+    -- Rummage container for boxes (box/strongbox/etc.)
+    local result = DRC.bput("rummage /I my " .. container,
+      "but there is nothing in there like that",
+      "looking for .* and see",
+      "While it's closed", "I could not find",
+      "That would accomplish nothing")
+    if result:find("looking for") then
+      -- Count items in the rummage result
+      local item_text = result:match("looking for .* and see (.+)")
+      if item_text then
+        -- Count by splitting on commas/and
+        local count = 0
+        for _ in item_text:gmatch("[^,]+") do count = count + 1 end
+        total = total + count
+      end
+    end
+  end
+  return total
+end
+
 --- Put an item away, trying container then default stow. "Unsafe" — no retry.
 -- @param item string Item name
 -- @param container string|nil Container

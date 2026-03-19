@@ -246,6 +246,35 @@ function M.release_cyclic(abbrev)
   return result:find("release") ~= nil or result:find("concentration") ~= nil
 end
 
+--- Release all active cyclic spells except those in the exclusion list.
+-- Mirrors Lich5 DRCA.release_cyclics(cyclic_no_release).
+-- @param cyclic_no_release table|nil Array of spell names NOT to release (default: release all)
+function M.release_cyclics(cyclic_no_release)
+  cyclic_no_release = cyclic_no_release or {}
+
+  -- Build set of names to skip
+  local skip = {}
+  for _, name in ipairs(cyclic_no_release) do
+    skip[name] = true
+  end
+
+  -- Walk active spells; release those tagged cyclic and not skipped
+  if DRSpells and DRSpells.active_spells then
+    local spells = DRSpells.active_spells
+    if type(spells) == "function" then spells = spells() end
+    if type(spells) == "table" then
+      for name, data in pairs(spells) do
+        if not skip[name] then
+          local abbrev = type(data) == "table" and data.abbrev or nil
+          if abbrev then
+            DRC.bput("release " .. abbrev, unpack(M.CYCLIC_RELEASE_SUCCESS))
+          end
+        end
+      end
+    end
+  end
+end
+
 --- Release the currently prepared spell.
 function M.release_spell()
   DRC.bput("release", "You release", "You aren't preparing a spell",

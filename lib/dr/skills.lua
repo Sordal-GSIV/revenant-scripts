@@ -116,4 +116,41 @@ function M.reset_baselines()
   end
 end
 
+--- Get the learning rate index for a skill (alias for getlearning).
+-- Returns 0-19 where 0 = clear and 19 = mind lock.
+-- Note: Lich5's DRSkill.getxp used a 0-34 scale; Revenant uses 0-19.
+-- Adjust yaml threshold settings accordingly (e.g. 34 → 19, 25 → ~13).
+-- @param name string Skill name
+-- @return number Learning rate index 0-19
+function M.getxp(name)
+  return M.getlearning(name)
+end
+
+-- Lazy-built reverse map: lowercase skill name -> capitalized category name
+local _skill_to_category = nil
+
+local function build_skill_map()
+  _skill_to_category = {}
+  for cat, skill_list in pairs(defs.SKILL_CATEGORIES) do
+    if type(cat) == "string" and type(skill_list) == "table" then
+      local display = cat:sub(1, 1):upper() .. cat:sub(2)
+      for _, skill_name in ipairs(skill_list) do
+        if type(skill_name) == "string" then
+          _skill_to_category[skill_name:lower()] = display
+        end
+      end
+    end
+  end
+end
+
+--- Get the skillset category name for a skill (e.g. "Armor", "Weapon", "Magic").
+-- @param name string Skill name (case-insensitive)
+-- @return string Category name or "Unknown"
+function M.getskillset(name)
+  if not name then return "Unknown" end
+  if not _skill_to_category then build_skill_map() end
+  local map = _skill_to_category or {}
+  return map[name:lower()] or "Unknown"
+end
+
 return M

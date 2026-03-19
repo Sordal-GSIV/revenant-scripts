@@ -394,12 +394,42 @@ end
 -- Misc utility
 -------------------------------------------------------------------------------
 
---- Wait for a script to complete.
+--- Send a status message to the client window.
+-- @param text string Message text
+-- @param bold boolean|nil If false, plain text; otherwise bold (default true)
+function M.message(text, bold)
+  if bold == false then
+    respond(text)
+  else
+    respond("\27[1m" .. tostring(text) .. "\27[0m")
+  end
+end
+
+--- Wait for a script to complete (start it if not running, then block until done).
 -- @param name string Script name
--- @param args table|nil Arguments
+-- @param args table|string|nil Arguments (table joined with spaces, or string)
 function M.wait_for_script_to_complete(name, args)
-  -- TODO: implement when script management API is available
-  respond("[DRC] wait_for_script_to_complete: " .. name .. " (stub)")
+  local args_str
+  if type(args) == "table" then
+    args_str = table.concat(args, " ")
+  else
+    args_str = args or ""
+  end
+
+  Script.run(name, args_str)
+
+  -- Wait up to 10s for the script to start
+  local start_wait = os.time()
+  while not Script.running(name) and (os.time() - start_wait) < 10 do
+    pause(0.5)
+  end
+
+  -- Block until the script finishes or times out (5 min safety)
+  local timeout = 300
+  local start = os.time()
+  while Script.running(name) and (os.time() - start) < timeout do
+    pause(1)
+  end
 end
 
 --- Check if hiding.
