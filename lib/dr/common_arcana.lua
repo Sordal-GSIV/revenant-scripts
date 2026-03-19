@@ -546,6 +546,29 @@ function M.start_khris(khris, settings)
 end
 
 -------------------------------------------------------------------------------
+-- Crafting magic routine
+-- Mirrors Lich5 DRCA.crafting_magic_routine(settings)
+-------------------------------------------------------------------------------
+
+--- Cast crafting training spells if configured in settings.
+-- Called periodically during crafting loops to maintain buff uptime.
+-- Uses settings.crafting_training_spells (a waggle_sets-style table) if present,
+-- otherwise falls back to do_buffs with the "crafting" set name.
+-- @param settings table Character settings
+function M.crafting_magic_routine(settings)
+  if not settings then return end
+  if settings.crafting_training_spells then
+    if type(settings.crafting_training_spells) == "table" then
+      M.cast_spells(settings.crafting_training_spells, settings)
+    else
+      M.do_buffs(settings, "crafting")
+    end
+  elseif settings.waggle_sets and settings.waggle_sets["crafting"] then
+    M.do_buffs(settings, "crafting")
+  end
+end
+
+-------------------------------------------------------------------------------
 -- do_buffs — main waggle buff entry point
 -- Mirrors Lich5 DRCA.do_buffs(settings, set_name)
 -------------------------------------------------------------------------------

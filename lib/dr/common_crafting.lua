@@ -211,6 +211,25 @@ function M.recipe_lookup(recipes, item_name)
   return matches[1]
 end
 
+--- Find and study a recipe in a book (v2 — supports master crafting books).
+-- When master_book is provided, navigates to the book_type section first,
+-- then delegates to find_recipe. Without master_book, assumes the book is
+-- already in hand and proceeds directly.
+-- @param chapter number|string Chapter number
+-- @param recipe_name string Recipe name to search for
+-- @param master_book string|nil Master crafting book noun (nil = individual "book" in hand)
+-- @param book_type string|nil Section name for master books (e.g., "weaponsmithing")
+function M.find_recipe2(chapter, recipe_name, master_book, book_type)
+  local book = master_book or "book"
+  if master_book and book_type then
+    -- Navigate to the smithing-type section of the master book first
+    DRC.bput("turn my " .. master_book .. " to " .. book_type,
+      M.BOOK_CHAPTER_TURN_SUCCESS, M.BOOK_CHAPTER_ALREADY,
+      M.BOOK_CHAPTER_DISTRACTED, "I could not find", "Turn what")
+  end
+  M.find_recipe(chapter, recipe_name, book)
+end
+
 --- Find and study a recipe in a book.
 -- @param chapter number|string Chapter number
 -- @param match_string string Pattern to match in recipe listing
