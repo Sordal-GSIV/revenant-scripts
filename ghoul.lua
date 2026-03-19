@@ -3,7 +3,6 @@
 --- version: 2.0.0
 --- author: Alastir
 --- contributors: Drafix
---- game: dr
 --- description: Auto-daub bingo numbers for Ghoul game (Caligos/Naidem)
 --- tags: ghoul, bingo, daub, caligos, naidem
 --- @lic-certified: complete 2026-03-19
