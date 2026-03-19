@@ -62,7 +62,7 @@ local function process_line(line)
     local c = count[mod_line] or 0
     if c < THRESHOLD then
         count[mod_line] = c + 1
-        Gui.stream_window(line, "familiar")
+        respond_to_window("familiar", line)
     end
 end
 

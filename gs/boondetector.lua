@@ -91,7 +91,7 @@ while true do
                         local msg = string.format("(%s) Room: %s - Name: %s - ID: %s\n          Boons: %s",
                             os.date("%H:%M:%S"), tostring(found_room), npc.name, npc.id,
                             table.concat(boons, ", "))
-                        Gui.stream_window(msg)
+                        respond_to_window("familiar", msg)
                         track_id(npc.id)
                     end
                 end

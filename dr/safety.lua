@@ -30,18 +30,10 @@ function Safety.unsafe()
 
     local room_id = Room.id or 0
     if danger > 0 then
-        if Lich and Lich.Messaging then
-            Lich.Messaging.stream_window("Room: " .. room_id .. " -- Creatures: " .. count .. " -- Danger!", "speech")
-        else
-            echo("Room: " .. room_id .. " -- Creatures: " .. count .. " -- Danger!")
-        end
+        respond_to_window("speech", "Room: " .. room_id .. " -- Creatures: " .. count .. " -- Danger!")
         return true
     else
-        if Lich and Lich.Messaging then
-            Lich.Messaging.stream_window("Room: " .. room_id .. " -- Creatures: " .. count .. " -- Threat level acceptable.", "speech")
-        else
-            echo("Room: " .. room_id .. " -- Creatures: " .. count .. " -- Threat level acceptable.")
-        end
+        respond_to_window("speech", "Room: " .. room_id .. " -- Creatures: " .. count .. " -- Threat level acceptable.")
         return false
     end
 end
@@ -268,12 +260,7 @@ local function npc_status_matches(npc, pattern)
 end
 
 local function stream_msg(msg)
-    local room_id = Room.id or 0
-    if Lich and Lich.Messaging then
-        Lich.Messaging.stream_window(msg, "speech")
-    else
-        echo(msg)
-    end
+    respond_to_window("speech", msg)
 end
 
 --- Check initial danger
