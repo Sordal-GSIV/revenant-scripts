@@ -550,6 +550,44 @@ function M.stop_playing()
   M.bput("stop play", "You stop playing", "In the name of", "But you're not performing")
 end
 
+--- Pause all other running scripts (respecting no_pause_all) and return the list of
+-- script names that were paused. Pass that list to safe_unpause_list when done.
+-- Unlike Lich5's version this never returns false — the mutex concept is unnecessary
+-- in Revenant's cooperative coroutine model.
+-- @return table Array of script names that were paused
+function M.safe_pause_list()
+  local current = Script and Script.name or nil
+  local to_pause = {}
+  if Script and Script.list and Script.is_paused then
+    for _, name in ipairs(Script.list()) do
+      if name ~= current and not Script.is_paused(name) then
+        to_pause[#to_pause + 1] = name
+      end
+    end
+    if Script.pause_all then Script.pause_all() end
+  end
+  if #to_pause > 0 then
+    respond("DRC: Pausing " .. table.concat(to_pause, ", ") .. " to run " .. (current or "script"))
+  end
+  return to_pause
+end
+
+--- Unpause the scripts returned by safe_pause_list.
+-- Only unpauses scripts that are still paused (avoids touching scripts paused by others).
+-- @param scripts_to_unpause table Array of script names from safe_pause_list
+function M.safe_unpause_list(scripts_to_unpause)
+  if not scripts_to_unpause or #scripts_to_unpause == 0 then return end
+  if Script and Script.unpause then
+    local unpaused = {}
+    for _, name in ipairs(scripts_to_unpause) do
+      Script.unpause(name)
+      unpaused[#unpaused + 1] = name
+    end
+    local current = Script.name or "script"
+    respond("DRC: Unpausing " .. table.concat(unpaused, ", ") .. ", " .. current .. " has finished.")
+  end
+end
+
 --- Emit an audible alert (bell character) to the client window.
 -- Mirrors Lich5's DRC.beep (which echoes "\a" on Windows).
 function M.beep()

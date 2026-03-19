@@ -135,6 +135,22 @@ function M.getxp(name)
   return M.getlearning(name)
 end
 
+--- Get all tracked skills as an array of {name, rank, exp} tables.
+-- Mirrors Lich5's DRSkill.list which returns skill objects with .name, .rank, .exp.
+-- exp is the learning rate index (0-19, same as getxp/getlearning).
+-- @return table Array of {name=string, rank=number, exp=number}
+function M.list()
+  local result = {}
+  for name, entry in pairs(skills) do
+    result[#result + 1] = {
+      name = name,
+      rank = entry.rank,
+      exp  = entry.learning_rate,
+    }
+  end
+  return result
+end
+
 -- Lazy-built reverse map: lowercase skill name -> capitalized category name
 local _skill_to_category = nil
 
