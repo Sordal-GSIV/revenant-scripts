@@ -36,4 +36,9 @@ DRCS   = require("lib/dr/common_summoning") -- Summoned weapons
 DRCEV  = require("lib/dr/common_validation") -- Input / character validation
 DREMgr = require("lib/dr/equip_manager")    -- Equipment set management
 
+-- Auto-start exp monitor if previously enabled
+if DRExpMon and DRExpMon.autostart then
+    DRExpMon.autostart()
+end
+
 respond("[drinfomon] DragonRealms modules loaded")

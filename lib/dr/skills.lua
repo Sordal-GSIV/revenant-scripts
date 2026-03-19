@@ -8,6 +8,25 @@ local M = {}
 -- Internal skill storage: name -> { name, rank, percent, learning_rate, rate_name, baseline }
 local skills = {}
 
+-- Event queue: array of { skill=name, change=delta } pushed when learning rate increases.
+-- Drained by DRExpMon.report_skill_gains().
+local _gained_events = {}
+
+-- When true, handle_exp_change pushes events to _gained_events.
+-- Controlled by DRExpMon.start()/stop().
+local _display_expgains = false
+
+-- Push an event when a skill's learning rate increases.
+local function handle_exp_change(name, new_rate_idx)
+  if not _display_expgains then return end
+  local entry = skills[name]
+  if not entry then return end  -- skip initial login discovery
+  local change = new_rate_idx - entry.learning_rate
+  if change > 0 then
+    _gained_events[#_gained_events + 1] = { skill = name, change = change }
+  end
+end
+
 --- Resolve a learning rate name to its numeric index (0-19).
 -- Returns 0 if the name is not recognized.
 local function rate_name_to_index(rate_name)
@@ -28,6 +47,7 @@ end
 -- @param rate_name string Learning rate text (e.g. "dabbling")
 function M.update(name, rank, percent, rate_name)
   local idx = rate_name_to_index(rate_name)
+  handle_exp_change(name, idx)  -- must run BEFORE updating entry.learning_rate
   local entry = skills[name]
   if entry then
     entry.rank = tonumber(rank) or 0
@@ -149,6 +169,48 @@ function M.list()
     }
   end
   return result
+end
+
+--- Returns the cumulative rank gain since last reset for a skill.
+-- Equivalent to Lich5's DRSkill.gained_exp(val).
+-- @param name string Skill name
+-- @return number Ranks gained (float, 2 decimal places), 0.0 if unknown
+function M.gained_exp(name)
+  local entry = skills[name]
+  if not entry then return 0.0 end
+  local current = entry.rank + (entry.percent / 100.0)
+  local diff = current - entry.baseline
+  return math.floor(diff * 100 + 0.5) / 100
+end
+
+--- Drain and return all pending learning-rate-increase events.
+-- Each event is { skill=name, change=delta }. Resets the queue.
+-- Called by DRExpMon.report_skill_gains().
+-- @return table Array of event tables
+function M.gained_events_drain()
+  local events = _gained_events
+  _gained_events = {}
+  return events
+end
+
+--- Enable or disable learning-rate-increase event tracking.
+-- Called by DRExpMon.start() / DRExpMon.stop().
+-- @param enabled boolean
+function M.set_display_expgains(enabled)
+  _display_expgains = enabled and true or false
+end
+
+--- Check if learning-rate-increase event tracking is active.
+-- @return boolean
+function M.get_display_expgains()
+  return _display_expgains
+end
+
+--- Reset all baselines to current values and clear the event queue.
+-- Equivalent to Lich5's DRSkill.reset.
+function M.reset()
+  _gained_events = {}
+  M.reset_baselines()
 end
 
 -- Lazy-built reverse map: lowercase skill name -> capitalized category name
