@@ -52,6 +52,17 @@ function M.clear_all()
     registry = {}
 end
 
+--- Peek at a flag's current match without auto-resetting it.
+-- Mirrors Lich5 Flags["key"] read semantics: the value persists until explicitly
+-- reset or deleted. Use this when you need to check a flag repeatedly in a loop.
+-- @param key string Flag key
+-- @return any The matched line, or nil if not yet matched
+function M.get(key)
+    local entry = registry[key]
+    if not entry then return nil end
+    return entry.match  -- peek; does NOT reset
+end
+
 --- Force-set a flag to a truthy value (manually trigger without a game line).
 -- Mirrors Lich5's Flags['key'] = value assignment.
 -- @param key string Flag key
