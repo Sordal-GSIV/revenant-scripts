@@ -110,6 +110,13 @@ end
 -- Hand checking
 -------------------------------------------------------------------------------
 
+--- Check if an item is in either hand (Lich5 compatibility alias for in_hands).
+-- @param item string Item name
+-- @return boolean
+function M.in_hand(item)
+    return M.in_hands(item)
+end
+
 --- Check if an item is in either hand.
 -- @param item string|table Item name or Item object with short_regex
 -- @return boolean

@@ -49,6 +49,18 @@ function M.clear_all()
     registry = {}
 end
 
+--- Force-set a flag to a truthy value (manually trigger without a game line).
+-- Mirrors Lich5's Flags['key'] = value assignment.
+-- @param key string Flag key
+-- @param value any Value to set as the match (default true)
+function M.set(key, value)
+    if registry[key] then
+        registry[key].match = (value ~= nil) and value or true
+    else
+        registry[key] = { patterns = {}, match = (value ~= nil) and value or true }
+    end
+end
+
 -- Metatable: Flags["key"] returns the matched line and auto-resets.
 setmetatable(M, {
     __index = function(_, key)

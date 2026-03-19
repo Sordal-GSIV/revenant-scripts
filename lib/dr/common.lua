@@ -550,6 +550,165 @@ function M.stop_playing()
   M.bput("stop play", "You stop playing", "In the name of", "But you're not performing")
 end
 
+-------------------------------------------------------------------------------
+-- play_song_managed — full Lich5 DRC.play_song? equivalent
+-- Handles song difficulty auto-scaling and instrument recovery.
+-------------------------------------------------------------------------------
+
+--- Find the previous (easier) song in a perform_options linked-list table.
+-- Returns the key whose value == current (excluding self-referencing entries).
+-- @param song_list table perform_options table
+-- @param current string Current song name
+-- @return string|nil Previous song name, or nil if at start
+local function song_list_prev(song_list, current)
+  for k, v in pairs(song_list) do
+    if v == current and k ~= current then
+      return k
+    end
+  end
+  return nil
+end
+
+--- Managed song-play with auto difficulty scaling.
+-- Full port of Lich5's DRC.play_song?(settings, song_list, worn, skip_clean, climbing).
+--
+-- Tracks UserVars.song / UserVars.climbing_song; auto-escalates or de-escalates
+-- based on server feedback.  Respects UserVars.climbing_song_offset to prevent
+-- re-scaling after a manual offset_climbing_song call.
+--
+-- @param settings table   Character settings (worn_instrument / instrument fields)
+-- @param song_list table  perform_options table (key=song, value=next-harder song)
+-- @param worn boolean     true = use settings.worn_instrument, false = settings.instrument
+-- @param skip_clean boolean  true = skip dirty/wet cleanup attempt
+-- @param climbing boolean    true = use UserVars.climbing_song, false = UserVars.song
+-- @param _depth number    Internal recursion guard (do not pass)
+-- @return boolean true if playing started, false if we could not play
+function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth)
+  if worn == nil     then worn      = true  end
+  if skip_clean == nil then skip_clean = false end
+  if climbing == nil then climbing  = false end
+  _depth = _depth or 0
+  if _depth > 60 then
+    respond("[DRC] play_song_managed: recursion limit, giving up")
+    return false
+  end
+
+  local instrument = worn and settings.worn_instrument or settings.instrument
+
+  -- Detect instrument change and reset calibrated song data
+  if UserVars.instrument == nil then
+    respond("[DRC] play_song_managed: first instrument, resetting song data")
+    UserVars.song          = nil
+    UserVars.climbing_song = nil
+    UserVars.instrument    = instrument
+  elseif UserVars.instrument ~= instrument then
+    respond("[DRC] play_song_managed: instrument changed to " .. tostring(instrument))
+    UserVars.song          = nil
+    UserVars.climbing_song = nil
+    UserVars.instrument    = instrument
+  end
+
+  -- Seed starting song ("scales halt" is the lowest-difficulty perform entry)
+  local first_song = (song_list and song_list["scales halt"] ~= nil) and "scales halt" or next(song_list)
+  if not UserVars.song          then UserVars.song          = first_song end
+  if not UserVars.climbing_song then UserVars.climbing_song = first_song end
+
+  local song_to_play = climbing and UserVars.climbing_song or UserVars.song
+  local play_cmd = "play " .. tostring(song_to_play)
+  if instrument then play_cmd = play_cmd .. " on my " .. tostring(instrument) end
+
+  -- Release Eillie's Cry (Bard-specific) if active before playing
+  if DRSpells and DRSpells.active_spells then
+    local ecry = tonumber(DRSpells.active_spells["Eillie's Cry"])
+    if ecry and ecry > 0 then put("release ecry"); pause(0.5) end
+  end
+
+  local result = M.bput(play_cmd,
+    "too damaged to play",
+    "dirtiness may affect your performance",
+    "slightest hint of difficulty",
+    "fumble slightly",
+    "submerged in the water",
+    "You begin a",
+    "You struggle to begin",
+    "You're already playing a song",
+    "You effortlessly begin",
+    "You begin some",
+    "You cannot play",
+    "Play on what instrument",
+    "Are you sure that's the right instrument",
+    "now isn't the best time",
+    "find somewhere drier before trying to play",
+    "You should stop practicing",
+    "really need to drain",
+    "tuning is off, and may hinder")
+
+  if result:find("Play on what instrument") or result:find("right instrument") then
+    -- Instrument not in hand — try to retrieve and wear it
+    if DRCI then
+      if DRCI.get_item and not DRCI.get_item(instrument) then
+        respond("[DRC] play_song_managed: failed to get " .. tostring(instrument))
+        return false
+      end
+      if worn and DRCI.wear_item and not DRCI.wear_item(instrument) then
+        respond("[DRC] play_song_managed: failed to wear " .. tostring(instrument))
+        return false
+      end
+    end
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+
+  elseif result:find("now isn't the best time")
+      or result:find("find somewhere drier")
+      or result:find("You should stop practicing") then
+    return false
+
+  elseif result:find("You're already playing") then
+    M.stop_playing()
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+
+  elseif result:find("You cannot play")
+      or result:find("too damaged to play")
+      or result:find("submerged in the water") then
+    return false
+
+  elseif result:find("tuning is off") then
+    respond("[DRC] play_song_managed: instrument out of tune (continuing)")
+    return true  -- caller decides whether to re-tune
+
+  elseif result:find("dirtiness may affect") or result:find("really need to drain") then
+    if DRSkill and DRSkill.getrank("Performance") < 20 then return true end
+    if skip_clean then return true end
+    return true  -- advanced cleanup not yet implemented; treat as playable
+
+  elseif result:find("slightest hint of difficulty") or result:find("fumble slightly") then
+    return true  -- acceptable difficulty
+
+  elseif result:find("You begin a") or result:find("You effortlessly begin") or result:find("You begin some") then
+    -- Song too easy — escalate to next harder song
+    local next_song = song_list[song_to_play]
+    if not next_song or next_song == song_to_play then return true end  -- at terminal node
+    if climbing and UserVars.climbing_song_offset then return true end
+    if not climbing and UserVars.song_offset        then return true end
+    M.stop_playing()
+    if climbing then UserVars.climbing_song = next_song
+    else             UserVars.song          = next_song end
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+
+  elseif result:find("You struggle to begin") then
+    -- Song too hard — reset to first song
+    if song_to_play == first_song then return true end
+    if climbing and UserVars.climbing_song_offset then return true end
+    if not climbing and UserVars.song_offset        then return true end
+    M.stop_playing()
+    if climbing then UserVars.climbing_song = first_song
+    else             UserVars.song          = first_song end
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+
+  else
+    return false
+  end
+end
+
 --- Pause all other running scripts (respecting no_pause_all) and return the list of
 -- script names that were paused. Pass that list to safe_unpause_list when done.
 -- Unlike Lich5's version this never returns false — the mutex concept is unnecessary
