@@ -698,4 +698,113 @@ function M.get_item_list(container, verb)
   end
 end
 
+-------------------------------------------------------------------------------
+-- Stackable item counting
+-------------------------------------------------------------------------------
+
+--- Count the total number of parts/uses across all stacks of a named item.
+-- Iterates ordinal prefixes (first, second, ...) sending COUNT commands until
+-- the item is not found.  Returns the aggregate use-count from game responses.
+-- Equivalent to Lich5's DRCI.count_item_parts.
+-- @param item string Item name (e.g., "blank scroll") or "#ID" for unique item
+-- @return number Total parts/uses found
+function M.count_item_parts(item)
+  if not item then return 0 end
+
+  local COUNT_PATTERNS = {
+    "and see there [is|are]+ (.+) left%.",
+    "There [is|are]+ only (.+) parts? left",
+    "There [is|are]+ (.+) parts? left",
+    "There's only (.+) parts? left",
+    "There's (.+) parts? left",
+    "The .+ has (.+) uses remaining%.",
+    "There are enough left to create (.+) more",
+    "You count out (.+) pieces? of material there",
+    "There [is|are]+ (.+) scrolls? left for use with crafting",
+  }
+
+  -- Word-to-number for common DR responses
+  local WORD_NUMS = {
+    zero=0,one=1,two=2,three=3,four=4,five=5,six=6,seven=7,eight=8,nine=9,
+    ten=10,eleven=11,twelve=12,thirteen=13,fourteen=14,fifteen=15,
+    sixteen=16,seventeen=17,eighteen=18,nineteen=19,twenty=20,
+    ["twenty-five"]=25,thirty=30,forty=40,fifty=50,
+  }
+
+  local function parse_count(str)
+    local n = tonumber(str)
+    if n then return n end
+    local lower = str:lower():match("^%s*(.-)%s*$")
+    return WORD_NUMS[lower] or 0
+  end
+
+  local count = 0
+
+  -- ID-referenced items are unique — count once without ordinal
+  if item:sub(1, 1) == "#" then
+    local result = DRC.bput("count " .. item,
+      "I could not find what you were referring to",
+      "tell you much of anything",
+      unpack(COUNT_PATTERNS))
+    if result:find("could not find") then return 0 end
+    if result:find("tell you much") then return 1 end
+    for _, pat in ipairs(COUNT_PATTERNS) do
+      local cap = result:match(pat)
+      if cap then return parse_count(cap) end
+    end
+    return 0
+  end
+
+  -- Iterate ordinals: "first blank scroll", "second blank scroll", ...
+  for _, ord in ipairs(ORDINALS or {}) do
+    waitrt()
+    local ref = "my " .. ord .. " " .. item
+    local result = DRC.bput("count " .. ref,
+      "I could not find what you were referring to",
+      "tell you much of anything",
+      unpack(COUNT_PATTERNS))
+
+    if result:find("could not find") then
+      break  -- no more stacks
+    elseif result:find("tell you much") then
+      -- non-stackable item: count 1 per ordinal hit
+      count = count + 1
+    else
+      local matched = false
+      for _, pat in ipairs(COUNT_PATTERNS) do
+        local cap = result:match(pat)
+        if cap then
+          count = count + parse_count(cap)
+          matched = true
+          break
+        end
+      end
+      if not matched then break end
+    end
+  end
+
+  return count
+end
+
+-------------------------------------------------------------------------------
+-- Items at feet
+-------------------------------------------------------------------------------
+
+--- Attempt to lift an item from the floor.
+-- Mirrors Lich5 DRCI.lift?(item) — sends LIFT <item> and returns true on success.
+-- With no argument, attempts to lift any item at feet.
+-- @param item string|nil Item noun to lift (optional)
+-- @return boolean true if item was picked up, false otherwise
+function M.lift(item)
+  local cmd = item and ("lift " .. item) or "lift"
+  local result = DRC.bput(cmd,
+    "You pick up",
+    "There are no items lying at your feet",
+    "What did you want to try and lift",
+    "can't quite lift it",
+    "You are not strong enough to pick that up",
+    "Roundtime")
+  return result ~= nil and result:find("You pick up") ~= nil
+end
+
 return M
