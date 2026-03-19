@@ -691,4 +691,73 @@ function M.do_buffs(settings, set_name)
   end
 end
 
+-------------------------------------------------------------------------------
+-- Focus item management
+-- Mirrors Lich5 DRCA.find_focus / DRCA.stow_focus
+-------------------------------------------------------------------------------
+
+--- Patterns for wielding (unsheathing) a focus item.
+local WIELD_FOCUS_SUCCESS = { "You wield", "You remove", "You grab", "You are already holding" }
+local WIELD_FOCUS_FAILURE = { "Wield what", "I could not find", "You can't seem" }
+
+--- Patterns for sheathing a focus item.
+local SHEATHE_FOCUS_SUCCESS = { "You sheathe", "You push", "You slide" }
+local SHEATHE_FOCUS_FAILURE = { "Sheathe what", "I could not find", "You can't seem" }
+
+--- Get (find and hold) a ritual focus item.
+-- Mirrors Lich5 DRCA.find_focus(focus, worn, tied, sheathed).
+-- worn → remove item; tied → untie from tied anchor; sheathed → wield item; else → get item.
+-- @param focus string Focus item name
+-- @param worn boolean If true, focus is worn (remove it to hold)
+-- @param tied string|nil If set, focus is tied to this anchor (untie it)
+-- @param sheathed boolean If true, focus is sheathed (wield it)
+-- @return boolean true on success
+function M.find_focus(focus, worn, tied, sheathed)
+  if not focus or focus == "" then return false end
+  if worn then
+    return DRCI.remove_item(focus)
+  elseif tied and tied ~= "" then
+    return DRCI.untie_item(focus, tied)
+  elseif sheathed then
+    local all = {}
+    for _, p in ipairs(WIELD_FOCUS_SUCCESS) do all[#all + 1] = p end
+    for _, p in ipairs(WIELD_FOCUS_FAILURE) do all[#all + 1] = p end
+    local result = DRC.bput("wield my " .. focus, unpack(all))
+    for _, p in ipairs(WIELD_FOCUS_FAILURE) do
+      if result:find(p) then return false end
+    end
+    return true
+  else
+    return DRCI.get_item(focus)
+  end
+end
+
+--- Stow (put away) a ritual focus item.
+-- Mirrors Lich5 DRCA.stow_focus(focus, worn, tied, sheathed).
+-- worn → wear item; tied → tie to anchor; sheathed → sheathe item; else → stow item.
+-- @param focus string Focus item name
+-- @param worn boolean If true, focus should be worn
+-- @param tied string|nil If set, focus should be tied to this anchor
+-- @param sheathed boolean If true, focus should be sheathed
+-- @return boolean true on success
+function M.stow_focus(focus, worn, tied, sheathed)
+  if not focus or focus == "" then return false end
+  if worn then
+    return DRCI.wear_item(focus)
+  elseif tied and tied ~= "" then
+    return DRCI.tie_item(focus, tied)
+  elseif sheathed then
+    local all = {}
+    for _, p in ipairs(SHEATHE_FOCUS_SUCCESS) do all[#all + 1] = p end
+    for _, p in ipairs(SHEATHE_FOCUS_FAILURE) do all[#all + 1] = p end
+    local result = DRC.bput("sheathe my " .. focus, unpack(all))
+    for _, p in ipairs(SHEATHE_FOCUS_FAILURE) do
+      if result:find(p) then return false end
+    end
+    return true
+  else
+    return DRCI.put_away_item(focus)
+  end
+end
+
 return M
