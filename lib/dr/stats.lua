@@ -108,4 +108,19 @@ function M.necromancer() return state.guild == "Necromancer" end
 -- @return boolean
 function M.commoner() return state.guild == "Commoner" end
 
+-------------------------------------------------------------------------------
+-- Vital delegates — live values from GameState (not stored in stat table)
+-------------------------------------------------------------------------------
+
+--- Current stamina/fatigue level as a percentage (0–100).
+-- Lich5 mapped DRStats.fatigue → XMLData.stamina (the live vital, not the base stat).
+-- In Revenant, GameState.stamina holds the DR stamina vital parsed from XML.
+-- @return number 0–100, where 100 = fully rested / 0 = exhausted
+function M.fatigue()
+  if GameState and type(GameState.stamina) == "number" then
+    return GameState.stamina
+  end
+  return 0
+end
+
 return M

@@ -479,4 +479,17 @@ function M.EquipmentManager(settings)
   return em
 end
 
+-------------------------------------------------------------------------------
+-- Module-level convenience
+-------------------------------------------------------------------------------
+
+--- Empty both hands without requiring a settings-loaded EquipmentManager instance.
+-- Stows both hands via DRCI. Equivalent to EquipmentManager():empty_hands()
+-- when no gear settings are needed (e.g., clearing hands before a quest action).
+function M.empty_hands()
+  if DRCI and DRCI.stow_hands then
+    DRCI.stow_hands()
+  end
+end
+
 return M
