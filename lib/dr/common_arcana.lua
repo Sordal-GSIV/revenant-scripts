@@ -327,6 +327,85 @@ function M.refresh_buffs(buff_list, settings)
 end
 
 -------------------------------------------------------------------------------
+-- Discern — mana discovery and caching
+-- Mirrors Lich5 DRCA.check_discern(data, settings, spell_is_sorcery)
+-------------------------------------------------------------------------------
+
+--- Discern a spell's mana requirements and cache the result.
+-- Issues the DISCERN verb if cached data is missing or stale.
+-- Updates spell_data.mana with the calculated value.
+-- Cache persisted in UserVars["discern_cache"] as JSON.
+-- @param spell_data table Spell config with at least { abbrev }
+-- @param settings table Character settings (check_discern_timer_in_hours, prep_scaling_factor, cambrinth_items)
+-- @param spell_is_sorcery boolean|nil True forces a fresh discern regardless of cache age
+-- @return table spell_data (mana field updated in-place)
+function M.check_discern(spell_data, settings, spell_is_sorcery)
+  if not spell_data then return spell_data end
+  local abbrev = spell_data.abbrev
+  if not abbrev then return spell_data end
+
+  -- Load discern cache from UserVars
+  local cache = {}
+  local raw = UserVars and UserVars["discern_cache"]
+  if raw and raw ~= "" then
+    local ok, decoded = pcall(Json.decode, raw)
+    if ok and type(decoded) == "table" then cache = decoded end
+  end
+
+  local cached = cache[abbrev] or {}
+  local timer_hours = (settings and settings.check_discern_timer_in_hours) or 6
+  local stale = not cached.timestamp
+    or (os.time() - (cached.timestamp or 0)) > (timer_hours * 3600)
+
+  if stale or spell_is_sorcery then
+    local result = DRC.bput("discern " .. abbrev,
+      "The spell requires at minimum",
+      "you don't think you are able to cast this spell",
+      "You have no idea how to cast that spell",
+      "You don't seem to be able to move")
+
+    local min_str, more_str = result:match(
+      "at minimum (%d+) mana streams and you think you can reinforce it with (%d+)")
+
+    if min_str then
+      local min_mana  = tonumber(min_str)
+      local more_mana = tonumber(more_str) or 0
+      local scale     = (settings and settings.prep_scaling_factor) or 1.0
+      local total     = math.floor((min_mana + more_mana) * scale)
+
+      -- Without cambrinth the character casts everything; with cambrinth the
+      -- character casts ~1/5 and cambrinth provides the rest (simplified).
+      local camb = settings and settings.cambrinth_items
+      if camb and type(camb) == "table" and #camb > 0 then
+        cached.mana = math.max(math.ceil(total / 5.0), min_mana)
+      else
+        cached.mana = math.max(total, min_mana)
+      end
+      cached.min       = min_mana
+      cached.timestamp = os.time()
+    else
+      -- Unable to cast or unknown spell — use existing cached value or 1
+      cached.mana      = cached.mana or 1
+      cached.timestamp = os.time()
+    end
+
+    cache[abbrev] = cached
+    if waitrt then waitrt() end
+
+    -- Persist updated cache
+    if UserVars then
+      local ok2, encoded = pcall(Json.encode, cache)
+      if ok2 then UserVars["discern_cache"] = encoded end
+    end
+  end
+
+  if cached.mana then
+    spell_data.mana = cached.mana
+  end
+  return spell_data
+end
+
+-------------------------------------------------------------------------------
 -- Waggle-set spell casting (hash format: {name → spell_data})
 -- Mirrors Lich5 DRCA.cast_spells(spells, settings, force_cambrinth)
 -------------------------------------------------------------------------------

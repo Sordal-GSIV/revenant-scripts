@@ -249,24 +249,25 @@ function M.store_telescope(telescope_name, storage)
 end
 
 --- Center a telescope on a target.
+-- Returns the matched response line so callers can handle errors (no telescope,
+-- closed telescope, injuries, etc.).  Lich5 DRCMM.center_telescope also returns
+-- the raw result; callers are responsible for branching on it.
 -- @param target string Target to center on
+-- @return string Matched response line
 function M.center_telescope(target)
-  local result = DRC.bput("center telescope on " .. target, unpack(M.CENTER_TELESCOPE_MESSAGES))
-  if Regex.test("pain is too much|can't see the sky", result) then
-    respond("[DRCMM] Planet " .. target .. " not visible.")
-  elseif result:find("open it") then
-    fput("open my telescope")
-    fput("center telescope on " .. target)
-  end
+  return DRC.bput("center telescope on " .. target, unpack(M.CENTER_TELESCOPE_MESSAGES))
 end
 
 --- Peer through a telescope.
+-- Returns the matched response line so callers can detect injuries or closed telescope.
+-- @return string Matched response line
 function M.peer_telescope()
-  DRC.bput("peer my telescope",
+  local result = DRC.bput("peer my telescope",
     "The pain is too much", "You see nothing regarding the future",
     "You believe you've learned all", "open it",
     "Your vision is too fuzzy", "Roundtime")
   if waitrt then waitrt() end
+  return result
 end
 
 -------------------------------------------------------------------------------
