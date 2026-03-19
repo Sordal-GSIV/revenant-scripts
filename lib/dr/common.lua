@@ -343,9 +343,41 @@ end
 -------------------------------------------------------------------------------
 
 --- Release invisibility spells/abilities.
+-- Mirrors Lich5 DRC.release_invisibility: checks active spells and releases
+-- any that grant invisibility, plus handles Khri Silence and Vanish.
+-- Invisibility spells sourced from dr-scripts/data/base-spells.yaml.
 function M.release_invisibility()
-  -- TODO: integrate with DRSpells active spells list when available
-  -- Lich5 checks active spells and releases any that grant invisibility
+  if not DRSpells then return end
+  local active = DRSpells.active_spells and DRSpells.active_spells() or {}
+
+  -- Standard spells that grant invisibility and their release abbreviations.
+  local INVIS_SPELLS = {
+    ["Refractive Field"]  = "RF",
+    ["Steps of Vuan"]     = "SOV",
+    ["Eyes of the Blind"] = "EOTB",
+    ["Blend"]             = "Blend",
+  }
+
+  for name, abbrev in pairs(INVIS_SPELLS) do
+    if active[name] then
+      fput("release " .. abbrev)
+    end
+  end
+
+  -- Khri Silence: Thief subconscious ability, stopped differently.
+  if active["Khri Silence"] then
+    M.bput("khri stop silence",
+      "You attempt to relax",
+      "You are not using")
+  end
+
+  -- Vanish: Thief Khri meditation, stopped differently.
+  if active["Vanish"] then
+    M.bput("khri stop vanish",
+      "Your control over the limited subversion of reality falters",
+      "You would need to start Vanish",
+      "You are not trained in the Vanish meditation")
+  end
 end
 
 --- Check if we can see the sky (weather command).
