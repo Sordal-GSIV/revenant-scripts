@@ -550,4 +550,10 @@ function M.stop_playing()
   M.bput("stop play", "You stop playing", "In the name of", "But you're not performing")
 end
 
+--- Emit an audible alert (bell character) to the client window.
+-- Mirrors Lich5's DRC.beep (which echoes "\a" on Windows).
+function M.beep()
+  respond("\a")
+end
+
 return M
