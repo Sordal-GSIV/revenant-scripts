@@ -6,6 +6,7 @@
 --- game: dr
 --- description: Auto-daub bingo numbers for Ghoul game (Caligos/Naidem)
 --- tags: ghoul, bingo, daub, caligos, naidem
+--- @lic-certified: complete 2026-03-19
 ---
 --- Usage:
 ---   ;ghoul             - auto-daub numbers as called
@@ -21,6 +22,8 @@ local arg2 = Script.vars[2]
 
 if not arg1 then
     -- Standard auto-daub mode
+    -- last_called persists across get() iterations (mirrors Ruby $ghoul_number global)
+    local last_called = nil
     while true do
         local line = get()
         if line then
@@ -31,6 +34,7 @@ if not arg1 then
 
             local called = line:match('An ethereal voice calls out, "(.+)" before the ball drifts back into')
             if called then
+                last_called = called
                 if first_daub then
                     fput("daub my card O free")
                     fput("daub my card O free")
@@ -46,8 +50,8 @@ if not arg1 then
             end
 
             if line:find("If you wish to continue and daub your card for the first time, repeat your daubing attempt within the next 30 seconds.") then
-                if called then
-                    fput("daub my card " .. called)
+                if last_called then
+                    fput("daub my card " .. last_called)
                 end
             end
 
