@@ -1,5 +1,5 @@
 --- @revenant-script
---- name: familiar_script
+--- name: familiar
 --- version: 1.46.0
 --- author: elanthia-online
 --- contributors: Tysong, Dissonance, Annelie, sele
