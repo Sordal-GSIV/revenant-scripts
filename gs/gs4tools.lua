@@ -10,6 +10,8 @@
 --- tags: utility,profile,export,gs4tools,data
 ---
 --- Changelog (from Lich5 gs4tools.lic v0.3.2):
+---   v2.1.0 (2026-03-19): Add System.open_url() browser auto-open (replaces
+---     URL-only printing). Falls back to printing URL if browser launch fails.
 ---   v2.0.0 (2026-03-19): Full parity rewrite — consent system, open/sync commands
 ---     with base64url-encoded payload URLs, normalized profile support, Regex-based
 ---     capture patterns matching Ruby alternation, all commands from original.
@@ -33,10 +35,10 @@
 ---   ;gs4tools revoke                - Revoke consent
 ---   ;gs4tools help                  - Show this help
 ---
---- Note: Browser auto-open (Process.spawn) is not available in Revenant.
----   URLs are printed for manual copy/paste.
+--- Note: Uses System.open_url() to auto-open browser where available.
+---   Falls back to printing the URL if browser launch fails.
 
-local VERSION = "2.0.0"
+local VERSION = "2.1.0"
 local SITE_ROOT_URL = "https://gs4tools.com"
 local DEFAULT_PROFILE_URL = SITE_ROOT_URL .. "/profile/profile.html"
 
@@ -207,7 +209,7 @@ local function print_consent_prompt()
     say("before running, this script will:")
     say("1) send INFO START / SKILLS / EXP / SOCIETY / RESOURCES / ASC LIST / ASC MILESTONES / INV ENH ...")
     say("2) save raw capture data locally under scripts/data/gs4tools")
-    say("3) build a URL with encoded data for gs4tools.com import")
+    say("3) open your browser to gs4tools.com with encoded data in URL hash")
     say("privacy: gs4tools.com is a static site and does not store submitted data")
     say("privacy: the site automatically saves imported data to your browser localStorage")
     say("if you agree, run: ;gs4tools allow")
@@ -691,13 +693,24 @@ local function build_open_url(base_url, payload, next_page_key)
     return base_url .. "#" .. params
 end
 
+local function open_browser(url)
+    local ok, err = System.open_url(url)
+    if ok then
+        say("opened " .. url)
+    elseif err then
+        say("could not auto-open browser (" .. err .. "); open manually:")
+        say(url)
+    else
+        say("open this URL manually: " .. url)
+    end
+end
+
 local function open_payload_snapshot(payload, page_key)
     page_key = page_key or "profile"
     local compact = compact_payload(payload)
     local next_key = (page_key == "profile") and nil or page_key
     local url = build_open_url(DEFAULT_PROFILE_URL, compact, next_key)
-    say("open this URL to import your data:")
-    say(url)
+    open_browser(url)
     return url
 end
 
@@ -712,7 +725,7 @@ local function open_page(page_key)
         end)(), ", "))
         return false
     end
-    say("open this URL: " .. url)
+    open_browser(url)
     return true
 end
 
@@ -757,11 +770,11 @@ local function show_usage()
     say("  ;gs4tools                       # show status + help")
     say("  ;gs4tools collect               # capture all game data to disk")
     say("  ;gs4tools collect voln          # capture only Voln data (SOCIETY + RESOURCES)")
-    say("  ;gs4tools open                  # show import URL for latest snapshot")
-    say("  ;gs4tools open [page]           # show import URL redirected to page")
-    say("  ;gs4tools open [page] --sync    # sync first, then show URL for target page")
-    say("  ;gs4tools sync                  # collect and show profile import URL")
-    say("  ;gs4tools sync [page]           # collect and show URL with redirect")
+    say("  ;gs4tools open                  # open latest snapshot in browser")
+    say("  ;gs4tools open [page]           # open latest snapshot and redirect")
+    say("  ;gs4tools open [page] --sync    # sync first, then land on target page")
+    say("  ;gs4tools sync                  # collect and open profile import")
+    say("  ;gs4tools sync [page]           # collect and open with redirect")
     say("  ;gs4tools voln baseline N       # set favor at last Voln step change")
     say("  ;gs4tools load                  # show local raw capture summary")
     say("  ;gs4tools load --raw            # print local raw capture JSON")

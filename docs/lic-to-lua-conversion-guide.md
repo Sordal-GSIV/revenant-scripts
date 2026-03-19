@@ -375,11 +375,33 @@ if Spell.active_p(101) and Spell.active_p(401) then
 | Lich5 Ruby | Revenant Lua | Notes |
 |-----------|-------------|-------|
 | `DownstreamHook.add("name", proc { \|s\| ... })` | `DownstreamHook.add("name", function(s) ... end)` | Function receives line string |
+| `DownstreamHook.add("name", proc { ... })` (with ordering hack) | `DownstreamHook.add("name", func, priority)` | Optional third arg: integer priority (default 0). Lower runs first. |
 | `DownstreamHook.remove("name")` | `DownstreamHook.remove("name")` | |
 | `UpstreamHook.add("name", proc { \|s\| ... })` | `UpstreamHook.add("name", function(s) ... end)` | |
 | `UpstreamHook.remove("name")` | `UpstreamHook.remove("name")` | |
+| N/A | `DownstreamHook.list()` / `DownstreamHook.sources()` | Returns table of registered hook names (in priority order) |
 
 **Key difference:** In Lich5, hook procs return the (possibly modified) string, or `nil` to squelch. In Revenant, hook functions work the same way — return the string to pass through, or return nil to squelch.
+
+### Hook Priority
+
+Hooks run in priority order (lowest first). Default priority is 0. Use the built-in constants for well-known ordering:
+
+| Constant | Value | Use case |
+|----------|-------|----------|
+| `DownstreamHook.PRIORITY_FIRST` | `i32::MIN` | Must run before all other hooks |
+| `DownstreamHook.PRIORITY_DEFAULT` | `0` | Normal hooks (default if omitted) |
+| `DownstreamHook.PRIORITY_LAST` | `i32::MAX` | Must run after all other hooks |
+
+Same constants exist on `UpstreamHook`.
+
+```lua
+-- Run after all other downstream hooks (e.g. linktothefast)
+DownstreamHook.add("my_final_hook", my_func, DownstreamHook.PRIORITY_LAST)
+
+-- Run before all other upstream hooks
+UpstreamHook.add("my_first_hook", my_func, UpstreamHook.PRIORITY_FIRST)
+```
 
 ---
 
@@ -400,6 +422,33 @@ if Spell.active_p(101) and Spell.active_p(401) then
 | `Map.room_count` | `Map.room_count()` | Total number of rooms |
 | `Room.find_nearest_by_tag(tag)` | `Room.find_nearest_by_tag(tag)` | `{id=N, path={cmds}}` or nil |
 | `Room.path_to(dest)` | `Room.path_to(dest)` | Path from current room |
+
+### Map Mutation (Revenant-only)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Map.new(id, props)` | Create a new room with optional properties table |
+| `Map.set_wayto(room_id, dest_id, command)` | Set a wayto route |
+| `Map.set_timeto(room_id, dest_id, seconds)` | Set a timeto value |
+| `Map.delete_wayto(from_id, to_id)` | Remove a wayto route |
+| `Map.delete_timeto(from_id, to_id)` | Remove a timeto value |
+| `Map.clear_routes(room_id)` | Remove all wayto/timeto from a room |
+| `Map.set_tags(room_id, tags_table)` | Replace room tags |
+| `Map.add_tag(room_id, tag)` | Add a single tag |
+| `Map.remove_tag(room_id, tag)` | Remove a single tag |
+| `Map.set_description(room_id, desc)` | Set room description |
+| `Map.set_paths(room_id, paths_table)` | Set room exit paths |
+| `Map.set_location(room_id, location)` | Set room location |
+| `Map.set_terrain(room_id, terrain)` | Set room terrain |
+| `Map.set_climate(room_id, climate)` | Set room climate |
+| `Map.set_image(room_id, image)` | Set room image |
+| `Map.add_uid(room_id, uid)` | Add a UID to a room |
+| `Map.all_tags()` | Get all unique tags across all rooms |
+| `Map.find_nearest_by_tag(tag)` | Find nearest room with tag from current room |
+| `Map.find_all_nearest_by_tag(tag)` | Find all nearest rooms with tag |
+| `Map.find_nearest_room(from_id, ids_table)` | Find nearest room from a set of IDs |
+| `Map.path_cost(from, to)` | Get path cost (number of steps) |
+| `Map.ids_from_uid(uid)` | Get room IDs matching a UID |
 
 ### Room table fields (from Map.find_room / Room.current):
 - `id` — integer
@@ -490,6 +539,10 @@ These have no Lich5 equivalent:
 | `File.mtime("path")` | File modification time (unix) |
 | `File.replace(src, dst)` | Rename/move file |
 | `Crypto.md5(string)` | MD5 hash (hex) |
+| `Crypto.sha1(string)` | SHA-1 hash (hex) |
+| `Crypto.sha1_base64(string)` | SHA-1 hash (base64) |
+| `Crypto.sha1_file(path)` | SHA-1 of file contents (hex) |
+| `Crypto.sha1_file_base64(path)` | SHA-1 of file contents (base64) |
 | `Crypto.sha256(string)` | SHA-256 hash |
 | `Crypto.sha256_file(path)` | SHA-256 of file contents |
 | `Crypto.base64url_encode(string)` | URL-safe base64 (no padding) — for JWT construction |
@@ -498,8 +551,11 @@ These have no Lich5 equivalent:
 | `Version.parse("1.2.3")` | Parse semver → table |
 | `Version.compare(a, b)` | Compare versions: -1/0/1 |
 | `Version.satisfies(ver, constraint)` | Check semver constraint |
+| `Version.current()` | Engine version string (from Cargo.toml) |
 | `Version.engine_path()` | Path to engine binary |
+| `Version.sqlite()` | SQLite library version string |
 | `send_to_script("name", "msg")` | Inject line into another script's buffer |
+| `System.open_url(url)` | Open URL in default browser → `true, nil` or `nil, error` (http/https only) |
 
 ---
 
@@ -924,12 +980,13 @@ Each registry is populated by parsing the game's PSM3 XML stream (`<dialogData>`
 | `Effects::Spells.expiration("Shroud of Deception")` | `Effects.Spells.expiration("Shroud of Deception")` | Unix timestamp, 0 if absent |
 | `Effects::Spells.time_left("Minor Summoning")` | `Effects.Spells.time_left("Minor Summoning")` | **Minutes** remaining (same as Lich5) |
 | `Effects::Cooldowns.to_h` | `Effects.Cooldowns.to_table()` | Shallow copy `{name/id → expiry_ts}` |
+| `Effects::Cooldowns.to_h` | `Effects.Cooldowns.to_h()` | `{name → seconds_remaining}` (alternate format) |
 | `Effects::Buffs.each { \|k, v\| }` | `Effects.Buffs.each(function(k, v) end)` | Iterate all entries |
 | `Effects::Debuffs.to_h.keys & list` | `(loop over Effects.Debuffs.to_table())` | No set-intersection operator in Lua |
 
 ### Regex argument (mirrors Lich5's Regexp branch)
 
-When passed a `Regex` object, `active()` and `expiration()` test each string key against the pattern and return the first match:
+When passed a `Regex` object, `active()`, `expiration()`, and `time_left()` test each string key against the pattern and return the first match:
 
 ```lua
 -- Lich5: Effects::Debuffs.to_h.keys.any? { |k| k.to_s =~ /Wall of Thorns Poison/ }
