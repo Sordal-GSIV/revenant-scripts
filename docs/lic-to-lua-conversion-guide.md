@@ -475,6 +475,9 @@ These have no Lich5 equivalent:
 |-------------|-------------|
 | `Http.get(url)` | HTTP GET → `{status, body, headers}` |
 | `Http.get_json(url)` | HTTP GET + JSON parse → Lua table |
+| `Http.post(url, body, headers?)` | HTTP POST → `{status, body, headers}` |
+| `Http.post_json(url, table, headers?)` | HTTP POST with JSON body → `{status, body, headers}` |
+| `Http.request(method, url, body?, headers?)` | Generic HTTP request → `{status, body, headers}` |
 | `Json.encode(table)` | Lua table → JSON string |
 | `Json.decode(string)` | JSON string → Lua table |
 | `File.read("path")` | Read file (sandboxed to scripts dir) |
@@ -489,6 +492,9 @@ These have no Lich5 equivalent:
 | `Crypto.md5(string)` | MD5 hash (hex) |
 | `Crypto.sha256(string)` | SHA-256 hash |
 | `Crypto.sha256_file(path)` | SHA-256 of file contents |
+| `Crypto.base64url_encode(string)` | URL-safe base64 (no padding) — for JWT construction |
+| `Crypto.base64url_decode(string)` | Decode URL-safe base64 → string |
+| `Crypto.rsa_sign_pkcs1v15_sha256(pem, data)` | Sign data with RSA PKCS#8 PEM key → base64url signature (for Google OAuth2 JWTs) |
 | `Version.parse("1.2.3")` | Parse semver → table |
 | `Version.compare(a, b)` | Compare versions: -1/0/1 |
 | `Version.satisfies(ver, constraint)` | Check semver constraint |
