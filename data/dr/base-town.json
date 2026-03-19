@@ -1,0 +1,406 @@
+{
+  "Arthe Dale": {
+    "currency": "kronars"
+  },
+  "Crossing": {
+    "currency": "kronars",
+    "exchange": {
+      "id": 1902,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 4652,
+      "name": "appraiser"
+    },
+    "tannery": {
+      "id": 8266,
+      "name": "Falken"
+    },
+    "locksmithing": {
+      "id": 19125,
+      "name": "Ragge"
+    },
+    "deposit": {
+      "id": 1900
+    }
+  },
+  "Knife Clan": {
+    "currency": "kronars",
+    "deposit": {
+      "id": 1900
+    }
+  },
+  "Darkling Wood": {
+    "currency": "dokoras"
+  },
+  "Dirge": {
+    "currency": "kronars",
+    "exchange": {
+      "id": 16655,
+      "fee": 0.1
+    },
+    "deposit": {
+      "id": 16655
+    }
+  },
+  "Fayrin's Rest": {
+    "currency": "dokoras"
+  },
+  "Chyolvea": {
+    "currency": "dokoras",
+    "exchange": {
+      "id": 8050,
+      "fee": 0.08
+    },
+    "deposit": {
+      "id": 8049
+    }
+  },
+  "Leth Deriel": {
+    "currency": "kronars",
+    "exchange": {
+      "id": 7631,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 50268,
+      "name": "Ghendil"
+    },
+    "tannery": {
+      "id": 9690,
+      "name": "Morikai"
+    },
+    "deposit": {
+      "id": 7630
+    }
+  },
+  "Shard": {
+    "currency": "dokoras",
+    "exchange": {
+      "id": 19280,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 19309,
+      "name": [
+        "Fatimi",
+        "Veilex"
+      ]
+    },
+    "tannery": {
+      "id": 19340,
+      "name": "Tremagis"
+    },
+    "locksmithing": {
+      "id": 9817,
+      "name": "Kilam"
+    },
+    "deposit": {
+      "id": 19276
+    }
+  },
+  "Steelclaw Clan": {
+    "currency": "dokoras",
+    "deposit": {
+      "id": 19276
+    }
+  },
+  "Stone Clan": {
+    "currency": "kronars"
+  },
+  "Tiger Clan": {
+    "currency": "kronars"
+  },
+  "Wolf Clan": {
+    "currency": "kronars",
+    "tannery": {
+      "id": 1542,
+      "name": "Crolin"
+    },
+    "deposit": {
+      "id": 1900
+    }
+  },
+  "Riverhaven": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 7954,
+      "fee": 0.07
+    },
+    "gemshop": {
+      "id": 7955,
+      "name": "Anthelorm"
+    },
+    "tannery": {
+      "id": 7956,
+      "name": "Fara"
+    },
+    "locksmithing": {
+      "id": 19096,
+      "name": "Ss'Thran"
+    },
+    "deposit": {
+      "id": 7953
+    }
+  },
+  "Rossman's Landing": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 12418,
+      "fee": 0.09
+    },
+    "gemshop": {
+      "id": 12416,
+      "name": "Barberry"
+    },
+    "tannery": {
+      "id": 7702,
+      "name": "Drinak"
+    },
+    "deposit": {
+      "id": 12417
+    }
+  },
+  "Therenborough": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 3224,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 3231,
+      "name": "Gruk"
+    },
+    "tannery": {
+      "id": 3229,
+      "name": "Dartrise"
+    },
+    "locksmithing": {
+      "id": null
+    },
+    "deposit": {
+      "id": 3226
+    }
+  },
+  "Langenfirth": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 3224,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 3231,
+      "name": "Gruk"
+    },
+    "tannery": {
+      "id": 3229,
+      "name": "Dartrise"
+    },
+    "locksmithing": {
+      "id": null
+    },
+    "deposit": {
+      "id": 3226
+    }
+  },
+  "Fornsted": {
+    "currency": "lirums"
+  },
+  "Hvaral": {
+    "currency": "lirums"
+  },
+  "Ratha": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 7206,
+      "fee": 0.07
+    },
+    "gemshop": {
+      "id": 7187,
+      "name": "Magpie"
+    },
+    "tannery": {
+      "id": 10753,
+      "name": "Lysskava'an"
+    },
+    "deposit": {
+      "id": 7207
+    }
+  },
+  "Aesry": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 7225,
+      "fee": 0.09
+    },
+    "gemshop": {
+      "id": 67,
+      "name": "woman"
+    },
+    "tannery": {
+      "id": 7227,
+      "name": "Egani"
+    },
+    "locksmithing": {
+      "id": null
+    },
+    "deposit": {
+      "id": 7224
+    }
+  },
+  "Mer'Kresh": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 8832,
+      "fee": 0.09
+    },
+    "gemshop": {
+      "id": 11921,
+      "name": "Zhendil"
+    },
+    "tannery": {
+      "id": 8827,
+      "name": "Scupper"
+    },
+    "deposit": {
+      "id": 8834
+    }
+  },
+  "Throne City": {
+    "currency": "lirums",
+    "exchange": {
+      "id": 3101,
+      "fee": 0.07
+    },
+    "gemshop": {
+      "id": 19208,
+      "name": "appraiser"
+    },
+    "tannery": {
+      "id": 10029,
+      "name": "Vermadian"
+    },
+    "deposit": {
+      "id": 3104
+    }
+  },
+  "Hibarnhvidar": {
+    "currency": "dokoras",
+    "exchange": {
+      "id": 8884,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 8899,
+      "name": "rasiya"
+    },
+    "tannery": {
+      "id": 8885,
+      "name": "Vandorf"
+    },
+    "locksmithing": {
+      "id": 13190,
+      "name": "Sephina"
+    },
+    "deposit": {
+      "id": 8883
+    }
+  },
+  "Raven's Point": {
+    "currency": "dokoras"
+  },
+  "Boar Clan": {
+    "currency": "dokoras",
+    "exchange": {
+      "id": 8884,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 8899,
+      "name": "rasiya"
+    },
+    "tannery": {
+      "id": 12173,
+      "name": "Gudthar"
+    },
+    "locksmithing": {
+      "id": 13190,
+      "name": "Sephina"
+    },
+    "deposit": {
+      "id": 8883
+    }
+  },
+  "Fang Cove": {
+    "currency": "dokoras",
+    "exchange": {
+      "id": 8389,
+      "fee": 0.03
+    },
+    "gemshop": {
+      "id": 8386,
+      "name": "Wickett"
+    },
+    "tannery": {
+      "id": 8394,
+      "name": "Gorund"
+    },
+    "deposit": {
+      "id": 8390
+    }
+  },
+  "Muspar'i": {
+    "currency": "Lirums",
+    "exchange": {
+      "id": 6875,
+      "fee": 0.07
+    },
+    "gemshop": {
+      "id": 6877,
+      "name": "Mhasulri"
+    },
+    "tannery": {
+      "id": 11097,
+      "name": "Ushikhh"
+    },
+    "locksmithing": {
+      "id": 7613,
+      "name": "Hekipe"
+    },
+    "deposit": {
+      "id": 305
+    }
+  },
+  "Ain Ghazal": {
+    "currency": "dokoras",
+    "exchange": {
+      "id": 8884,
+      "fee": 0.05
+    },
+    "locksmithing": {
+      "id": 13190,
+      "name": "Sephina"
+    },
+    "deposit": {
+      "id": 14640
+    }
+  },
+  "Hara'jaal": {
+    "currency": "lirum",
+    "exchange": {
+      "id": 15315,
+      "fee": 0.05
+    },
+    "gemshop": {
+      "id": 15293,
+      "name": "Abira"
+    },
+    "tannery": {
+      "id": 15307,
+      "name": "assistant"
+    },
+    "deposit": {
+      "id": 15314
+    }
+  }
+}

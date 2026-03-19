@@ -339,6 +339,68 @@ function M.left_hand()
 end
 
 -------------------------------------------------------------------------------
+-- Town name resolution
+-------------------------------------------------------------------------------
+
+--- Canonical town name lookup from partial/abbreviated input.
+-- Mirrors Lich5 DRC.get_town_name: resolves aliases and abbreviations to the
+-- canonical name used in base-town.yaml / get_data('town').
+-- @param text string Input text (e.g., "cross", "theren", "mer'kresh")
+-- @return string|nil Canonical town name, or nil if no match
+function M.get_town_name(text)
+  if not text or text == "" then return nil end
+  local lower = text:lower()
+
+  -- Maps { canonical_name = pattern_to_match }
+  local TOWN_MAP = {
+    ["Arthe Dale"]      = "^arthe( dale)?$",
+    ["Crossing"]        = "^cross(ing)?$",
+    ["Darkling Wood"]   = "^darkling( wood)?$",
+    ["Dirge"]           = "^dirge$",
+    ["Fayrin's Rest"]   = "^fayrin'?s?( rest)?$",
+    ["Leth Deriel"]     = "^leth( deriel)?$",
+    ["Shard"]           = "^shard$",
+    ["Steelclaw Clan"]  = "^steel( )?claw( clan)?$",
+    ["Stone Clan"]      = "^stone( clan)?$",
+    ["Tiger Clan"]      = "^tiger( clan)?$",
+    ["Wolf Clan"]       = "^wolf( clan)?$",
+    ["Riverhaven"]      = "^(river|haven|riverhaven)$",
+    ["Rossman's Landing"] = "^rossman'?s?( landing)?$",
+    ["Therenborough"]   = "^theren(borough)?$",
+    ["Langenfirth"]     = "^lang(enfirth)?$",
+    ["Fornsted"]        = "^fornsted$",
+    ["Hvaral"]          = "^hvaral$",
+    ["Ratha"]           = "^ratha$",
+    ["Aesry"]           = "^aesry$",
+    ["Mer'Kresh"]       = "^mer'?kresh$",
+    ["Throne City"]     = "^throne( city)?$",
+    ["Hibarnhvidar"]    = "^hib(arnhvidar)?$",
+    ["Raven's Point"]   = "^raven'?s?( point)?$",
+    ["Boar Clan"]       = "^boar( clan)?$",
+    ["Fang Cove"]       = "^fang( cove)?$",
+    ["Muspar'i"]        = "^muspar'?i$",
+    ["Ain Ghazal"]      = "^ain( )?ghazal$",
+    ["Hara'jaal"]       = "^hara'?jaal$",
+    ["Chyolvea"]        = "^chyolvea$",
+    ["Knife Clan"]      = "^knife( clan)?$",
+  }
+
+  local matches = {}
+  for canonical, pattern in pairs(TOWN_MAP) do
+    if lower:match(pattern) then
+      matches[#matches + 1] = canonical
+    end
+  end
+
+  if #matches > 1 then
+    respond("[DRC] get_town_name: multiple towns matched '" .. text .. "': " .. table.concat(matches, ", "))
+    respond("[DRC] get_town_name: using first match: " .. matches[1])
+  end
+
+  return matches[1]
+end
+
+-------------------------------------------------------------------------------
 -- Visibility helpers
 -------------------------------------------------------------------------------
 
