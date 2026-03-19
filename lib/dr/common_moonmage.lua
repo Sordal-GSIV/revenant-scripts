@@ -432,4 +432,14 @@ function M.update_astral_data(data, settings)
   return data
 end
 
+--- Ensure the moonwatch script is running so UserVars.sun is populated.
+-- Mirrors Lich5's DRCMM.check_moonwatch.
+-- moonwatch tracks sun/moon positions and writes UserVars.sun = JSON {day=bool, ...}
+function M.check_moonwatch()
+  if Script and not Script.running("moonwatch") then
+    Script.run("moonwatch")
+    pause(1)
+  end
+end
+
 return M

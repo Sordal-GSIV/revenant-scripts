@@ -54,6 +54,15 @@ function M.getrank(name)
   return entry and entry.rank or 0
 end
 
+--- Get the modified rank for a skill.
+-- Lich5 getmodrank includes stat bonuses; Revenant only tracks base rank,
+-- so this is an alias for getrank.
+-- @param name string Skill name
+-- @return number Rank, or 0 if unknown
+function M.getmodrank(name)
+  return M.getrank(name)
+end
+
 --- Get the percent-to-next-rank for a skill.
 -- @param name string Skill name
 -- @return number Percent, or 0 if unknown

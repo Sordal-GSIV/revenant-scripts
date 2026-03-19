@@ -556,4 +556,15 @@ function M.beep()
   respond("\a")
 end
 
+--- Kick a pile of debris/rocks out of the way.
+-- Mirrors Lich5's DRC.kick_pile? / DRCT.kick_pile?
+-- @return string The matched response line
+function M.kick_pile()
+  return M.bput("kick pile",
+    "kick a pile",
+    "But there is no pile to kick",
+    "You kick the pile of rocks",
+    "You stop in the middle of your kick")
+end
+
 return M
