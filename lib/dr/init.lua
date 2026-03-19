@@ -2,8 +2,9 @@
 --- name: dr/init
 --- description: DR module loader — loaded conditionally when game is DragonRealms
 
-local parser  = require("lib/dr/parser")
-local banking = require("lib/dr/banking")
+local parser   = require("lib/dr/parser")
+local banking  = require("lib/dr/banking")
+local settings = require("lib/dr/settings")
 
 -- Register the main parser hook
 DownstreamHook.add("drinfomon", function(line)
@@ -35,6 +36,12 @@ DRCTH  = require("lib/dr/common_theurgy")   -- Theurgy / cleric rituals
 DRCS   = require("lib/dr/common_summoning") -- Summoned weapons
 DRCEV  = require("lib/dr/common_validation") -- Input / character validation
 DREMgr = require("lib/dr/equip_manager")    -- Equipment set management
+
+-- DR Settings helpers — exposed as globals for script compat with Lich5
+get_settings = settings.get_settings
+save_settings = settings.save_settings
+get_data      = settings.get_data
+ORDINALS      = settings.ORDINALS
 
 -- Auto-start exp monitor if previously enabled
 if DRExpMon and DRExpMon.autostart then

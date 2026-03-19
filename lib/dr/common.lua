@@ -220,10 +220,11 @@ function M.bput(message, ...)
         put(message)
         start = os.time()
       else
-        -- Check each pattern for a match
+        -- Check each pattern for a match (Lua pattern matching)
         for _, pat in ipairs(patterns) do
           if type(pat) == "string" then
-            if line:find(pat, 1, true) then
+            local ok, s = pcall(string.find, line, pat)
+            if ok and s then
               return line
             end
           end

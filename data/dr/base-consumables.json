@@ -1,0 +1,58 @@
+{
+  "Crossing": {
+    "arrow":   { "name": "boar-tusk arrows",   "room": 8263,  "price": 62,   "size": 5,  "stackable": true,  "quantity": 30 },
+    "bolt":    { "name": "crossbow bolts",      "room": 8263,  "price": 112,  "size": 15, "stackable": true,  "quantity": 30 },
+    "tk_ammo": { "name": "short-handled kris",  "room": 8263,  "price": 250,  "size": 1,  "stackable": false, "quantity": 3  },
+    "rock":    { "name": "small rocks",         "room": 8263,  "price": 12,   "size": 10, "stackable": true,  "quantity": 30 },
+    "milk":    { "name": "fresh milk",          "room": 19240, "price": 18,   "size": 1,  "stackable": false, "quantity": 5  }
+  },
+  "Langenfirth": {
+    "arrow": { "name": "long arrows",     "room": 12213, "price": 150, "size": 15, "stackable": true, "quantity": 30 },
+    "bolt":  { "name": "crossbow bolts",  "room": 12213, "price": 136, "size": 15, "stackable": true, "quantity": 30 },
+    "rock":  { "name": "small rocks",     "room": 12213, "price": 90,  "size": 10, "stackable": true, "quantity": 30 }
+  },
+  "Therenborough": {
+    "arrow": { "name": "long arrows",     "room": 12213, "price": 150, "size": 15, "stackable": true, "quantity": 30 },
+    "bolt":  { "name": "crossbow bolts",  "room": 12213, "price": 136, "size": 15, "stackable": true, "quantity": 30 },
+    "rock":  { "name": "small rocks",     "room": 12213, "price": 90,  "size": 10, "stackable": true, "quantity": 30 }
+  },
+  "Shard": {
+    "arrow":               { "name": "long arrows",        "room": 13144, "price": 213,  "size": 15, "stackable": true,  "quantity": 30 },
+    "bolt":                { "name": "crossbow bolts",     "room": 13144, "price": 136,  "size": 15, "stackable": true,  "quantity": 30 },
+    "tk_ammo":             { "name": "brass razor",        "room": 9747,  "price": 471,  "size": 1,  "stackable": false, "quantity": 1  },
+    "rock":                { "name": "large rocks",        "room": 2948,  "price": 94,   "size": 15, "stackable": true,  "quantity": 30 },
+    "Eagle's Cry":         { "name": "electrum runestone", "room": 13105, "price": 8569, "size": 1,  "stackable": false, "quantity": 1  },
+    "Protection from Evil":{ "name": "topaz runestone",    "room": 13105, "price": 8569, "size": 1,  "stackable": false, "quantity": 1  },
+    "Refresh":             { "name": "quartz runestone",   "room": 13105, "price": 8118, "size": 1,  "stackable": false, "quantity": 1  },
+    "Glythtide's Gift":    { "name": "axinite runestone",  "room": 13105, "price": 8118, "size": 1,  "stackable": false, "quantity": 1  },
+    "Shadows":             { "name": "azurite runestone",  "room": 13105, "price": 7937, "size": 1,  "stackable": false, "quantity": 1  },
+    "Arc Light":           { "name": "calavarite runestone","room": 13105, "price": 1804, "size": 1,  "stackable": false, "quantity": 1  },
+    "Geyser":              { "name": "celestite runestone", "room": 13105, "price": 18040,"size": 1,  "stackable": false, "quantity": 1  },
+    "Bless":               { "name": "elbaite runestone",  "room": 13105, "price": 1804, "size": 1,  "stackable": false, "quantity": 1  },
+    "Fire Shards":         { "name": "rhodonite runestone", "room": 13105, "price": 1804, "size": 1,  "stackable": false, "quantity": 1  },
+    "Athleticism":         { "name": "selenite runestone", "room": 13105, "price": 7667, "size": 1,  "stackable": false, "quantity": 1  },
+    "Calm":                { "name": "xibaryl runestone",  "room": 13105, "price": 4510, "size": 1,  "stackable": false, "quantity": 1  },
+    "Zephyr":              { "name": "imnera runestone",   "room": 13105, "price": 4510, "size": 1,  "stackable": false, "quantity": 1  },
+    "Compost":             { "name": "asketine runestone", "room": 13105, "price": 4510, "size": 1,  "stackable": false, "quantity": 1  },
+    "Clear Vision":        { "name": "avaes runestone",    "room": 13105, "price": 4510, "size": 1,  "stackable": false, "quantity": 1  }
+  },
+  "Riverhaven": {
+    "arrow": { "name": "barbed arrows",   "room": 13115, "price": 180, "size": 15, "stackable": true, "quantity": 30 },
+    "bolt":  { "name": "crossbow bolts",  "room": 13115, "price": 130, "size": 15, "stackable": true, "quantity": 30 }
+  },
+  "Hibarnhvidar": {
+    "arrow":   { "name": "long arrows",      "room": 12172, "price": 649,  "size": 10, "stackable": true,  "quantity": 30 },
+    "bolt":    { "name": "crossbow bolts",   "room": 12172, "price": 405,  "size": 15, "stackable": true,  "quantity": 30 },
+    "tk_ammo": { "name": "big-fist katar",   "room": 12172, "price": 2706, "size": 1,  "stackable": false, "quantity": 3  },
+    "rock":    { "name": "smooth rocks",     "room": 12172, "price": 45,   "size": 30, "stackable": true,  "quantity": 30 }
+  },
+  "Mer'Kresh": {
+    "arrow": { "name": "broad-barbed arrows", "room": 19336, "price": 1200, "size": 10, "stackable": true, "quantity": 30 },
+    "bolt":  { "name": "crossbow bolts",      "room": 19336, "price": 100,  "size": 15, "stackable": true, "quantity": 30 }
+  },
+  "Aesry": {
+    "arrow": { "name": "triple-fluted arrows",       "room": 12866, "price": 1000, "size": 10, "stackable": true, "quantity": 20 },
+    "bolt":  { "name": "aged oak crossbow bolts",    "room": 12866, "price": 1050, "size": 15, "stackable": true, "quantity": 15 },
+    "rock":  { "name": "large rocks",                "room": 12866, "price": 12,   "size": 15, "stackable": true, "quantity": 15 }
+  }
+}
