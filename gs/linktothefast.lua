@@ -147,8 +147,9 @@ local function process_line(server_string)
     return table.concat(result)
 end
 
--- Register the downstream hook
-DownstreamHook.add("linktothefast", process_line)
+-- Register the downstream hook with PRIORITY_LAST so we always run after all
+-- other hooks (the whole point of the Ruby original's DownstreamHook.run monkeypatch)
+DownstreamHook.add("linktothefast", process_line, DownstreamHook.PRIORITY_LAST)
 
 echo("version 0.1.7 (2026-03-17) started.  Stop me with ;kill linktothefast")
 hide_me()
