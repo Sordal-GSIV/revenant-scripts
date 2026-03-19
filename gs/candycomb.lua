@@ -5,6 +5,7 @@
 --- game: gs
 --- description: Automate combining candy in your bag by bundling every three pieces
 --- tags: candy,combine,bundle
+--- @lic-certified: complete 2026-03-19
 ---
 --- Usage:
 ---   ;candycomb <total_candy>   Bundles candy (every 3 pieces)
