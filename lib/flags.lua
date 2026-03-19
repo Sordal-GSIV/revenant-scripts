@@ -44,6 +44,9 @@ function M.remove(key)
     registry[key] = nil
 end
 
+--- Remove a key entirely (Lich5 compatibility alias for remove).
+M.delete = M.remove
+
 --- Remove all registered keys.
 function M.clear_all()
     registry = {}
