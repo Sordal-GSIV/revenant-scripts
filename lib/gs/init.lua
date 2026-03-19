@@ -20,8 +20,11 @@ Experience = require("lib/gs/experience")
 -- Creature data
 Creature = require("lib/gs/creature")
 
--- Combat tracker
+-- Combat tracker (minimal death-only hook)
 CombatTracker = require("lib/gs/combat_tracker")
+
+-- Combat tracking system (full HP/injury/status/UCS tracking)
+require("lib/gs/combat/init")
 
 -- Room claim system
 Claim = require("lib/gs/claim")
