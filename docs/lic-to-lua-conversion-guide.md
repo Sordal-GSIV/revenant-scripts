@@ -523,7 +523,7 @@ These have no Lich5 equivalent:
 
 | Revenant Lua | Description |
 |-------------|-------------|
-| `Http.get(url)` | HTTP GET → `{status, body, headers}` |
+| `Http.get(url, timeout_secs?)` | HTTP GET → `{status, body, headers}`. Default timeout 120s. Pass larger value (e.g. 300) for large file downloads. |
 | `Http.get_json(url)` | HTTP GET + JSON parse → Lua table |
 | `Http.post(url, body, headers?)` | HTTP POST → `{status, body, headers}` |
 | `Http.post_json(url, table, headers?)` | HTTP POST with JSON body → `{status, body, headers}` |
