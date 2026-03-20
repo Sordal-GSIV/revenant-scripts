@@ -5,6 +5,7 @@
 --- game: gs
 --- description: Spell/buff/debuff/cooldown window manager for Wrayth frontend
 --- tags: hunting,combat,tracking,spells,buffs,debuffs,cooldowns
+--- @lic-certified: complete 2026-03-20
 ---
 --- Changelog (from Lich5):
 ---   v1.9 (2025-08-23): Multi-boxing optimizations, target window ordering, timer speed
@@ -12,6 +13,12 @@
 ---   v1.7 (2025-04-06): Group.check fix, bard song progress bar fix
 ---   v1.6 (2025-03-18): Room window and inventory feed blocking
 ---   v1.5 (2025-03-13): adderall/removeall commands, Indef display fix
+---
+--- Revenant port notes:
+---   - puts() → _respond() for raw XML injection (puts not defined in Revenant)
+---   - Effects:to_h() keys are strings (spell names), values are seconds_remaining
+---   - CMD_RE:captures() used instead of :match() for group extraction
+---   - Group.members is a plain table of names; nonmembers computed from GameObj.pcs()
 ---
 --- Usage:
 ---   ;spellwindows              - Start the script
@@ -139,7 +146,7 @@ local cmd_queue = {}
 local CMD_RE = Regex.new("^(?:<c>)?;(?:spellwindows?|buff)(?: (.*))?$")
 
 UpstreamHook.add(UPSTREAM_HOOK, function(command)
-    local m = CMD_RE:match(command)
+    local m = CMD_RE:captures(command)
     if m then
         table.insert(cmd_queue, m[1] or "")
         return nil
@@ -181,10 +188,23 @@ end
 -- Spell window building
 --------------------------------------------------------------------------------
 
+-- Stable numeric ID for a spell/effect name: uses spell number if known,
+-- otherwise a polynomial hash of the name (unique enough for progress bar IDs).
+local function effect_id(name)
+    local spell = Spell[name]
+    if spell and spell.num then return spell.num end
+    local h = 0
+    for i = 1, #name do
+        h = (h * 31 + string.byte(name, i)) % 99991
+    end
+    return h
+end
+
 local function build_output(effect_type_name, title)
     local effects = Effects[effect_type_name]
     if not effects then return "" end
-    local h = effects:to_hash()
+    -- to_h() returns { name_string = seconds_remaining }
+    local h = effects:to_h()
     if not h or not next(h) then
         return "<dialogData id='" .. title .. "' clear='t'></dialogData>" ..
             "<dialogData id='" .. title .. "'>" ..
@@ -192,26 +212,33 @@ local function build_output(effect_type_name, title)
             "</dialogData>"
     end
 
+    -- Collect and sort by time remaining descending for stable display
+    local entries = {}
+    for name, secs in pairs(h) do
+        table.insert(entries, { name = name, secs = secs })
+    end
+    table.sort(entries, function(a, b) return a.secs > b.secs end)
+
     local output = "<dialogData id='" .. title .. "' clear='t'></dialogData><dialogData id='" .. title .. "'>"
     local top = 0
 
-    for spell_num, end_time in pairs(h) do
-        if type(spell_num) == "number" then
-            local duration = (end_time - os.time()) / 60
-            if duration > 0 then
-                local spell_name = Spell[spell_num] and Spell[spell_num].name or tostring(spell_num)
-                local max_dur = Spell[spell_num] and Spell[spell_num].max_duration or 5
-                if max_dur == 0 then max_dur = 5 end
-                local bar_val = math.min(100, math.floor((duration / max_dur) * 100))
+    for _, entry in ipairs(entries) do
+        local name = entry.name
+        local duration = entry.secs / 60  -- convert seconds_remaining to minutes
+        if duration > 0 then
+            local bar_id   = effect_id(name)
+            local spell    = Spell[name]
+            local max_dur  = spell and spell.max_duration or 5
+            if max_dur == 0 then max_dur = 5 end
+            local bar_val = math.min(100, math.floor((duration / max_dur) * 100))
 
-                output = output .. string.format(
-                    "<progressBar id='%d' value='%d' text=\"%s\" left='22%%' top='%d' width='76%%' height='15' time='%s'/>" ..
-                    "<label id='l%d' value='%s ' top='%d' left='0' justify='2' anchor_right='spell'/>",
-                    spell_num, bar_val, spell_name, top, format_time(duration),
-                    spell_num, display_time(duration), top
-                )
-                top = top + 16
-            end
+            output = output .. string.format(
+                "<progressBar id='%d' value='%d' text=\"%s\" left='22%%' top='%d' width='76%%' height='15' time='%s'/>" ..
+                "<label id='l%d' value='%s ' top='%d' left='0' justify='2' anchor_right='spell'/>",
+                bar_id, bar_val, name, top, format_time(duration),
+                bar_id, display_time(duration), top
+            )
+            top = top + 16
         end
     end
 
@@ -258,8 +285,25 @@ end
 
 local function build_target_window()
     local targets = GameObj.targets() or {}
-    local group_members = Group and Group.members and Group.members() or {}
-    local non_group = Group and Group.nonmembers and Group.nonmembers() or {}
+
+    -- Group.members is a plain table of name strings populated by group.lua;
+    -- Group.nonmembers() does not exist — derive non-group PCs from GameObj.pcs().
+    local member_names = Group and Group.members or {}
+    local in_group = {}
+    for _, mname in ipairs(member_names) do
+        in_group[mname] = true
+    end
+
+    local all_pcs = GameObj.pcs() or {}
+    local group_members = {}
+    local non_group = {}
+    for _, pc in ipairs(all_pcs) do
+        if in_group[pc.name] then
+            table.insert(group_members, pc)
+        else
+            table.insert(non_group, pc)
+        end
+    end
 
     local output = "<dialogData id='Target Window' clear='t'></dialogData><dialogData id='Target Window'>"
 
@@ -521,7 +565,7 @@ local function update_loop()
         end
 
         if #output > 0 then
-            puts(output)
+            _respond(output)
         end
 
         pause(settings.update_interval or 0.25)
@@ -534,10 +578,10 @@ end
 
 -- Open dialog windows if enabled
 if settings.show_missing then
-    puts("<closeDialog id='Missing Spells'/><openDialog type='dynamic' id='Missing Spells' title='Missing Spells' target='Missing Spells' scroll='manual' location='main' justify='3' height='68' resident='true'><dialogData id='Missing Spells'></dialogData></openDialog>")
+    _respond("<closeDialog id='Missing Spells'/><openDialog type='dynamic' id='Missing Spells' title='Missing Spells' target='Missing Spells' scroll='manual' location='main' justify='3' height='68' resident='true'><dialogData id='Missing Spells'></dialogData></openDialog>")
 end
 if settings.show_targets then
-    puts("<closeDialog id='Target Window'/><openDialog type='dynamic' id='Target Window' title='Targets' target='Target Window' scroll='manual' location='main' justify='3' height='68' resident='true'><dialogData id='Targets'></dialogData></openDialog>")
+    _respond("<closeDialog id='Target Window'/><openDialog type='dynamic' id='Target Window' title='Targets' target='Target Window' scroll='manual' location='main' justify='3' height='68' resident='true'><dialogData id='Targets'></dialogData></openDialog>")
 end
 
 -- Process initial command if given
