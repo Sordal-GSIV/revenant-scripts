@@ -5,6 +5,7 @@
 --- game: gs
 --- description: Display critical hit information from combat using CritRanks
 --- tags: combat,information,crits
+--- @lic-certified: complete 2026-03-19
 ---
 --- Prototype/demonstration script that watches for combat actions
 --- and shows crit rank, location, and stun information.
@@ -12,32 +13,33 @@
 --- Requires: lib/gs/critranks
 
 local CritRanks = require("lib/gs/critranks")
-local Messaging = require("lib/messaging")
 
--- Combat action patterns (from briefcombat)
-local COMBAT_ACTIONS = {
+-- Combat action patterns (from briefcombat) compiled as PCRE via Regex.new
+-- Original Ruby used alternation and (?:...) non-capturing groups which require PCRE
+local COMBAT_PATTERNS = {}
+local COMBAT_ACTIONS_RAW = {
     "gesture at",
-    "gesture%.",
+    "gesture\\.",
     "channel at",
-    "[hurl|fire|swing|thrust] an? [%w %-%']+ at",
-    "swing an? [%w %-%']+ at",
-    "thrust(?: with)? a [%w %-%']+ at",
+    "(?:hurl|fire|swing|thrust) an? [\\w \\-']+ at",
+    "swing an? [\\w \\-']+ at",
+    "thrust(?: with)? a [\\w \\-']+ at",
     "continue to sing a disruptive song",
     "draw an intricately glowing pattern in the air before",
-    "weave another verse into .* harmony",
-    "voice carries the power of thunder",
-    "directing the sound of .* voice at",
-    "punch",
-    "attempt to punch",
-    "attempt to jab",
-    "attempt to grapple",
-    "attempt to kick",
-    "fire an? [%w %-%']+ at",
+    "(?:skillfully begin to)? weave another verse into .* harmony",
+    "voice carries the power of thunder as .* call out an angry incantation in an unknown language",
+    ".* directing the sound of .* voice at",
+    "punch(?: with)? an? [\\w \\-']+ at",
+    "(?:make a precise )?attempt to (?:punch|jab|grapple|kick)",
+    "(?:take aim and )?(?:fire|swing|hurl) an? [\\w \\-']+ at",
 }
+for _, pat in ipairs(COMBAT_ACTIONS_RAW) do
+    COMBAT_PATTERNS[#COMBAT_PATTERNS + 1] = Regex.new(pat)
+end
 
 local function is_combat_line(line)
-    for _, pat in ipairs(COMBAT_ACTIONS) do
-        if line:find(pat) then return true end
+    for _, re in ipairs(COMBAT_PATTERNS) do
+        if re:test(line) then return true end
     end
     return false
 end
@@ -58,7 +60,8 @@ local function resolve_crit_rank(results)
                     if crit_result.type then
                         str = str .. crit_result.type .. " Rank: "
                     end
-                    if crit_result.rank then
+                    -- rank can be 0 (a valid rank), so check for nil explicitly
+                    if crit_result.rank ~= nil then
                         str = str .. tostring(crit_result.rank) .. " | "
                     end
                     if crit_result.location then
@@ -73,17 +76,19 @@ local function resolve_crit_rank(results)
                         str = str .. "stunned " .. tostring(stunned) .. " rounds. "
                     end
                     if fatal then
-                        str = str .. " dead! "
+                        str = str .. "<pushBold/> dead!<popBold/> "
                     end
                     not_crit_stunned = false
                 elseif stunned == 999 and not_crit_stunned then
+                    -- unknown duration stun — wrap entire message in bold
+                    str = str .. "<pushBold/>"
                     if crit_result.type then
                         str = str .. crit_result.type .. " | "
                     end
                     if crit_result.location then
                         str = str .. crit_result.location .. " --> "
                     end
-                    str = str .. "stunned, but who knows for how long?"
+                    str = str .. "stunned, but who knows for how long? . . .<popBold/>"
                 end
             end
         end
@@ -97,7 +102,7 @@ while true do
     local line = get()
     if is_combat_line(line) then
         local combat_results = { line }
-        -- Collect lines until roundtime or damage
+        -- Collect lines until roundtime or exhaustion or damage cap
         for _ = 1, 30 do
             local next_line = get()
             combat_results[#combat_results + 1] = next_line
