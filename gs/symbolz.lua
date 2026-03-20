@@ -2,35 +2,90 @@
 --- name: symbolz
 --- version: 2.0.0
 --- author: elanthia-online
---- contributors: SpiffyJr, Tillmen
+--- contributors: Ifor Get, SpiffyJr, Tillmen
 --- game: gs
 --- description: Voln symbol management -- keeps symbols active with auto-cast
 --- tags: voln,symbols,society
+--- @lic-certified: complete 2026-03-19
+---
+--- Original Lich5 authors: Ifor Get (original), SpiffyJr, Tillmen, Elanthia-Online (GTK updates)
+--- Ported to Revenant Lua from symbolz.lic v2.0.0
 ---
 --- Changelog (from Lich5):
 ---   v2.0.0 (2025-10-13) - Refactored OOP architecture, YAML->JSON settings
 ---   v1.1.3 (2025-03-19) - Remove deprecated calls
+---   v1.1.2 (2025-01-22) - Minor GTK3 code cleanup
+---   v1.1.1 (2023-11-27) - Rubocop cleanup
 ---   v1.1.0 (2021-03-01) - GTK3 support in Lich5
----   v1.0.0 (2020-03-20) - Original release
+---   v1.0.0 (2020-03-20) - Original baseline release
+---
+--- Usage:
+---   ;symbolz              - Run symbol maintenance loop
+---   ;symbolz setup        - Open settings window
+---   ;symbolz options      - Open settings window (alias)
+---   ;symbolz help         - Show help
+
+require("lib/spell_casting")
+
+local VERSION = "2.0.0"
 
 --------------------------------------------------------------------------------
--- Symbol definitions
+-- Symbol definitions (insertion order preserved for GUI display)
 --------------------------------------------------------------------------------
+
+-- Ordered list of spell IDs for consistent GUI display (matches original Ruby order)
+local SYMBOL_ORDER = { "9806", "9805", "9816", "9815", "9813", "9812", "9819" }
 
 local SYMBOLS = {
-    ["9806"] = { name = "Protection",    desc = "Symbol of Protection: +26 DS, +13 TD",   auto = true },
-    ["9805"] = { name = "Courage",       desc = "Symbol of Courage: +26 AS",              auto = true },
-    ["9816"] = { name = "Supremacy",     desc = "Symbol of Supremacy: +13 AS",            auto = true },
-    ["9815"] = { name = "Retribution",   desc = "Symbol of Retribution: reactive flares", auto = true },
-    ["9813"] = { name = "Mana",          desc = "Symbol of Mana: gives 50 mana",          auto = false },
-    ["9812"] = { name = "Transcendence", desc = "Symbol of Transcendence: non-corporeal", auto = false },
-    ["9819"] = { name = "Renewal",       desc = "Symbol of Renewal: gives 1 spirit",      auto = false },
+    ["9806"] = {
+        name    = "Protection",
+        desc    = "Symbol of Protection: +26 to DS and +13 TD",
+        tooltip = "31 Favor - Stackable",
+        auto    = true,
+    },
+    ["9805"] = {
+        name    = "Courage",
+        desc    = "Symbol of Courage: +26 to AS",
+        tooltip = "31 Favor - Stackable",
+        auto    = true,
+    },
+    ["9816"] = {
+        name    = "Supremacy",
+        desc    = "Symbol of Supremacy: +13 to AS",
+        tooltip = nil,
+        auto    = true,
+    },
+    ["9815"] = {
+        name    = "Retribution",
+        desc    = "Symbol of Retribution: Reactive Flares When Hit By Undead",
+        tooltip = nil,
+        auto    = true,
+    },
+    ["9813"] = {
+        name    = "Mana",
+        desc    = "Symbol of Mana: Gives 50 Mana",
+        tooltip = "Activates at 40% mana - 5 min cooldown",
+        auto    = false,
+    },
+    ["9812"] = {
+        name    = "Transcendence",
+        desc    = "Symbol of Transcendence: Makes You Non-Corporeal",
+        tooltip = "Activates when stunned/webbed/bound - Lasts 30sec, 3min cooldown, 10min if emergency",
+        auto    = false,
+    },
+    ["9819"] = {
+        name    = "Renewal",
+        desc    = "Symbol of Renewal: Gives 1 Spirit, Can Use Every 2min",
+        tooltip = "Activates at 80% spirit, uses until spirit is back at 100%",
+        auto    = false,
+    },
 }
 
+-- Spell effect IDs for conditional symbols (used to check if effect is already active)
 local SPELL_EFFECTS = {
-    ["9813"] = "9048",
-    ["9812"] = "9049",
-    ["9819"] = "9050",
+    ["9813"] = 9048,  -- Mana effect
+    ["9812"] = 9049,  -- Transcendence effect
+    ["9819"] = 9050,  -- Renewal effect
 }
 
 local FORBIDDEN_ROOMS = {
@@ -39,27 +94,26 @@ local FORBIDDEN_ROOMS = {
     "Temporal Rift",
 }
 
-local MANA_THRESHOLD = 40
-local SPIRIT_THRESHOLD = 80
+local MANA_THRESHOLD   = 40  -- cast Mana symbol when below this percent
+local SPIRIT_THRESHOLD = 80  -- cast Renewal symbol when below this percent
 
 --------------------------------------------------------------------------------
--- Settings
+-- Settings (per-character via CharSettings)
 --------------------------------------------------------------------------------
-
-local SETTINGS_FILE = "data/symbolz.json"
 
 local function load_settings()
-    if not File.exists(SETTINGS_FILE) then
-        local defaults = {}
-        for id, _ in pairs(SYMBOLS) do defaults[id] = false end
-        return defaults
+    local raw = CharSettings.symbolz
+    if raw then
+        local ok, data = pcall(Json.decode, raw)
+        if ok and type(data) == "table" then return data end
     end
-    local ok, data = pcall(function() return Json.decode(File.read(SETTINGS_FILE)) end)
-    return (ok and type(data) == "table") and data or {}
+    local defaults = {}
+    for id in pairs(SYMBOLS) do defaults[id] = false end
+    return defaults
 end
 
 local function save_settings(s)
-    File.write(SETTINGS_FILE, Json.encode(s))
+    CharSettings.symbolz = Json.encode(s)
 end
 
 local settings = load_settings()
@@ -79,32 +133,30 @@ local function cast_if_needed(spell_id)
     if not settings[spell_id] then return end
 
     local spell = Spell[tonumber(spell_id)]
-    if not spell or not spell.known or not spell.affordable or spell.active then return end
+    if not spell or not spell.known or spell.active or not spell:affordable() then return end
 
-    -- Special handling for conditional symbols
+    -- Special conditions for non-auto symbols
     if spell_id == "9813" then
-        -- Mana: only if below threshold and effect not active
-        local effect = Spell[tonumber(SPELL_EFFECTS["9813"])]
+        -- Mana: only when below threshold and effect not already active
+        local effect = Spell[SPELL_EFFECTS["9813"]]
         if effect and effect.active then return end
         if Char.percent_mana > MANA_THRESHOLD then return end
     elseif spell_id == "9812" then
-        -- Transcendence: only if stunned/webbed/bound
-        local effect = Spell[tonumber(SPELL_EFFECTS["9812"])]
+        -- Transcendence: only when stunned/webbed/bound and not in forbidden room
+        local effect = Spell[SPELL_EFFECTS["9812"]]
         if effect and effect.active then return end
         if not (stunned() or webbed() or bound()) then return end
         if in_forbidden_room() then return end
     elseif spell_id == "9819" then
-        -- Renewal: only if spirit below threshold
-        local effect = Spell[tonumber(SPELL_EFFECTS["9819"])]
+        -- Renewal: only when spirit below threshold and effect not already active
+        local effect = Spell[SPELL_EFFECTS["9819"]]
         if effect and effect.active then return end
         if Char.percent_spirit >= SPIRIT_THRESHOLD then return end
     end
 
-    waitrt()
-    waitcastrt()
-    fput("incant " .. spell_id)
+    spell:incant()
 
-    -- Extra sleep for conditional symbols
+    -- Extra pause after conditional symbols (they have cooldown/timing requirements)
     if spell_id == "9813" or spell_id == "9812" or spell_id == "9819" then
         pause(5)
     end
@@ -115,12 +167,16 @@ end
 --------------------------------------------------------------------------------
 
 local function run_setup()
-    local win = Gui.window("Symbolz - Voln Symbol Upkeep", { width = 450, height = 350 })
+    local win = Gui.window("Symbolz " .. VERSION .. " - Voln Symbol Upkeep",
+        { width = 500, height = 400 })
     local root = Gui.vbox()
 
     local checkboxes = {}
-    for id, sym in pairs(SYMBOLS) do
-        local cb = Gui.checkbox(sym.desc, { checked = settings[id] or false })
+    for _, id in ipairs(SYMBOL_ORDER) do
+        local sym = SYMBOLS[id]
+        local label = sym.desc
+        if sym.tooltip then label = label .. " — " .. sym.tooltip end
+        local cb = Gui.checkbox(label, { checked = settings[id] or false })
         checkboxes[id] = cb
         root:add(cb)
     end
@@ -147,10 +203,11 @@ end
 
 local function show_help()
     respond("")
-    respond("Symbolz - Voln Symbol Upkeep")
-    respond("  ;symbolz        - Run symbol maintenance loop")
-    respond("  ;symbolz setup  - Show setup window")
-    respond("  ;symbolz help   - Show this message")
+    respond("Symbolz " .. VERSION .. " - Voln Symbol Upkeep")
+    respond("  ;symbolz              - Run symbol maintenance loop")
+    respond("  ;symbolz setup        - Open settings window")
+    respond("  ;symbolz options      - Open settings window (alias)")
+    respond("  ;symbolz help         - Show this message")
     respond("")
 end
 
@@ -172,7 +229,6 @@ end
 -- Main maintenance loop
 --------------------------------------------------------------------------------
 
--- Check for punishment
 if Spell[9012] and Spell[9012].active then
     echo("The Grand Poohbah is still mad at you.")
     return
@@ -188,7 +244,7 @@ while true do
         return
     end
 
-    for spell_id, _ in pairs(SYMBOLS) do
+    for _, spell_id in ipairs(SYMBOL_ORDER) do
         cast_if_needed(spell_id)
     end
 
