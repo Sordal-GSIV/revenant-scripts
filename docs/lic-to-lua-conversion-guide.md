@@ -181,6 +181,7 @@ In Lich5, game state is accessed via `XMLData.field_name`. In Revenant, use `Gam
 | `XMLData.encumbrance_text` / `checkencumbrance` | `GameState.encumbrance` | String |
 | `XMLData.encumbrance_value` / `percentencumbrance` | `GameState.encumbrance_value` | Integer |
 | `XMLData.server_time` | `GameState.server_time` | Unix timestamp |
+| `Time.now - $login_time` | `GameState.login_time` | Seconds elapsed since login (float). Use `GameState.login_time < 10` to detect fresh sessions. |
 | `XMLData.name` / `checkname` | `GameState.name` | Character name |
 | `XMLData.game` | `GameState.game` | Game code (e.g., "GS3") |
 | `XMLData.level` | `GameState.level` | Character level |
@@ -224,6 +225,7 @@ In Lich5, game state is accessed via `XMLData.field_name`. In Revenant, use `Gam
 | `obj.type` | `obj.type` | Type classification or nil |
 | `obj.type =~ /gem/` | `obj:type_p("gem")` | Type predicate check |
 | `obj.sellable` | `obj.sellable` | Sellable classification or nil |
+| `GameObj.type_data.select { \|k,v\| ... }` | `GameObj.classify(noun, name)` | Returns comma-separated type string (e.g. `"gem"`, `"box,container"`) or nil. Replaces the manual type_data pattern-matching pattern. |
 
 ### Common check* → GameObj Conversions
 
