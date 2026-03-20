@@ -551,6 +551,7 @@ These have no Lich5 equivalent:
 | `Crypto.base64url_encode(string)` | URL-safe base64 (no padding) — for JWT construction |
 | `Crypto.base64url_decode(string)` | Decode URL-safe base64 → string |
 | `Crypto.rsa_sign_pkcs1v15_sha256(pem, data)` | Sign data with RSA PKCS#8 PEM key → base64url signature (for Google OAuth2 JWTs) |
+| `time_f()` | Current wall-clock time as float seconds since Unix epoch. Use when sub-second precision is needed (e.g. TTL/elapsed-time tracking). `os.time()` only returns integer seconds; `time_f()` matches Ruby's `Time.now.to_f`. |
 | `Version.parse("1.2.3")` | Parse semver → table |
 | `Version.compare(a, b)` | Compare versions: -1/0/1 |
 | `Version.satisfies(ver, constraint)` | Check semver constraint |
