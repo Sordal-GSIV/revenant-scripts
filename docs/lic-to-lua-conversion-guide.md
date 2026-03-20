@@ -87,6 +87,7 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | `pause_script "name"` | `Script.pause("name")` or `pause_script("name")` | Pause a running script; global alias available |
 | `unpause_script "name"` | `Script.unpause("name")` or `unpause_script("name")` | Unpause a script; global alias available |
 | `wait_until { condition }` | `wait_until(function() return condition end)` | Poll until truthy |
+| `wait_until("msg") { condition }` | `wait_until("msg", function() return condition end)` | Announces once if not immediately true |
 | `wait_while { condition }` | `wait_while(function() return condition end)` | Poll while truthy |
 | `sleep secs` | `pause(secs)` | Ruby `sleep` → Lua `pause` |
 
