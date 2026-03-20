@@ -136,7 +136,7 @@ end
 
 function M.mana_pulse(spell_id)
     if not Spell[spell_id].known then return end
-    if Spell[spell_id].affordable then return end
+    if Spell[spell_id]:affordable() then return end
     fput("mana pulse")
     M.wait_rt()
 end
@@ -151,7 +151,7 @@ function M.fog()
     M.wait_rt()
 
     local current_id = Map.current_room()
-    if Spell[130].known and Spell[130].affordable then
+    if Spell[130].known and Spell[130]:affordable() then
         put("incant 130")
         M.wait_rt()
         if current_id == 2635 then
@@ -166,20 +166,20 @@ function M.fog()
         if not Spell[130].known then return end
         if Map.current_room() == current_id then
             M.mana_pulse(130)
-            if Spell[130].affordable then
+            if Spell[130]:affordable() then
                 put("incant 130")
                 M.wait_rt()
             end
         end
         return
     end
-    if Spell[1020].known and Spell[1020].affordable then
+    if Spell[1020].known and Spell[1020]:affordable() then
         put("incant 1020"); M.wait_rt(); return
     end
-    if Spell[9720].known and Spell[9720].affordable then
+    if Spell[9720].known and Spell[9720]:affordable() then
         put("incant 9720"); M.wait_rt(); return
     end
-    if Spell[930].known and Spell[930].affordable then
+    if Spell[930].known and Spell[930]:affordable() then
         put("incant 930"); fput("go portal"); M.wait_rt(); return
     end
 end

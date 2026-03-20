@@ -512,45 +512,45 @@ local function cast_forage_spells()
     local opts = st.forage_options or {}
     local function has(opt) return settings_mod.list_contains(opts, opt) end
 
-    if has("use_213") and Spell[213].known and Spell[213].affordable and not Spell[213].active then
+    if has("use_213") and Spell[213].known and Spell[213]:affordable() and not Spell[213].active then
         put("incant 213"); util.wait_rt()
     end
-    if has("use_1011") and Spell[1011].known and Spell[1011].affordable and not Spell[1011].active then
+    if has("use_1011") and Spell[1011].known and Spell[1011]:affordable() and not Spell[1011].active then
         put("incant 1011"); util.wait_rt()
     end
-    if has("use_709") and Spell[709].known and Spell[709].affordable and not Spell[709].active then
+    if has("use_709") and Spell[709].known and Spell[709]:affordable() and not Spell[709].active then
         put("incant 709"); util.wait_rt()
     end
-    if has("use_604") and Spell[604].known and Spell[604].affordable and not Spell[604].active then
+    if has("use_604") and Spell[604].known and Spell[604]:affordable() and not Spell[604].active then
         put("incant 604"); util.wait_rt()
     end
-    if has("use_604evoke") and Spell[604].known and Spell[604].affordable then
+    if has("use_604evoke") and Spell[604].known and Spell[604]:affordable() then
         put("incant 604 evoke"); util.wait_rt()
     end
-    if has("use_506") and Spell[506].known and Spell[506].affordable and not Spell[506].active then
+    if has("use_506") and Spell[506].known and Spell[506]:affordable() and not Spell[506].active then
         put("incant 506"); util.wait_rt()
     end
-    if has("use_919") and Spell[919].known and Spell[919].affordable and not Spell[919].active then
+    if has("use_919") and Spell[919].known and Spell[919]:affordable() and not Spell[919].active then
         put("incant 919"); util.wait_rt()
     end
-    if has("use_140") and Spell[140].known and Spell[140].affordable and not Spell[140].active then
+    if has("use_140") and Spell[140].known and Spell[140]:affordable() and not Spell[140].active then
         put("incant 140"); util.wait_rt()
     end
-    if has("use_1035") and Spell[1035].known and Spell[1035].affordable and not Spell[1035].active then
+    if has("use_1035") and Spell[1035].known and Spell[1035]:affordable() and not Spell[1035].active then
         put("incant 1035"); util.wait_rt()
     end
-    if has("use_resolve") and Spell[9704].known and Spell[9704].affordable then
+    if has("use_resolve") and Spell[9704].known and Spell[9704]:affordable() then
         put("incant 9704"); util.wait_rt()
     end
-    if has("use_619") and Spell[619].known and Spell[619].affordable and not Spell[619].active then
+    if has("use_619") and Spell[619].known and Spell[619]:affordable() and not Spell[619].active then
         put("incant 619"); util.wait_rt()
     end
-    if has("use_650") and Spell[650].known and Spell[650].affordable then
+    if has("use_650") and Spell[650].known and Spell[650]:affordable() then
         if not Spell.active_p(9039) then
             put("incant 650"); util.wait_rt()
         end
     end
-    if has("use_608") and Spell[608].known and Spell[608].affordable then
+    if has("use_608") and Spell[608].known and Spell[608]:affordable() then
         put("incant 608"); util.wait_rt()
     elseif has("hiding") then
         fput("hide"); util.wait_rt()
@@ -657,6 +657,10 @@ function M.forage_bounty(herb, quantity, location)
     for _, room_id in ipairs(targets) do
         util.go2(room_id)
 
+        if Claim and Claim.mine and not Claim.mine() then
+            goto continue_room
+        end
+
         local npcs = GameObj.npcs()
         local hostile = false
         for _, npc in ipairs(npcs) do
@@ -692,7 +696,7 @@ function M.forage_bounty(herb, quantity, location)
                     if result:find(inj) then
                         util.wait_rt()
                         util.check_health()
-                        if Spell[114].known and Spell[114].affordable then
+                        if Spell[114].known and Spell[114]:affordable() then
                             put("incant 114"); util.wait_rt()
                         end
                         break
@@ -722,31 +726,31 @@ local function cast_heirloom_spells()
     local opts = st.heirloom_options or {}
     local function has(opt) return settings_mod.list_contains(opts, opt) end
 
-    if has("use_213") and Spell[213].known and Spell[213].affordable and not Spell[213].active then
+    if has("use_213") and Spell[213].known and Spell[213]:affordable() and not Spell[213].active then
         put("incant 213"); util.wait_rt()
     end
-    if has("use_709") and Spell[709].known and Spell[709].affordable and not Spell[709].active then
+    if has("use_709") and Spell[709].known and Spell[709]:affordable() and not Spell[709].active then
         put("incant 709"); util.wait_rt()
     end
-    if has("use_402") and Spell[402].known and Spell[402].affordable and not Spell[402].active then
+    if has("use_402") and Spell[402].known and Spell[402]:affordable() and not Spell[402].active then
         put("incant 402"); util.wait_rt()
     end
-    if has("use_506") and Spell[506].known and Spell[506].affordable and not Spell[506].active then
+    if has("use_506") and Spell[506].known and Spell[506]:affordable() and not Spell[506].active then
         put("incant 506"); util.wait_rt()
     end
-    if has("use_619") and Spell[619].known and Spell[619].affordable and not Spell[619].active then
+    if has("use_619") and Spell[619].known and Spell[619]:affordable() and not Spell[619].active then
         put("incant 619"); util.wait_rt()
     end
-    if has("use_919") and Spell[919].known and Spell[919].affordable and not Spell[919].active then
+    if has("use_919") and Spell[919].known and Spell[919]:affordable() and not Spell[919].active then
         put("incant 919"); util.wait_rt()
     end
-    if has("use_140") and Spell[140].known and Spell[140].affordable and not Spell[140].active then
+    if has("use_140") and Spell[140].known and Spell[140]:affordable() and not Spell[140].active then
         put("incant 140"); util.wait_rt()
     end
-    if has("use_1011") and Spell[1011].known and Spell[1011].affordable and not Spell[1011].active then
+    if has("use_1011") and Spell[1011].known and Spell[1011]:affordable() and not Spell[1011].active then
         put("incant 1011"); util.wait_rt()
     end
-    if has("use_1035") and Spell[1035].known and Spell[1035].affordable and not Spell[1035].active then
+    if has("use_1035") and Spell[1035].known and Spell[1035]:affordable() and not Spell[1035].active then
         put("incant 1035"); util.wait_rt()
     end
 end
@@ -765,34 +769,36 @@ function M.heirloom_search(creature, item)
     local use_right = settings_mod.list_contains(st.heirloom_options or {}, "use_right")
 
     for _ = 1, 200 do
-        local npcs = GameObj.npcs()
-        local hostile = false
-        for _, npc in ipairs(npcs) do
-            if npc.status and npc.status ~= "dead" then hostile = true; break end
-        end
+        if not (Claim and Claim.mine) or Claim.mine() then
+            local npcs = GameObj.npcs()
+            local hostile = false
+            for _, npc in ipairs(npcs) do
+                if npc.status and npc.status ~= "dead" then hostile = true; break end
+            end
 
-        if not hostile then
-            cast_heirloom_spells()
-            fput("kneel"); util.wait_rt()
-            fput("search"); util.wait_rt()
-            fput("stand"); util.wait_rt()
+            if not hostile then
+                cast_heirloom_spells()
+                fput("kneel"); util.wait_rt()
+                fput("search"); util.wait_rt()
+                fput("stand"); util.wait_rt()
 
-            if (Bounty.task or ""):find("You have located") then
-                local loot = GameObj.loot()
-                for _, obj in ipairs(loot) do
-                    if item and obj.name:find(item) then
-                        fput("get #" .. obj.id)
-                        if use_right then
-                            fput("stow left")
-                        else
-                            fput("stow #" .. obj.id)
+                if (Bounty.task or ""):find("You have located") then
+                    local loot = GameObj.loot()
+                    for _, obj in ipairs(loot) do
+                        if item and obj.name:find(item) then
+                            fput("get #" .. obj.id)
+                            if use_right then
+                                fput("stow left")
+                            else
+                                fput("stow #" .. obj.id)
+                            end
+                            break
                         end
-                        break
                     end
+                    local rh = GameObj.right_hand()
+                    if rh and not use_right then fput("stow right") end
+                    break
                 end
-                local rh = GameObj.right_hand()
-                if rh and not use_right then fput("stow right") end
-                break
             end
         end
 
@@ -998,7 +1004,7 @@ M.bounty_check = function()
         return
     end
 
-    M.bounty_check()
+    return M.bounty_check()
 end
 
 return M
