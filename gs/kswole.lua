@@ -1,5 +1,5 @@
 --- @revenant-script
---- @lic-audit: validated 2026-03-17
+--- @lic-certified: complete 2026-03-20
 --- name: kswole
 --- version: 1.1.6
 --- author: elanthia-online
@@ -310,14 +310,14 @@ local function run()
                     })
                     if dispel and string.find(dispel, "You are unable") then
                         -- Dispel on cooldown; fall through to Mental Dispel
-                        if Feat.known("Mental Acuity") and Spell[1218].known and Spell[1218].affordable and not muckled() then
+                        if Feat.known("Mental Acuity") and Spell[1218].known and Spell[1218]:affordable() and not muckled() then
                             pause_scripts()
                             Spell[1218]:force_channel(GameState.name)
                             pause(0.5)
                             unpause_scripts()
                         end
                     end
-                elseif Feat.known("Mental Acuity") and Spell[1218].known and Spell[1218].affordable and not muckled() then
+                elseif Feat.known("Mental Acuity") and Spell[1218].known and Spell[1218]:affordable() and not muckled() then
                     -- Feat Dispel not available; try Mental Dispel (1218) directly
                     pause_scripts()
                     Spell[1218]:force_channel(GameState.name)

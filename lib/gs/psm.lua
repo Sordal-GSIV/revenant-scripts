@@ -1,16 +1,43 @@
 -- Unified PSM module — registers CMan, Feat, Shield, Armor, Weapon, Ascension, Warcry as globals
 
+-- normalize: underscore form used for building game commands (e.g. "cman spine_grind")
 local function normalize(name)
     return name:lower():gsub("[%s%-']", "_"):gsub("_+", "_"):gsub("^_", ""):gsub("_$", "")
+end
+
+-- find_psm_key: resolve a display name to the infomon key suffix.
+-- Infomon stores PSM commands as the game's short command name (captured by [a-z]+ in the
+-- PSM_LINE regex), e.g. "Absorb Magic" → "absorbmagic", "Shield Mind" → "mind".
+-- Strategy:
+--   1. Simple concat (lowercase, strip spaces/punctuation) — covers most feats/cmans
+--   2. Individual word scan — covers abbreviated commands like "mind" for "Shield Mind"
+--   3. Fallback to simple form (key may not exist in infomon yet)
+local function find_psm_key(prefix, name)
+    -- Attempt 1: lowercase, no spaces or punctuation
+    local s1 = name:lower():gsub("[%s%-']", "")
+    if Infomon.get(prefix .. "." .. s1) then return s1 end
+
+    -- Attempt 2: each word individually (handles "Shield Mind" → key "mind")
+    for word in name:lower():gmatch("%a+") do
+        if #word >= 3 and Infomon.get(prefix .. "." .. word) then
+            return word
+        end
+    end
+
+    return s1  -- fallback: return simple form even if not yet in infomon
 end
 
 local function make_psm(prefix)
     local t = {}
 
     -- known_p: is skill known? (rank >= 1 in Infomon)
+    -- Infomon stores integer rank strings (e.g. "1", "2"), not "learned"/"active".
     function t.known_p(name)
-        local val = Infomon.get(prefix .. "." .. normalize(name))
-        return val == "learned" or val == "active"
+        local key = find_psm_key(prefix, name)
+        local val = Infomon.get(prefix .. "." .. key)
+        if not val then return false end
+        local n = tonumber(val)
+        return n ~= nil and n >= 1
     end
 
     -- known: alias for known_p (matches Lich5 Weapon.known?/CMan.known? etc.)
@@ -18,35 +45,40 @@ local function make_psm(prefix)
         return t.known_p(name)
     end
 
-    -- active_p: is skill currently active?
+    -- active_p: is skill currently active as a buff?
+    -- NOTE: Infomon currently stores ranks (integers), not active/inactive state.
+    -- This returns false always until active-state tracking is added to the infomon parser.
     function t.active_p(name)
-        return Infomon.get(prefix .. "." .. normalize(name)) == "active"
+        local key = find_psm_key(prefix, name)
+        return Infomon.get(prefix .. "." .. key) == "active"
     end
 
-    -- available(name): not overexerted AND not on cooldown.
-    -- Matches Lich5 PSMS.available?(name) — does NOT check known/stamina (those are separate).
+    -- available(name): known AND not overexerted AND not on cooldown.
+    -- Matches Lich5 Feat.available?/Shield.available? which check known + affordable + cooldown.
     function t.available(name)
+        -- Must know the ability first
+        if not t.known_p(name) then return false end
         -- Check for overexerted debuff
         if Effects and Effects.Debuffs and Effects.Debuffs.active("Overexerted") then
             return false
         end
-        -- Check not on cooldown (Effects.Cooldowns stores by game text, e.g. "Clash", "Fury")
+        -- Check not on cooldown (Effects.Cooldowns stores by game text, e.g. "Absorb Magic")
         if Effects and Effects.Cooldowns then
-            -- Try both the raw name and normalized form
             if Effects.Cooldowns.active(name) then return false end
         end
         return true
     end
 
-    -- list_known: return array of {name, status} for all known skills in this category
+    -- list_known: return array of {name, rank} for all known skills in this category
     function t.list_known()
         local result = {}
         for _, kv in ipairs(Infomon.keys()) do
             if kv:match("^" .. prefix .. "%.") then
                 local skill_name = kv:sub(#prefix + 2)
                 local val = Infomon.get(kv)
-                if val == "learned" or val == "active" then
-                    result[#result + 1] = { name = skill_name, status = val }
+                local n = tonumber(val)
+                if n and n >= 1 then
+                    result[#result + 1] = { name = skill_name, rank = n }
                 end
             end
         end
