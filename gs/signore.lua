@@ -6,7 +6,7 @@
 --- game: gs
 --- description: Society power manager with anti-magic room tracking
 --- tags: col,sunfist,voln,society,society-powers
---- @lic-audit: validated 2026-03-17
+--- @lic-certified: complete 2026-03-20
 ---
 --- Changelog (from Lich5):
 ---   v0.8.2 (2026-01-13) - Disable deprecated Settings.save
@@ -29,11 +29,33 @@ local HELP_TEXT = [[
 
 local AVAIL_SPELLS = {
     -- CoL
-    9903, 9904, 9905, 9906, 9907, 9908, 9909, 9910, 9912, 9913, 9914,
+    9903,  -- Sign of Warding
+    9904,  -- Sign of Striking
+    9905,  -- Sign of Clotting
+    9906,  -- Sign of Thought
+    9907,  -- Sign of Defending
+    9908,  -- Sign of Smiting
+    9909,  -- Sign of Staunching
+    9910,  -- Sign of Deflection
+    9912,  -- Sign of Swords
+    9913,  -- Sign of Shields
+    9914,  -- Sign of Dissipation
     -- Voln
-    9805, 9806, 9816,
+    9805,  -- Symbol of Courage
+    9806,  -- Symbol of Protection
+    9816,  -- Symbol of Supremacy
     -- GoS
-    9704, 9705, 9707, 9708, 9710, 9711, 9713, 9714, 9715, 9716, 9719,
+    9704,  -- Sigil of Resolve
+    9705,  -- Sigil of Minor Bane
+    9707,  -- Sigil of Defense
+    9708,  -- Sigil of Offense
+    9710,  -- Sigil of Minor Protection
+    9711,  -- Sigil of Focus
+    9713,  -- Sigil of Mending
+    9714,  -- Sigil of Concentration
+    9715,  -- Sigil of Major Bane
+    9716,  -- Sigil of Determination
+    9719,  -- Sigil of Major Protection
 }
 
 local PUNISHMENT_SPELL = 9012
@@ -240,9 +262,10 @@ end
 -- Wait for repository to finish before proceeding
 wait_while(function() return running("repository") end)
 
--- Warn if infomon is not running
+-- Wait for infomon to be running (matches original behavior)
 if not running("infomon") then
-    echo("Warning: infomon not running")
+    echo("waiting for infomon service...")
+    wait_until(function() return running("infomon") end)
 end
 
 local args0 = Script.vars[0] or ""
