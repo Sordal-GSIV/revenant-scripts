@@ -75,4 +75,30 @@ Confluence = require("lib/gs/confluence")
 -- Minotaur Maze solver
 Maze = require("lib/gs/maze")
 
+-- Lich5 compatibility shims for common check* functions
+-- checkstamina(n) — returns stamina value, or true/false if n given
+function checkstamina(n)
+    if n == nil then return GameState.stamina end
+    return GameState.stamina >= n
+end
+
+-- checkstance(s) — returns stance string, or true/false if s given
+function checkstance(s)
+    if s == nil then return GameState.stance end
+    -- Support Lich5 abbreviated strings: "off" → "offensive", "adv" → "advanced", etc.
+    local stance = GameState.stance or ""
+    if s == "off" or s == "offensive" then
+        return stance == "offensive"
+    elseif s == "adv" or s == "advanced" then
+        return stance == "advanced"
+    elseif s == "neu" or s == "neutral" then
+        return stance == "neutral"
+    elseif s == "def" or s == "defensive" then
+        return stance == "defensive"
+    elseif s == "gua" or s == "guarded" then
+        return stance == "guarded"
+    end
+    return stance == s
+end
+
 respond("[gsinfomon] GemStone IV modules loaded")
