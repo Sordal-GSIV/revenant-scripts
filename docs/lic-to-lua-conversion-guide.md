@@ -84,8 +84,8 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | Lich5 Ruby | Revenant Lua | Notes |
 |-----------|-------------|-------|
 | `pause secs` | `pause(secs)` | Async sleep (pause-aware) |
-| `pause_script "name"` | `Script.pause("name")` | Pause a running script |
-| `unpause_script "name"` | `Script.unpause("name")` | Unpause a script |
+| `pause_script "name"` | `Script.pause("name")` or `pause_script("name")` | Pause a running script; global alias available |
+| `unpause_script "name"` | `Script.unpause("name")` or `unpause_script("name")` | Unpause a script; global alias available |
 | `wait_until { condition }` | `wait_until(function() return condition end)` | Poll until truthy |
 | `wait_while { condition }` | `wait_while(function() return condition end)` | Poll while truthy |
 | `sleep secs` | `pause(secs)` | Ruby `sleep` → Lua `pause` |
