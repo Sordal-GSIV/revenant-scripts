@@ -5,6 +5,14 @@
 --- game: gs
 --- description: Highlight observed ACTs from other players with configurable preset styling
 --- tags: text, formatting, act, highlight
+--- @lic-certified: complete 2026-03-19
+---
+--- Changelog:
+---   v2.0.0 (2025-09-23)
+---     - Updated CLI params to use --preset=<preset> and --no-parentheses
+---     - Added option to remove parentheses around ACT text
+---   v1.0.0 (2025-02-10)
+---     - Initial release
 ---
 --- Usage:
 ---   ;catchemintheact                    - use default bold preset
@@ -25,8 +33,6 @@ Options:
   --preset=<preset>   One of bold, thought, whisper, speech, link, none (default: bold)
   --no-parentheses    Remove parentheses around ACT text
 ]]
-
-local ACT_PATTERN = '^%((<a exist="[^"]+" noun="[^"]+">.-</a>)(.-%))'
 
 local options = {
     preset = "bold",
