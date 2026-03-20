@@ -1088,3 +1088,122 @@ elseif GameState.game == "DR" then
     local wealth = DRCM.check_wealth("kronars")
 end
 ```
+
+## 24. SQLite API
+
+Revenant provides a full SQLite API via the `Sqlite` global (implemented in
+`engine/src/lua_api/sqlite.rs` using `rusqlite`). Database files are sandboxed
+to `scripts/data/`.
+
+### Opening / Closing
+
+```lua
+local conn, err = Sqlite.open("mydb.db")   -- opens scripts/data/mydb.db
+if not conn then error(err) end
+conn:close()
+```
+
+### Executing SQL (no return rows)
+
+```lua
+-- Named parameters
+local ok, err = conn:exec("INSERT INTO foo (name) VALUES (:name)", { name = "bar" })
+
+-- Positional parameters
+conn:exec("INSERT INTO foo VALUES (?, ?)", { "hello", 42 })
+
+-- Multiple statements at once
+conn:exec_batch([[
+  CREATE TABLE IF NOT EXISTS foo (id INTEGER PRIMARY KEY, name TEXT);
+  CREATE INDEX IF NOT EXISTS ix_foo_name ON foo(name);
+]])
+```
+
+### Querying Rows
+
+```lua
+-- query2: returns array-of-arrays, first row is column headers
+local rows, err = conn:query2("SELECT id, name FROM foo WHERE name LIKE :pat",
+                              { pat = "%bar%" })
+if rows and #rows > 1 then
+  local headers = rows[1]   -- { "id", "name" }
+  for i = 2, #rows do
+    local row = rows[i]     -- { 1, "foobar" }
+  end
+end
+
+-- scalar: returns single value
+local count, err = conn:scalar("SELECT count(*) FROM foo")
+```
+
+### Utility
+
+```lua
+conn:changes()      -- row count affected by last exec
+conn:last_rowid()   -- last inserted rowid
+conn:pragma("user_version", 12)          -- set pragma
+conn:pragma("user_version")              -- get pragma (returns value)
+conn:create_regexp_function()            -- enable REGEXP operator (fancy-regex)
+```
+
+### REGEXP
+
+After calling `conn:create_regexp_function()`, you can use REGEXP in queries:
+
+```lua
+conn:create_regexp_function()
+local rows = conn:query2("SELECT name FROM item WHERE name REGEXP :pat",
+                          { pat = "^golden .+ wand$" })
+```
+
+### Lich5 → Revenant SQLite mapping
+
+| Lich5 (Ruby)                          | Revenant (Lua)                         |
+|---------------------------------------|----------------------------------------|
+| `SQLite3::Database.new(path)`         | `Sqlite.open("name.db")`               |
+| `db.execute(sql, params)`             | `conn:exec(sql, params)`               |
+| `db.execute2(sql, params)`            | `conn:query2(sql, params)`             |
+| `db.get_first_value(sql, params)`     | `conn:scalar(sql, params)`             |
+| `db.execute_batch(sql)`               | `conn:exec_batch(sql)`                 |
+| `db.changes`                          | `conn:changes()`                       |
+| `db.last_insert_row_id`               | `conn:last_rowid()`                    |
+| `db.close`                            | `conn:close()`                         |
+| `db.create_function("REGEXP", ...)`   | `conn:create_regexp_function()`        |
+
+### Temp Tables (staging pattern)
+
+The standard pattern for bulk upserts avoids SQLite's lack of `UPDATE ... JOIN`:
+
+```lua
+-- Stage data in a temp table
+conn:exec_batch([[
+  CREATE TEMPORARY TABLE IF NOT EXISTS temp_item (
+      character_id INTEGER NOT NULL
+    , name TEXT NOT NULL
+    , amount INTEGER NOT NULL
+  )
+]])
+
+-- Bulk insert
+for _, item in ipairs(items) do
+  conn:exec("INSERT INTO temp_item VALUES (:cid, :name, :amt)",
+    { cid = char_id, name = item.name, amt = item.amount })
+end
+
+-- Delete rows no longer present
+conn:exec([[
+  DELETE FROM inventory
+  WHERE character_id = :cid
+    AND NOT EXISTS (SELECT 1 FROM temp_item t WHERE t.name = inventory.name)
+]], { cid = char_id })
+
+-- Upsert via INSERT ... ON CONFLICT DO UPDATE
+conn:exec([[
+  INSERT INTO inventory (character_id, name, amount)
+  SELECT character_id, name, amount FROM temp_item WHERE character_id = :cid
+  ON CONFLICT(character_id, name) DO UPDATE SET amount = excluded.amount
+]], { cid = char_id })
+
+-- Clean up
+conn:exec("DELETE FROM temp_item WHERE character_id = :cid", { cid = char_id })
+```
