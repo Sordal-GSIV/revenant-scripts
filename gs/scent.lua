@@ -1,7 +1,9 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-19
 --- name: scent
 --- version: 1.0.0
---- author: unknown
+--- author: unknown (no attribution in original)
+--- ported-by: Claude (AI conversion from lib/scent.lic)
 --- game: gs
 --- description: Manage perfume organizer - apply, auto-reapply, or randomize scents
 --- tags: perfume, scent, organizer, cosmetic
@@ -14,6 +16,10 @@
 --- Settings (Vars):
 ---   ;vars set organizer = <name>
 ---   ;vars set scent_container = <container>
+---
+--- Notes:
+---   The original .lic auto_application used an undefined `number` variable
+---   (Ruby bug); this port correctly defaults to perfume 1 in auto mode.
 
 no_kill_all()
 no_pause_all()
