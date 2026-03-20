@@ -1,9 +1,16 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-20
 --- name: talisman
 --- version: 1.0
 --- author: unknown
 --- game: gs
+--- tags: combat, talisman, automation
 --- description: Auto-target, cast Spell 311, and point Twisted Talisman at random targets when off cooldown.
+---
+--- Original Lich5 author: unknown (from lich_repo_mirror/lib/talisman.lic)
+---
+--- Usage:
+---   ;talisman
 
 while true do
     waitrt()
