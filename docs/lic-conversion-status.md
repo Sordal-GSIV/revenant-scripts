@@ -82,8 +82,20 @@ in-progress work, or need infrastructure that isn't mature yet.
 
 ---
 
-## Conversion Statistics (as of 2026-03-18)
+## CERTIFIED — Fully Validated Conversions
 
+These scripts carry `--- lic-certified: complete <date>` in their header,
+confirming full feature parity with the original .lic source.
+
+| Script | Revenant File | Version | Certified | Notes |
+|--------|--------------|---------|-----------|-------|
+| **gems.lic** | `gs/gems.lua` | 1.2.1 | 2026-03-19 | Fixed quiet_command alternation bug (was swallowing all equip/unequip failures); added SessionVars.gems_equipped to mirror $gems_equipped global |
+
+---
+
+## Conversion Statistics (as of 2026-03-19)
+
+- **Certified**: 1 script (grep for `lic-certified`)
 - **Audited & Tagged**: 45 scripts (grep for `@lic-audit`)
 - **Skipped**: 9 scripts (GTK3/Lich5 infrastructure)
 - **Deferred**: 9 scripts (large/blocked)
