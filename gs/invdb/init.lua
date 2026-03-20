@@ -8,6 +8,9 @@
 -- @lic-certified: complete 2026-03-19
 --
 -- Changelog:
+--   20260319.2  Revenant port: add room/property inventory scanning (room.lua),
+--               +/- array settings routing, scan/upsert/add/update/menu actions,
+--               refresh room/property targets, item_base/item_detail/note queries.
 --   20260319.1  Revenant port: converted invdb-beta.lic to Lua folder script.
 --               Implemented missing Sqlite API in Rust (engine/src/lua_api/sqlite.rs).
 --               Full feature parity with original; see help.lua for details.
@@ -25,6 +28,7 @@ local bank      = require("gs/invdb/bank")
 local bounty    = require("gs/invdb/bounty_tracker")
 local lumnis    = require("gs/invdb/lumnis")
 local resource  = require("gs/invdb/resource")
+local room_mod  = require("gs/invdb/room")
 local help      = require("gs/invdb/help")
 local util      = require("gs/invdb/util")
 
@@ -67,6 +71,26 @@ end
 -- Load settings; handle per-invocation --setting=value mutations
 -- ---------------------------------------------------------------------------
 local settings = settings_mgr.load()
+
+-- Handle +/- array mutations: +boh NAME, -boh NAME, +container_noopen NAME, -container_noopen NAME
+-- These must be checked before other flag parsing; they exit immediately after.
+do
+  local array_keys = { "boh", "container_noopen" }
+  for _, key in ipairs(array_keys) do
+    local add_pat = "^%+" .. key .. "%s+(.*)"
+    local rem_pat = "^%-" .. key .. "%s+(.*)"
+    local stripped = args_str:match("^%s*(.-)%s*$")
+    local add_val = stripped:match(add_pat)
+    local rem_val = stripped:match(rem_pat)
+    if add_val then
+      settings_mgr.array_add(settings, key, add_val)
+      return
+    elseif rem_val then
+      settings_mgr.array_remove(settings, key, rem_val)
+      return
+    end
+  end
+end
 
 -- Apply any --key=value flags from args
 local clean_args = args_str
@@ -282,16 +306,76 @@ if action == "refresh" then
     end
   end
 
+  -- Room refresh (scan registered objects in current room)
+  if target:match("^room") and not target:match("^room_") then
+    respond("invdb: scanning room objects...")
+    room_mod.room_refresh(conn, params, settings)
+  end
+
+  -- Property refresh (navigate all rooms in current property and scan)
+  if target:match("^prop") then
+    respond("invdb: scanning property rooms...")
+    room_mod.property_refresh(conn, params, settings)
+  end
+
   -- Maybe vacuum
   db_mod.maybe_vacuum(conn, settings)
 
   respond("invdb: refresh complete.")
 
 -- ---------------------------------------------------------------------------
+-- SCAN action — sorted-view category scan (inv or locker)
+-- ---------------------------------------------------------------------------
+elseif action == "scan" then
+  if target:match("^inv") or target == "all" then
+    respond("invdb: scanning inventory categories...")
+    room_mod.sorted_view_scan_inventory(conn, settings)
+  end
+  if target:match("^locker") or target == "all" then
+    respond("invdb: scanning premium locker categories...")
+    room_mod.sorted_view_scan_premium_locker(conn, settings)
+  end
+
+-- ---------------------------------------------------------------------------
+-- UPSERT action (also: add, update) — room/room_object/item_note upsert
+-- ---------------------------------------------------------------------------
+elseif action == "upsert" or action == "add" or action == "update" then
+  if target:match("^rooms?$") or target:match("^room_inv") then
+    room_mod.room_upsert(conn, params)
+  elseif target:match("^room_obj") then
+    room_mod.room_object_upsert(conn, params)
+  elseif target:match("^item_note$") or target:match("^notes?$") then
+    room_mod.item_note_upsert(conn, params)
+  else
+    respond("invdb upsert: unknown target '" .. tostring(target) .. "'. Use: rooms, room_objects, item_note")
+  end
+
+-- ---------------------------------------------------------------------------
+-- MENU action — show interactive menu (print help in Revenant)
+-- ---------------------------------------------------------------------------
+elseif action == "menu" then
+  help.print_help(script_name)
+
+-- ---------------------------------------------------------------------------
 -- QUERY action
 -- ---------------------------------------------------------------------------
 elseif action == "query" or action == "q" then
-  query_mod.do_query(conn, "query", target, params, settings)
+  -- Room/property targets
+  if target:match("^rooms?$") or target:match("^prop") then
+    room_mod.room_query(conn, params)
+  elseif target:match("^room_obj") then
+    room_mod.room_object_query(conn, params)
+  elseif target == "room_inventory" then
+    room_mod.room_inventory_query(conn, params)
+  elseif target == "item_base" then
+    room_mod.item_base_query(conn, params)
+  elseif target == "item_detail" then
+    room_mod.item_detail_query(conn, params)
+  elseif target:match("^item_note$") or target:match("^notes?$") then
+    room_mod.item_detail_query(conn, params)
+  else
+    query_mod.do_query(conn, "query", target, params, settings)
+  end
 
 -- ---------------------------------------------------------------------------
 -- SUM action
@@ -303,7 +387,11 @@ elseif action == "sum" or action == "total" then
 -- COUNT action
 -- ---------------------------------------------------------------------------
 elseif action == "count" or action == "c" then
-  query_mod.do_query(conn, "count", target, params, settings)
+  if target:match("^rooms?$") then
+    room_mod.count_room_inventory(conn, params)
+  else
+    query_mod.do_query(conn, "count", target, params, settings)
+  end
 
 -- ---------------------------------------------------------------------------
 -- EXPORT action
@@ -368,37 +456,43 @@ elseif action == "export" then
 -- ---------------------------------------------------------------------------
 -- DELETE action
 -- ---------------------------------------------------------------------------
-elseif action == "delete" then
-  local char_filter = params.character or params.char
-  if not char_filter then
-    respond("invdb delete: requires char=<name> filter")
+elseif action == "delete" or action == "remove" then
+  -- Room/room_object delete (no char= required)
+  if target:match("^rooms?$") or target:match("^room_inv") then
+    room_mod.room_delete(conn, params)
+  elseif target:match("^room_obj") then
+    room_mod.room_object_delete(conn, params)
   else
-    ensure_character_id()
-    if target:match("all|char|bank|silver|wealth") then
-      -- Delete bank data for character
-      conn:exec([[
-        DELETE FROM silver WHERE character_id = (
-          SELECT id FROM character WHERE name LIKE :char AND game LIKE :game)
-      ]], { char = char_filter .. "%", game = GameState.game })
+    local char_filter = params.character or params.char
+    if not char_filter then
+      respond("invdb delete: requires char=<name> filter")
+    else
+      ensure_character_id()
+      if target:match("all|char|bank|silver|wealth") then
+        conn:exec([[
+          DELETE FROM silver WHERE character_id = (
+            SELECT id FROM character WHERE name LIKE :char AND game LIKE :game)
+        ]], { char = char_filter .. "%", game = GameState.game })
+      end
+      if target:match("all|tickets") then
+        conn:exec([[
+          DELETE FROM tickets WHERE character_id = (
+            SELECT id FROM character WHERE name LIKE :char AND game LIKE :game)
+        ]], { char = char_filter .. "%", game = GameState.game })
+      end
+      if target:match("all|char|inv|item|locker") then
+        conn:exec([[
+          DELETE FROM char_inventory WHERE character_id = (
+            SELECT id FROM character WHERE name LIKE :char AND game LIKE :game)
+        ]], { char = char_filter .. "%", game = GameState.game })
+      end
+      if target:match("all|char") then
+        conn:exec([[
+          DELETE FROM character WHERE name LIKE :char AND game LIKE :game
+        ]], { char = char_filter .. "%", game = GameState.game })
+      end
+      respond("invdb: delete complete for char=" .. char_filter)
     end
-    if target:match("all|tickets") then
-      conn:exec([[
-        DELETE FROM tickets WHERE character_id = (
-          SELECT id FROM character WHERE name LIKE :char AND game LIKE :game)
-      ]], { char = char_filter .. "%", game = GameState.game })
-    end
-    if target:match("all|char|inv|item|locker") then
-      conn:exec([[
-        DELETE FROM char_inventory WHERE character_id = (
-          SELECT id FROM character WHERE name LIKE :char AND game LIKE :game)
-      ]], { char = char_filter .. "%", game = GameState.game })
-    end
-    if target:match("all|char") then
-      conn:exec([[
-        DELETE FROM character WHERE name LIKE :char AND game LIKE :game
-      ]], { char = char_filter .. "%", game = GameState.game })
-    end
-    respond("invdb: delete complete for char=" .. char_filter)
   end
 
 -- ---------------------------------------------------------------------------

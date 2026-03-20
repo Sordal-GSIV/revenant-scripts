@@ -6,7 +6,7 @@
 --- depends: go2 >= 1.0, eloot >= 1.0
 --- description: Full hunting automation — combat, navigation, rest, bounty, group
 --- game: gs
---- @lic-certified: complete 2026-03-18
+--- @lic-certified: complete 2026-03-19
 ---
 --- Port of bigshot.lic v5.12.1 from Elanthia-Online
 --- Setup Instructions: https://gswiki.play.net/Script_Bigshot
@@ -248,6 +248,62 @@ elseif cmd == "profile" then
 
 elseif cmd == "debug" then
     handle_debug()
+    return
+
+elseif cmd == "test" then
+    local method_name = args[2]
+    if not method_name then
+        respond("[bigshot] test requires a method name. E.g.: ;bigshot test hunt_cycle")
+        return
+    end
+
+    -- Enable all debug flags
+    bstate.debug_combat   = true
+    bstate.debug_commands = true
+    bstate.debug_status   = true
+    bstate.debug_system   = true
+
+    -- Build a flat registry from all bigshot modules
+    local registry = {}
+    local search_modules = {
+        require("navigation"),
+        require("recovery"),
+        require("group"),
+        require("combat_monitor"),
+        require("command_check"),
+        require("commands"),
+        require("area_rooms"),
+        require("manifest"),
+    }
+    for _, mod in ipairs(search_modules) do
+        if type(mod) == "table" then
+            for k, v in pairs(mod) do
+                if type(v) == "function" and not registry[k] then
+                    registry[k] = { fn = v, mod = mod }
+                end
+            end
+        end
+    end
+
+    local entry = registry[method_name]
+    if not entry then
+        respond("[bigshot] test: method not found: " .. method_name)
+        return
+    end
+
+    -- Collect extra args (positional after method name)
+    local extra_args = {}
+    for i = 3, #args do table.insert(extra_args, args[i]) end
+
+    respond("[bigshot] test: calling " .. method_name .. " ...")
+    local t0 = os.clock()
+    local ok, err = pcall(entry.fn, bstate, table.unpack(extra_args))
+    local elapsed = os.clock() - t0
+
+    if not ok then
+        respond("[bigshot] test error: " .. tostring(err))
+    end
+    respond(string.format("[bigshot] test %s completed in %.3fs", method_name, elapsed))
     return
 end
 

@@ -1,6 +1,6 @@
 -- huntpro/init.lua — Main entry point, arg parsing, mode dispatch, hunt loop
 -- @revenant-script
--- @lic-certified: complete 2026-03-18
+-- @lic-certified: complete 2026-03-19
 -- Original: huntpro.lic by Jara (19157 lines, "2026 Sun" version)
 -- Original author: Jara — https://linktr.ee/TheJaraVerse
 -- Please adhere to POLICY 18 & 19. Do not AFK script in Prime.
@@ -196,10 +196,35 @@ hp.disable_encumbrance = (settings.disable_encumbrance ~= "0")
 hp.evoke_default = (settings.evoke_default ~= "0")
 hp.sanctify_330 = (settings.sanctify_330 ~= "0")
 hp.style9_arcaneblast = (settings.style9_arcaneblast ~= "0")
+hp.style9_arcanecs    = (settings.style9_arcanecs ~= "0")
 hp.noquartz = (settings.noquartz ~= "0")
 hp.camo = (settings.camo ~= "0")
 hp.taxi = (settings.taxi ~= "0")
 hp.boost_long = (settings.boost_long ~= "0")
+
+-- Immolate (Wizard only): auto-enable for Wizard level >= 50 with low spellaiming
+if settings.immolate ~= "0" then
+    hp.immolate = true
+elseif Stats.prof == "Wizard" and (Stats.level or 0) >= 50 and (Skills.spell_aiming or 0) < 1 then
+    hp.immolate = true
+else
+    hp.immolate = false
+end
+
+-- Per-ability disable flags (suppress specific AoE abilities)
+hp.disable_pod   = (settings.disable_pod   ~= "0")
+hp.disable_cloud = (settings.disable_cloud ~= "0")
+
+-- Group/solo behavior
+hp.solo_mode   = (settings.solo_mode   ~= "0")
+hp.get_invoked = (settings.get_invoked ~= "0")
+
+-- Rescuebox: critical health recovery mode
+hp.rescuebox = (settings.rescuebox ~= "0")
+
+-- Timelimit: auto-stop after N minutes (0 = no limit)
+hp.timelimit = tonumber(settings.timelimit) or 0
+hp.hunt_start_time = os.time()
 
 -- Flee counter
 hp.flee_counter = tonumber(settings.flee) or 0
@@ -499,6 +524,18 @@ SpellMod.upkeep_quartz(hp)
 -- ====================== MAIN HUNT LOOP ======================
 ---------------------------------------------------------------------------
 while true do
+    -- Timelimit check: stop if hunt has exceeded the configured limit
+    if hp.timelimit and hp.timelimit > 0 then
+        local elapsed_minutes = (os.time() - hp.hunt_start_time) / 60
+        if elapsed_minutes >= hp.timelimit then
+            top_menu()
+            respond(Char.name .. ", timelimit reached (" .. hp.timelimit .. " minutes). Stopping.")
+            bottom_menu()
+            GroupMod.kill_scripts(hp)
+            return
+        end
+    end
+
     -- Check if we should retreat
     if hp.action == 99 then
         Navigation.safe_room(hp)

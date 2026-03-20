@@ -1,6 +1,6 @@
 -- huntpro/combat.lua — Combat loop, target selection, attack execution
 -- @revenant-script
--- @lic-certified: complete 2026-03-18
+-- @lic-certified: complete 2026-03-19
 -- Original: huntpro.lic by Jara — combat_unique_to_huntpro, style dispatch,
 -- uac_round, mstrike, chicken_attack/ambush/fire, crowd_control, cman_control,
 -- weapon_control, shield_control (lines ~2050-6000)
@@ -530,12 +530,16 @@ function Combat.crowd_control(hp)
     if hp.my_society == "Voln" and state.society_cc_cooldown == 0 then
         waitrt()
         waitcastrt()
-        fput("sym sleep")
+        if not hp.disable_pod then
+            fput("sym sleep")
+        end
         state.society_cc_cooldown = 10
     elseif hp.my_society == "Gos" and state.society_cc_cooldown == 0 then
         waitrt()
         waitcastrt()
-        fput("sigil diminish")
+        if not hp.disable_cloud then
+            fput("sigil diminish")
+        end
         state.society_cc_cooldown = 10
     elseif hp.my_society == "Col" and state.society_cc_cooldown == 0 then
         waitrt()

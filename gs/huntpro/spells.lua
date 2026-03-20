@@ -1,6 +1,6 @@
 -- huntpro/spells.lua — Spell upkeep, buff management, society abilities, style 9 casting
 -- @revenant-script
--- @lic-certified: complete 2026-03-18
+-- @lic-certified: complete 2026-03-19
 -- Original: huntpro.lic by Jara — spell_choice, spell_cast, waggle, society upkeep,
 -- style_9_spell_overrides, force_spell, upkeep (lines ~3565-5300, 6785-6816, 8300-8408)
 
@@ -40,6 +40,21 @@ function Spells.choose_spell(hp)
         local num = tonumber(custom)
         if num and Spell[num] and Spell[num].known and Spell[num]:affordable() then
             return num
+        end
+    end
+
+    -- style9_arcanecs: force Arcane Blast (CS form) regardless of available spells
+    if hp.style9_arcanecs then
+        return 1700
+    end
+
+    -- immolate: Wizard-specific — prioritize Immolation (519) and Phase (502)
+    if hp.immolate and prof == "Wizard" then
+        local immolate_list = {519, 502}
+        for _, num in ipairs(immolate_list) do
+            if Spell[num] and Spell[num].known and Spell[num]:affordable() then
+                return num
+            end
         end
     end
 
