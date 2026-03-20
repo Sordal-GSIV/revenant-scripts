@@ -22,6 +22,13 @@
     },
     "deposit": {
       "id": 1900
+    },
+    "pawnshop": {
+      "id": 8261,
+      "name": "Cormyn"
+    },
+    "thief_bin": {
+      "id": 9080
     }
   },
   "Knife Clan": {
@@ -72,6 +79,10 @@
     },
     "deposit": {
       "id": 7630
+    },
+    "pawnshop": {
+      "id": 13549,
+      "name": "Denalis"
     }
   },
   "Shard": {
@@ -97,6 +108,13 @@
     },
     "deposit": {
       "id": 19276
+    },
+    "pawnshop": {
+      "id": 9759,
+      "name": "Aelik"
+    },
+    "thief_bin": {
+      "id": 12835
     }
   },
   "Steelclaw Clan": {
@@ -141,6 +159,10 @@
     },
     "deposit": {
       "id": 7953
+    },
+    "pawnshop": {
+      "id": 14337,
+      "name": "Ioun"
     }
   },
   "Rossman's Landing": {
@@ -180,6 +202,10 @@
     },
     "deposit": {
       "id": 3226
+    },
+    "pawnshop": {
+      "id": 3227,
+      "name": "Dorsot"
     }
   },
   "Langenfirth": {
@@ -201,6 +227,10 @@
     },
     "deposit": {
       "id": 3226
+    },
+    "pawnshop": {
+      "id": 12269,
+      "name": "Bynari"
     }
   },
   "Fornsted": {
@@ -225,6 +255,13 @@
     },
     "deposit": {
       "id": 7207
+    },
+    "pawnshop": {
+      "id": 7210,
+      "name": "Paedraig"
+    },
+    "thief_bin": {
+      "id": 13577
     }
   },
   "Aesry": {
@@ -246,6 +283,10 @@
     },
     "deposit": {
       "id": 7224
+    },
+    "pawnshop": {
+      "id": 14312,
+      "name": "Ishh"
     }
   },
   "Mer'Kresh": {
@@ -264,6 +305,10 @@
     },
     "deposit": {
       "id": 8834
+    },
+    "pawnshop": {
+      "id": 11832,
+      "name": "Oweede"
     }
   },
   "Throne City": {
@@ -304,6 +349,13 @@
     },
     "deposit": {
       "id": 8883
+    },
+    "pawnshop": {
+      "id": 11608,
+      "name": "Relf"
+    },
+    "thief_bin": {
+      "id": 15151
     }
   },
   "Raven's Point": {
@@ -369,6 +421,9 @@
     },
     "deposit": {
       "id": 305
+    },
+    "thief_bin": {
+      "id": 12283
     }
   },
   "Ain Ghazal": {

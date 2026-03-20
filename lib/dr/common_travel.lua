@@ -406,11 +406,19 @@ function M.time_to_room(origin, destination)
 end
 
 --- Get the room ID for a named target in a hometown.
+-- Reads from data/dr/base-town.json (via get_data("town")).
 -- @param hometown string Hometown name
--- @param target string Target key (e.g., "deposit", "locksmithing")
+-- @param target string Target key (e.g., "deposit", "locksmithing", "pawnshop", "thief_bin")
 -- @return number|nil Room ID
 function M.get_hometown_target_id(hometown, target)
-  -- TODO: integrate with data files when available
+  local town_data = get_data("town")
+  if not town_data then return nil end
+  local ht = town_data[hometown]
+  if not ht then return nil end
+  local entry = ht[target]
+  if not entry then return nil end
+  local id = entry.id or entry
+  if type(id) == "number" then return id end
   return nil
 end
 
