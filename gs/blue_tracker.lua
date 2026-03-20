@@ -1,12 +1,14 @@
 --- @revenant-script
 --- name: blue_tracker
---- version: 1.0.1
+--- version: 1.1.0
 --- author: Nisugi
 --- game: gs
 --- description: Fetch and display recent GM posts from the Gemstone Discord via blue-tracker API
 --- tags: discord,gamemaster,announcements,information
+--- @lic-certified: complete 2026-03-19
 ---
 --- Changelog (from Lich5):
+---   v1.1.0: Added watch command (SSE live feed), Discord list/quote cleaning, channel names in history header
 ---   v1.0.1: Fixed nil watcher code, improved channel matching, timestamp fixes
 ---   v1.0.0: Initial release
 ---
@@ -14,11 +16,9 @@
 ---   ;blue_tracker latest [channel]          - Show most recent GM post
 ---   ;blue_tracker <post_id>                 - Show specific post by ID
 ---   ;blue_tracker history <channel> [count] - Show recent GM posts (max 50)
+---   ;blue_tracker watch <channel> [...]     - Watch channels for new GM posts (or 'all')
 ---   ;blue_tracker channels                  - Show available channels
 ---   ;blue_tracker help                      - Show help
----
---- NOTE: Requires HTTP support in Revenant (Http.get). If not available,
---- this script will report an error.
 
 --------------------------------------------------------------------------------
 -- Constants
@@ -26,6 +26,7 @@
 
 local API_URL = "https://blue-tracker.fly.dev"
 local WIDTH = 78
+local MAX_WATCH_RETRIES = 5
 
 local CHANNEL_GROUPS = {
     { name = "Announcements", channels = {
@@ -48,15 +49,15 @@ local CHANNEL_GROUPS = {
         { name = "gemstones",    id = "1271943281613340775" },
     }},
     { name = "Pay Events", channels = {
-        { name = "events",         id = "594010837732294735" },
-        { name = "duskruin",       id = "594009933763051549" },
-        { name = "ebongate",       id = "594009960166457344" },
-        { name = "ringsoflumnis",  id = "701166110204231733" },
-        { name = "rumorwoods",     id = "594009994953883648" },
+        { name = "events",        id = "594010837732294735" },
+        { name = "duskruin",      id = "594009933763051549" },
+        { name = "ebongate",      id = "594009960166457344" },
+        { name = "ringsoflumnis", id = "701166110204231733" },
+        { name = "rumorwoods",    id = "594009994953883648" },
     }},
 }
 
--- Flattened channel lookup
+-- Flattened channel lookup: name → id
 local CHANNELS = {}
 for _, group in ipairs(CHANNEL_GROUPS) do
     for _, ch in ipairs(group.channels) do
@@ -103,13 +104,18 @@ local function clean_text(text)
     text = text or "(no content)"
     text = string.gsub(text, "\r\n", "\n")
     text = string.gsub(text, "\r", "\n")
-    -- Remove discord bold/italic markdown
+    -- Remove Discord reply quotes: "> **Author**: " at start of message
+    text = string.gsub(text, "^>%s*%*%*[^*]+%*%*:%s*", "@")
+    -- Convert Discord list markers (*, -, •) to bullet
+    text = string.gsub(text, "\n[%*%-\xe2\x80\xa2]%s+", "\n\xe2\x80\xa2 ")
+    text = string.gsub(text, "^[%*%-]%s+", "\xe2\x80\xa2 ")
+    -- Remove bold/italic markdown
     text = string.gsub(text, "%*%*(.-)%*%*", "%1")
     text = string.gsub(text, "%*(.-)%*", "%1")
     -- Remove code blocks
     text = string.gsub(text, "```[^\n]*\n(.-)```", "%1")
     text = string.gsub(text, "`([^`]+)`", "%1")
-    -- Remove non-ASCII
+    -- Remove non-ASCII (keep newlines)
     text = string.gsub(text, "[^\032-\126\n]", "")
     return text
 end
@@ -170,8 +176,9 @@ local function format_card(post, replied_post)
     if replied_post then
         table.insert(lines, horiz("="))
         local ra = truncate(replied_post.author_name or "Unknown", 30)
+        local rid = tostring(replied_post.id or replied_post.reply_to_id or "")
         table.insert(lines, "| Replying to: " .. pad_right(ra, 30) ..
-            " (ID: " .. pad_right(tostring(replied_post.id or ""), 19) .. ")      |")
+            " (ID: " .. pad_right(rid, 19) .. ")      |")
         table.insert(lines, horiz("-"))
         local rb = clean_text(replied_post.content or "(no content)")
         rb = string.match(rb, "^%s*(.-)%s*$") or rb
@@ -192,6 +199,16 @@ local function format_card(post, replied_post)
     return table.concat(lines, "\n")
 end
 
+local function format_brief(post)
+    local timestamp = post.timestamp or post.ts or 0
+    local ts = os.date("%m-%d %H:%M", math.floor(timestamp / 1000))
+    local author = post.author_name or "Unknown"
+    local body = clean_text(post.content or "")
+    body = string.match(body, "^%s*(.-)%s*$") or body
+    local max_body = WIDTH - #ts - #truncate(author, 15) - 10
+    return string.format("[%s] %s: %s", ts, truncate(author, 15), truncate(body, max_body))
+end
+
 --------------------------------------------------------------------------------
 -- Channel resolution
 --------------------------------------------------------------------------------
@@ -202,6 +219,18 @@ local function resolve_channel(arg)
     if CHANNELS[lower] then return CHANNELS[lower] end
     if string.match(arg, "^%d+$") then return arg end
     return nil
+end
+
+local function get_channel_display_name(arg)
+    local lower = string.lower(arg)
+    for _, group in ipairs(CHANNEL_GROUPS) do
+        for _, ch in ipairs(group.channels) do
+            if string.lower(ch.name) == lower then
+                return arg .. " (" .. group.name .. ")"
+            end
+        end
+    end
+    return arg
 end
 
 local function show_channels()
@@ -216,6 +245,19 @@ local function show_channels()
     end
 end
 
+local function show_available_channels()
+    respond("")
+    respond("Available channels:")
+    for _, group in ipairs(CHANNEL_GROUPS) do
+        local names = {}
+        for _, ch in ipairs(group.channels) do
+            table.insert(names, ch.name)
+        end
+        respond("  " .. group.name .. ": " .. table.concat(names, ", "))
+    end
+    respond("")
+end
+
 --------------------------------------------------------------------------------
 -- Commands
 --------------------------------------------------------------------------------
@@ -225,22 +267,35 @@ local function handle_latest(channel_arg)
 
     if channel_arg and not channel_id then
         respond("Unknown channel: " .. channel_arg)
-        show_channels()
+        show_available_channels()
         return
     end
 
     if channel_id then
         local response = api_get("/api/search?channels=" .. channel_id .. "&per_page=1")
         if response and response.results and #response.results > 0 then
-            local post = response.results[1]
-            respond(format_card(post, post.replied_to))
+            local post_data = response.results[1]
+            local post = {
+                id          = post_data.id,
+                chan_id     = post_data.channel_id,
+                ts          = post_data.timestamp,
+                content     = post_data.content,
+                author_name = post_data.author_name,
+                channel_name = post_data.channel,
+            }
+            respond(format_card(post, post_data.replied_to))
         else
             respond("No GM posts found in channel")
         end
     else
         local posts = api_get("/api/v1/posts?limit=1&order=desc")
         if posts and type(posts) == "table" and #posts > 0 then
-            respond(format_card(posts[1]))
+            local post = posts[1]
+            local replied = nil
+            if post.reply_to_id then
+                replied = api_get("/api/posts/" .. post.reply_to_id)
+            end
+            respond(format_card(post, replied))
         else
             respond("No posts found.")
         end
@@ -255,15 +310,25 @@ local function handle_history(channel_arg, count_str)
     local channel_id = resolve_channel(channel_arg)
     if not channel_id then
         respond("Usage: ;blue_tracker history <channel> [count]")
-        show_channels()
+        show_available_channels()
         return
     end
 
     local response = api_get("/api/search?channels=" .. channel_id .. "&per_page=" .. count)
     if response and response.results and #response.results > 0 then
-        respond("=== Showing " .. #response.results .. " GM post(s) ===")
+        local channel_display = get_channel_display_name(channel_arg)
+        respond("=== Showing " .. #response.results .. " GM post(s) from " .. channel_display .. " ===")
         for i = #response.results, 1, -1 do
-            respond(format_card(response.results[i], response.results[i].replied_to))
+            local post_data = response.results[i]
+            local post = {
+                id          = post_data.id,
+                chan_id     = post_data.channel_id,
+                ts          = post_data.timestamp,
+                content     = post_data.content,
+                author_name = post_data.author_name,
+                channel_name = post_data.channel,
+            }
+            respond(format_card(post, post_data.replied_to))
             if i > 1 then respond("") end
         end
     else
@@ -284,11 +349,88 @@ local function handle_post_id(post_id)
     end
 end
 
+local function handle_watch(args)
+    if #args == 0 then
+        respond("Usage: ;blue_tracker watch <channel1> [channel2] ... or 'all'")
+        show_available_channels()
+        return
+    end
+
+    if not Http or not Http.stream then
+        respond("BlueTracker error: Http.stream not available (requires Revenant engine update)")
+        return
+    end
+
+    -- Resolve channels
+    local watch_all = (#args == 1 and string.lower(args[1]) == "all")
+    local channel_ids = nil
+    local channel_labels = {}
+
+    if not watch_all then
+        channel_ids = {}
+        for _, ch in ipairs(args) do
+            local id = resolve_channel(ch)
+            if id then
+                channel_ids[id] = true
+                table.insert(channel_labels, get_channel_display_name(ch))
+            else
+                respond("Unknown channel: " .. ch)
+                show_available_channels()
+                return
+            end
+        end
+    end
+
+    if watch_all then
+        respond("[BlueTracker] Watching ALL channels for GM posts.")
+    else
+        respond("[BlueTracker] Watching: " .. table.concat(channel_labels, ", "))
+    end
+    respond("[BlueTracker] Watcher running. Kill this script to stop watching.")
+
+    local retry = 0
+    while retry < MAX_WATCH_RETRIES do
+        local ok, err = Http.stream(API_URL .. "/stream", function(data_str)
+            local dok, event = pcall(Json.decode, data_str)
+            if not dok or type(event) ~= "table" then return false end
+            if event.type == "keepalive" then return false end
+
+            local show = watch_all or
+                (channel_ids and channel_ids[tostring(event.channel_id)])
+            if show then
+                respond("")
+                respond(" New GM post in #" .. tostring(event.channel_name or "unknown") .. "!")
+                respond(truncate(tostring(event.author_name or "Unknown"), 20) ..
+                    ": " .. truncate(clean_text(tostring(event.content or "")), 60))
+                respond("Use ;blue_tracker " .. tostring(event.id) .. " to see full post")
+                respond("")
+            end
+            return false -- keep streaming
+        end, {
+            ["Accept"]        = "text/event-stream",
+            ["Cache-Control"] = "no-cache",
+            ["Connection"]    = "keep-alive",
+        })
+
+        retry = retry + 1
+        if retry < MAX_WATCH_RETRIES then
+            local wait = math.min(2 ^ retry, 60)
+            respond("[BlueTracker] Connection lost: " .. tostring(err or "disconnected"))
+            respond("[BlueTracker] Retrying in " .. wait .. "s (" .. retry .. "/" .. MAX_WATCH_RETRIES .. ")")
+            sleep(wait)
+        end
+    end
+
+    respond("[BlueTracker] Max retries exceeded. Use ;blue_tracker watch to reconnect.")
+end
+
 local function show_help()
     respond("BlueTracker Commands:")
     respond("  ;blue_tracker latest [channel]          - Show the most recent GM post")
     respond("  ;blue_tracker <post_id>                 - Show specific post by ID")
     respond("  ;blue_tracker history <channel> [count] - Show recent posts (max 50)")
+    respond("  ;blue_tracker watch <channel1> [...]    - Watch channels for new GM posts")
+    respond("  ;blue_tracker watch all                 - Watch all channels")
     respond("  ;blue_tracker channels                  - Show all available channels")
     respond("  ;blue_tracker help                      - Show this help")
     respond("")
@@ -297,8 +439,10 @@ local function show_help()
     respond("  ;blue_tracker latest general")
     respond("  ;blue_tracker 1234567890")
     respond("  ;blue_tracker history development 5")
+    respond("  ;blue_tracker watch all")
+    respond("  ;blue_tracker watch general development event")
     respond("")
-    show_channels()
+    show_available_channels()
 end
 
 --------------------------------------------------------------------------------
@@ -312,11 +456,14 @@ for word in string.gmatch(full, "%S+") do
 end
 
 local cmd = args[1] and string.lower(args[1]) or "help"
+table.remove(args, 1)
 
 if cmd == "latest" then
-    handle_latest(args[2])
+    handle_latest(args[1])
 elseif cmd == "history" then
-    handle_history(args[2], args[3])
+    handle_history(args[1], args[2])
+elseif cmd == "watch" then
+    handle_watch(args)
 elseif cmd == "channels" then
     show_channels()
 elseif cmd == "help" then
