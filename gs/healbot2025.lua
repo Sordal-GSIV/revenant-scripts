@@ -94,7 +94,9 @@ local function scan_for_empaths()
     echo("***Checking for new empaths...***")
     local number_added = 0
     squelch_who()
+    silence_me()
     fput("who profession empath")
+    silence_me()
     local in_list = false
     while true do
         local line = get()
@@ -250,23 +252,43 @@ local function any_other_empaths()
     return false
 end
 
--- Compiled heal-request regex (matches spoken/whispered heal requests)
--- Captures: [1]=optional_target_prefix, [2]=speaker_name, [3]=verb
+-- Forward declarations for GUI callbacks (defined later, called inside process_line)
+local gui_add_event, gui_set_current, gui_update_stats
+
+-- Compiled regexes (module-level for reuse across calls)
+-- Heal request: captures [1]=speaker_name, [2]=verb (whispers/asks/exclaims/says)
 local heal_request_re = Regex.new(
     "(?:^Speaking .*?to )?(?:you, |(?:[A-Z][a-z]+), )?(?:The (?:ghostly voice|ghost) of )?" ..
     "([A-Z][a-z]+).*(whispers,|asks,|exclaims,|says,)" ..
     "(?i).*?(?:heal[^t]|bleed|minor|'?ealing?|lacerations|cuts|wound|patch|empath|poison|disease|medic)" ..
-    ".*?(?:\\.|!|\\?)\"" ..
-    "|([A-Z][a-z]+) meditates over.*")
+    ".*?(?:\\.|!|\\?)\"")
+
+-- Arrival pattern
+local arrival_re = Regex.new(
+    "([A-Za-z]+)(?:'s group | )" ..
+    "(just arrived|arrives at your table|just came crawling in|just limped in|" ..
+    "just came marching in|just came sashaying in gracefully|just arrived, skipping merrily|" ..
+    "just tiptoed in|just strode in|just stumbled in|just came trudging in)")
 
 -- Process a single line from the game — handles all healbot triggers
 local function process_line(line)
 
+    -- ── Empath meditation detected → add to known list, skip healing ────────
+    local med_name = line:match("([A-Z][a-z]+) meditates over")
+    if med_name then
+        if not known_empaths[med_name] then
+            known_empaths[med_name] = "empath"
+            save_known_empaths(known_empaths)
+            echo("*** " .. med_name .. " is meditating — added as known empath ***")
+        end
+        return
+    end
+
     -- ── Heal request (spoken/whispered/asked) ──────────────────────────────
     local caps = heal_request_re:captures(line)
     if caps then
-        local healee = caps[1] or caps[3]  -- group 1 (speech) or group 3 (meditation)
-        local verb   = caps[2]             -- nil for meditation pattern
+        local healee = caps[1]  -- speaker name
+        local verb   = caps[2]  -- whispers/asks/exclaims/says
 
         -- Skip "Speaking to Name" unless directed at us
         if line:find("Speaking .*to") and not line:find("Speaking .*to you") then
@@ -292,10 +314,12 @@ local function process_line(line)
         if running("bigshot") then pause_script("bigshot") end
 
         echo("***** Healing requested by " .. healee .. "... *****")
+        gui_set_current("Request from: " .. healee)
 
         -- Skip known empaths
         if known_empaths[healee] ~= nil or KnownEmpaths:test(healee) then
             echo("*** " .. healee .. " is an empath ***")
+            gui_add_event(healee, "Skipped (empath)")
             return
         end
 
@@ -334,9 +358,11 @@ local function process_line(line)
             "focuses on " .. healee .. " with intense concentration")
         if result then
             local other = result:match("^(.+) nods at") or
+                          result:match("^(.+) nods to ")  or
                           result:match("^(.+) focuses on " .. healee .. " with intense concentration")
             if other then
                 echo("***** Looks like " .. other .. " is healing " .. healee .. ". ******")
+                gui_add_event(healee, "Skipped (beaten by " .. other .. ")")
                 return
             end
         end
@@ -378,16 +404,14 @@ local function process_line(line)
         end
 
         pause(sleeptime)
+        gui_set_current("Healing: " .. healee)
+        gui_add_event(healee, "Transferring wounds")
         gd_wound_transfer(healee)
+        gui_set_current("Waiting for heal requests...")
         return
     end
 
     -- ── Friend arrived ──────────────────────────────────────────────────────
-    local arrival_re = Regex.new(
-        "([A-Za-z]+)(?:'s group | )" ..
-        "(just arrived|arrives at your table|just came crawling in|just limped in|" ..
-        "just came marching in|just came sashaying in gracefully|just arrived, skipping merrily|" ..
-        "just tiptoed in|just strode in|just stumbled in|just came trudging in)")
     local acaps = arrival_re:captures(line)
     if acaps then
         local who = acaps[1]
@@ -451,7 +475,7 @@ local function process_line(line)
 
     -- ── Scarab disease ──────────────────────────────────────────────────────
     if line:find("yellowish tint") then
-        local dis_re = Regex.new("\\. (.*?) moans to himself and his skin takes on a yellowish tint\\.")
+        local dis_re = Regex.new("\\. (.*?) moans to (?:him|her)self and (?:his|her) skin takes on a yellowish tint\\.")
         local dcaps = dis_re:captures(line)
         if dcaps and dcaps[1] then
             echo("Uh oh scarab disease")
@@ -476,6 +500,92 @@ local function process_line(line)
     end
 end
 
+-- ── GUI ────────────────────────────────────────────────────────────────────
+
+local gui_win         = nil
+local gui_status_lbl  = nil
+local gui_mind_lbl    = nil
+local gui_health_lbl  = nil
+local gui_mana_lbl    = nil
+local gui_empaths_lbl = nil
+local gui_current_lbl = nil
+local gui_events_tbl  = nil
+local gui_events      = {}
+
+gui_add_event = function(healee, event_text)
+    if not gui_win then return end
+    local ts = os.date("%H:%M:%S")
+    table.insert(gui_events, 1, { ts, healee or "?", event_text })
+    if #gui_events > 50 then table.remove(gui_events) end
+    gui_events_tbl:clear()
+    for _, row in ipairs(gui_events) do
+        gui_events_tbl:add_row(row)
+    end
+end
+
+gui_set_current = function(text)
+    if gui_current_lbl then gui_current_lbl:set_text(text) end
+end
+
+gui_update_stats = function(empath_count)
+    if not gui_win then return end
+    local mind  = GameState.mind_value or 0
+    local hp    = health()     or 0
+    local hpmax = max_health() or 100
+    local mn    = mana()       or 0
+    local mnmax = max_mana()   or 100
+    gui_mind_lbl:set_text(string.format("Mind: %3d%%", mind))
+    gui_health_lbl:set_text(string.format("  HP: %d/%d", hp, hpmax))
+    gui_mana_lbl:set_text(string.format("  Mana: %d/%d", mn, mnmax))
+    gui_empaths_lbl:set_text(string.format("Known empaths: %d", empath_count))
+end
+
+local function init_gui()
+    local mode_text = invasion and "HealBot 2025  ─  INVASION MODE" or "HealBot 2025  ─  Active"
+    gui_win = Gui.window(mode_text, { width = 420, height = 500, resizable = true })
+    local root = Gui.vbox()
+
+    -- Status header
+    gui_status_lbl = Gui.label(mode_text)
+    root:add(gui_status_lbl)
+    root:add(Gui.separator())
+
+    -- Stats card
+    local stats_card = Gui.card({ title = "Character Status" })
+    local stats_row  = Gui.hbox()
+    gui_mind_lbl    = Gui.label("Mind:   ---")
+    gui_health_lbl  = Gui.label("  HP:   ---")
+    gui_mana_lbl    = Gui.label("  Mana: ---")
+    stats_row:add(gui_mind_lbl)
+    stats_row:add(gui_health_lbl)
+    stats_row:add(gui_mana_lbl)
+    stats_card:add(stats_row)
+    gui_empaths_lbl = Gui.label("Known empaths: 0")
+    stats_card:add(gui_empaths_lbl)
+    root:add(stats_card)
+
+    -- Current action
+    gui_current_lbl = Gui.label("Waiting for heal requests...")
+    root:add(gui_current_lbl)
+    root:add(Gui.separator())
+
+    -- Events table
+    local events_card = Gui.card({ title = "Recent Events" })
+    gui_events_tbl = Gui.table({ columns = { "Time", "Healee", "Event" } })
+    events_card:add(Gui.scroll(gui_events_tbl))
+    root:add(events_card)
+
+    gui_win:set_root(root)
+    gui_win:show()
+    gui_win:on_close(function() gui_win = nil end)
+end
+
+-- Try to open GUI (optional; continues if monitor feature not compiled in)
+local gui_ok, gui_err = pcall(init_gui)
+if not gui_ok then
+    echo("[healbot] GUI unavailable: " .. tostring(gui_err))
+end
+
 -- ── Startup ──────────────────────────────────────────────────────────────────
 echo("***HealBot knows about " .. count_table(known_empaths) .. " empaths.***")
 scan_for_empaths()
@@ -495,17 +605,20 @@ while true do
         fput("sign of staunching")
     end
 
+    gui_update_stats(count_table(known_empaths))
+
     local line = matchtimeout(10,
         "whispers", "asks", "exclaims", "says",
         "just arrived", "just came", "just limped", "just strode",
-        "just stumbled", "just tiptoed", "arrives at your table",
+        "just stumbled", "just tiptoed", "just trudged", "arrives at your table",
         "taps you lightly on the shoulder",
         "shatters into thousands of fragments",
         "severely perforated",
         "drawing the blood from his body",
         "begins to boil violently",
         "sickly greenish hue",
-        "yellowish tint")
+        "yellowish tint",
+        "meditates over")
 
     if line then
         process_line(line)
