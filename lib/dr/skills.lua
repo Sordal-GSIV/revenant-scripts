@@ -8,6 +8,9 @@ local M = {}
 -- Internal skill storage: name -> { name, rank, percent, learning_rate, rate_name, baseline }
 local skills = {}
 
+-- Unix timestamp when tracking started (reset on DRSkill.reset())
+local _start_time = os.time()
+
 -- Event queue: array of { skill=name, change=delta } pushed when learning rate increases.
 -- Drained by DRExpMon.report_skill_gains().
 local _gained_events = {}
@@ -210,7 +213,15 @@ end
 -- Equivalent to Lich5's DRSkill.reset.
 function M.reset()
   _gained_events = {}
+  _start_time = os.time()
   M.reset_baselines()
+end
+
+--- Return the Unix timestamp when tracking started (or last reset).
+-- Equivalent to Lich5's DRSkill.start_time.
+-- @return number Unix timestamp (seconds)
+function M.start_time()
+  return _start_time
 end
 
 -- Lazy-built reverse map: lowercase skill name -> capitalized category name
