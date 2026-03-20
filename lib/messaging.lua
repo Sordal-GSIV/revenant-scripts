@@ -36,4 +36,11 @@ function M.make_cmd_link(text, command)
     return '<d cmd="' .. M.xml_encode(command) .. '">' .. M.xml_encode(text) .. '</d>'
 end
 
+-- Stream a message to a named game window (default: "familiar").
+-- Mirrors Lich::Messaging.stream_window(msg, window).
+function M.stream_window(msg, window)
+    window = window or "familiar"
+    _respond('<pushStream id="' .. window .. '" ifClosedStyle="watching"/>' .. msg .. '\r\n<popStream/>')
+end
+
 return M
