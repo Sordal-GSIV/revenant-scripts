@@ -5,6 +5,7 @@
 --- game: gs
 --- tags: dreamfire, illusion, bracelet, guide
 --- description: Quick reference guide for Dreamfire Bracelet commands based on tier/attachments
+--- @lic-certified: complete 2026-03-19
 ---
 --- Original Lich5 authors: Luxelle
 --- Ported to Revenant Lua from dreamfire-pocket-guide.lic v1.1
@@ -13,9 +14,7 @@
 ---   ;dreamfire_pocket_guide help
 ---   ;dreamfire_pocket_guide <bracelet name>
 
-local args = Script.current.vars
-
-if args[1] == "help" or not args[1] then
+if Script.vars[0] == "help" or not Script.vars[1] then
     respond("Usage: ;dreamfire_pocket_guide <bracelet name>")
     respond("IE: ;dreamfire_pocket_guide raxiara")
     respond("Or: ;dreamfire_pocket_guide pearl bracelet")
@@ -23,7 +22,7 @@ if args[1] == "help" or not args[1] then
     return
 end
 
-local dreamfire = args[0]
+local dreamfire = Script.vars[0]
 
 fput("analyze my " .. dreamfire)
 
@@ -32,13 +31,11 @@ local attach = 0
 
 while true do
     local line = get()
-    if Regex.test(line, "Unlock Tier: (%d+)") then
-        tier = tonumber(line:match("Unlock Tier: (%d+)"))
-    end
-    if Regex.test(line, "Attachments: (%d+)") then
-        attach = tonumber(line:match("Attachments: (%d+)"))
-    end
-    if Regex.test(line, "Mana Stored:") then break end
+    local t = line:match("Unlock Tier: (%d+)")
+    if t then tier = tonumber(t) end
+    local a = line:match("Attachments: (%d+)")
+    if a then attach = tonumber(a) end
+    if line:find("Mana Stored:", 1, true) then break end
 end
 
 respond("Dreamfire Illusions Pocket Guide")
