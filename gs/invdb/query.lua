@@ -671,6 +671,7 @@ function M.parse_args(args_str)
     {"^export",      "export"},
     {"^reset",       "reset"},
     {"^delete",      "delete"},
+    {"^drop",        "delete"},
     {"^remove",      "remove"},
     {"^update",      "update"},
     {"^add",         "update"},
