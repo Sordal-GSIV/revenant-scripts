@@ -7,7 +7,27 @@
       "pause",
       "waitfor",
       "respond",
+      "echo",
+      "get",
+      "sleep",
+      "exit",
+      "hide_me",
+      "silence_me",
+      "before_dying",
+      "script",
+      "args_lib",
+      "GameObj",
       "GameState",
+      "Char",
+      "Stats",
+      "Skills",
+      "Spell",
+      "Effects",
+      "Regex",
+      "Flags",
+      "Room",
+      "Group",
+      "Bounty",
       "CharSettings",
       "UserVars",
       "Settings",
@@ -19,7 +39,8 @@
       "Crypto",
       "Version",
       "File",
-      "Http"
+      "Http",
+      "System"
     ]
   }
 }
