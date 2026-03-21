@@ -59,20 +59,20 @@ local SKILL_ALIASES = {
     {pattern = "^thb$",             skill = "two%-handed blunt"},
     {pattern = "twohanded blunt",   skill = "two%-handed blunt"},
     {pattern = "two%-handed blunt", skill = "two%-handed blunt"},
-    {pattern = "^se$",              skill = "light edged"},
-    {pattern = "small edged",       skill = "light edged"},
-    {pattern = "light edge",        skill = "light edged"},
-    {pattern = "medium edge",       skill = "medium edged"},
-    {pattern = "^sb$",              skill = "light blunt"},
-    {pattern = "small blunt",       skill = "light blunt"},
-    {pattern = "light blunt",       skill = "light blunt"},
-    {pattern = "medium blunt",      skill = "medium blunt"},
+    {pattern = "^se$",              skill = "(?:light|medium) edged"},
+    {pattern = "small edged",       skill = "(?:light|medium) edged"},
+    {pattern = "light edge",        skill = "(?:light|medium) edged"},
+    {pattern = "medium edge",       skill = "(?:light|medium) edged"},
+    {pattern = "^sb$",              skill = "(?:light|medium) blunt"},
+    {pattern = "small blunt",       skill = "(?:light|medium) blunt"},
+    {pattern = "light blunt",       skill = "(?:light|medium) blunt"},
+    {pattern = "medium blunt",      skill = "(?:light|medium) blunt"},
     {pattern = "^lt$",              skill = "light thrown"},
     {pattern = "light thrown",      skill = "light thrown"},
     {pattern = "^ht$",              skill = "heavy thrown"},
     {pattern = "heavy thrown",      skill = "heavy thrown"},
-    {pattern = "stave",             skill = "quarter staff"},
-    {pattern = "polearm",           skill = "halberd"},
+    {pattern = "stave",             skill = "(?:short|quarter) staff"},
+    {pattern = "polearm",           skill = "(?:halberd|pike)"},
     {pattern = "^ow$",              skill = "offhand weapon"},
     {pattern = "offhand weapon",    skill = "offhand weapon"},
 }
@@ -253,15 +253,29 @@ function M.EquipmentManager(settings)
     if result:find("Remove what") or result:find("aren't wearing") then
       return false
     end
-    if result:find("both hands free") then
-      -- Lower items, retry
+    if result:find("both hands free") or result:find("need a free hand") then
+      -- Save current hand contents BEFORE lowering
+      local saved_left = DRC.left_hand and DRC.left_hand() or nil
+      local saved_right = DRC.right_hand and DRC.right_hand() or nil
+      -- Lower both hands
       if DRCI then
-        local lh = DRC.left_hand and DRC.left_hand()
-        local rh = DRC.right_hand and DRC.right_hand()
-        if lh then DRCI.lower_item(lh) end
-        if rh then DRCI.lower_item(rh) end
+        if saved_left then DRCI.lower_item(saved_left) end
+        if saved_right then DRCI.lower_item(saved_right) end
       end
-      return self:remove_item(item, retries - 1)
+      -- Recursive remove
+      local success = self:remove_item(item, retries - 1)
+      -- Restore items (reverse order)
+      if DRCI then
+        if saved_right then DRCI.get_item(saved_right) end
+        if saved_left then DRCI.get_item(saved_left) end
+        -- Check hand order and swap if needed
+        local new_left = DRC.left_hand and DRC.left_hand() or nil
+        local new_right = DRC.right_hand and DRC.right_hand() or nil
+        if saved_left and saved_right and new_left ~= saved_left then
+          DRC.bput("swap", "You move", "Will alone cannot conquer")
+        end
+      end
+      return success
     end
 
     self:stow_by_type(item)
@@ -314,14 +328,19 @@ function M.EquipmentManager(settings)
 
     -- Recovery
     if smart_find(result, "unload") then
-      if DRCI then DRCI.stow_hand("left"); DRCI.stow_hand("right") end
-      return self:stow_helper("stow my " .. item_name, item_name,
-        DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {}, retries - 1)
+      self:unload_weapon(item_name)
+      return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
     elseif smart_find(result, "close the fan") then
       DRC.bput("close my " .. item_name, "You close", "already closed", "What were")
       return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
-    elseif smart_find(result, "too busy") or smart_find(result, "can't .* move") then
+    elseif smart_find(result, "You are a little too busy") then
       if DRC.retreat then DRC.retreat() end
+      return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
+    elseif smart_find(result, "You don't seem to be able to move") then
+      pause(1)
+      return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
+    elseif smart_find(result, "is too small to hold that") then
+      fput("swap my " .. item_name)
       return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
     elseif smart_find(result, "wounds hinder") or smart_find(result, "Sheath your .* where") then
       return self:stow_helper("stow my " .. item_name, item_name,
@@ -409,6 +428,11 @@ function M.EquipmentManager(settings)
       end
     end
     skill = proper_skill
+
+    -- Offhand weapon: no swap needed, just leave in left hand (Lich5 early return)
+    if skill == "offhand weapon" then
+        return true
+    end
 
     -- Fan handling
     if noun:lower():find("fan") then
@@ -527,6 +551,13 @@ function M.EquipmentManager(settings)
       return
     end
 
+    -- Worn items get re-worn (not stowed)
+    if weapon.worn then
+        self:stow_helper("wear my " .. weapon:short_name(), weapon:short_name(),
+            DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
+        return
+    end
+
     -- Handle transforms
     if weapon.transforms_to then
       if transform_depth <= 0 then
@@ -548,6 +579,7 @@ function M.EquipmentManager(settings)
 
   --- Turn a multi-form weapon to a specific form.
   function em.turn_to_weapon(self, old_noun, new_noun)
+    if old_noun == new_noun then return true end  -- Already in correct form
     local result = DRC.bput("turn my " .. old_noun .. " to " .. new_noun,
       "Turn what", "Which weapon did you want to pull out",
       "shifts .* before resolving itself into")
@@ -596,7 +628,13 @@ function M.EquipmentManager(settings)
         if info.needs_unloading then
           self:unload_weapon(info:short_name())
         end
-        self:stow_by_type(info)
+        -- If item is worn-type, wear it back on (Lich5 gear-set aware)
+        if info.worn then
+          self:stow_helper("wear my " .. info:short_name(), info:short_name(),
+            DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
+        else
+          self:stow_by_type(info)
+        end
       end
     end
     return true
