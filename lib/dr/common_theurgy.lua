@@ -108,29 +108,125 @@ end
 -- Supply purchasing
 -------------------------------------------------------------------------------
 
+--- Check whether a purchased item requires a Bless spell in a given town.
+-- Looks up theurgy data: data[town]["<item_name>_shop"]["needs_bless"].
+-- @param town string Town name
+-- @param item_name string Item to check (e.g., "holy water", "incense")
+-- @return boolean
+function M.buying_cleric_item_requires_bless(town, item_name)
+  if not get_data then return false end
+  local theurgy_data = get_data("theurgy")
+  if not theurgy_data then return false end
+
+  local town_data = theurgy_data[town]
+  if not town_data then return false end
+
+  local shop_key = item_name .. "_shop"
+  local shop_data = town_data[shop_key]
+  if not shop_data then return false end
+
+  return shop_data.needs_bless or false
+end
+
+--- Buy a single supply item from a shop and optionally bless it.
+-- If shop_data has a 'method' field, calls M[method]() instead of DRCT.buy_item.
+-- @param item_name string Item name
+-- @param shop_data table Shop data with 'id', optional 'method' and 'needs_bless'
+function M.buy_single_supply(item_name, shop_data)
+  if shop_data.method then
+    -- Call a custom purchase method by name (e.g. special shops)
+    if M[shop_data.method] then
+      M[shop_data.method]()
+    end
+  else
+    if DRCT and DRCT.buy_item then
+      DRCT.buy_item(shop_data.id, item_name)
+    end
+  end
+
+  -- Bless the item if needed and we know the spell
+  if not shop_data.needs_bless then return end
+  if not (DRSpells and DRSpells.known_spells) then return end
+
+  local known = DRSpells.known_spells
+  -- Check if Bless is in the known spells table (array or set)
+  local knows_bless = false
+  if type(known) == "table" then
+    for _, v in pairs(known) do
+      if v == "Bless" then
+        knows_bless = true
+        break
+      end
+    end
+  end
+  if not knows_bless then return end
+
+  M.quick_bless_item(item_name)
+end
+
 --- Buy a cleric supply item from a town's shop.
+-- Walks to the shop, buys num_to_buy copies, optionally combining stackable
+-- items and stowing between each purchase.
 -- @param town string Town name
 -- @param item_name string Item to buy (e.g., "holy water", "incense")
--- @param stackable boolean Whether the item stacks
+-- @param stackable boolean Whether the item stacks (combine after each buy)
 -- @param num_to_buy number Quantity
 -- @param supply_container string Container for supplies
 -- @return boolean true on success
 function M.buy_cleric_item(town, item_name, stackable, num_to_buy, supply_container)
-  -- TODO: integrate with theurgy data files for shop locations
-  respond("[DRCTH] buy_cleric_item: stub for " .. tostring(item_name) .. " in " .. tostring(town))
+  if not get_data then
+    respond("[DRCTH] No get_data available — cannot look up shop info.")
+    return false
+  end
 
-  for _ = 1, num_to_buy do
-    -- Would walk to shop and buy via DRCT.buy_item
-    if stackable and DRCI and DRCI.get_item then
-      if DRCI.get_item(item_name, supply_container) then
-        DRC.bput("combine " .. item_name .. " with " .. item_name,
-          "You combine", "You can't combine", "You must be holding")
+  local theurgy_data = get_data("theurgy")
+  if not theurgy_data then
+    respond("[DRCTH] No theurgy data found.")
+    return false
+  end
+
+  local town_data = theurgy_data[town]
+  if not town_data then
+    respond("[DRCTH] No theurgy data found for town '" .. tostring(town) .. "'.")
+    return false
+  end
+
+  local shop_key = item_name .. "_shop"
+  local shop_data = town_data[shop_key]
+  if not shop_data then
+    respond("[DRCTH] No shop data found for '" .. tostring(item_name) .. "' in '" .. tostring(town) .. "'.")
+    return false
+  end
+
+  -- Walk to the shop
+  if DRCT and DRCT.walk_to then
+    DRCT.walk_to(shop_data.id)
+  end
+
+  if stackable then
+    for _ = 1, num_to_buy do
+      M.buy_single_supply(item_name, shop_data)
+      -- Try to combine with existing stack from container
+      if DRCI and DRCI.get_item then
+        if DRCI.get_item(item_name, supply_container) then
+          DRC.bput("combine " .. item_name .. " with " .. item_name,
+            "You combine", "You can't combine", "You must be holding")
+        end
+      end
+      -- Stow back each cycle so it doesn't interfere with next bless
+      if DRCI and DRCI.put_away_item then
+        DRCI.put_away_item(item_name, supply_container)
       end
     end
-    if DRCI and DRCI.put_away_item then
-      DRCI.put_away_item(item_name, supply_container)
+  else
+    for _ = 1, num_to_buy do
+      M.buy_single_supply(item_name, shop_data)
+      if DRCI and DRCI.put_away_item then
+        DRCI.put_away_item(item_name, supply_container)
+      end
     end
   end
+
   return true
 end
 
