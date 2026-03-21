@@ -563,6 +563,100 @@ function M.close_container(container)
   return result:find("You close") ~= nil or result:find("already closed") ~= nil
 end
 
+--- Shared helper for rummage/look-in container with closed-container retry.
+local function list_container_contents(verb, container, retries, parse_fn)
+    if retries <= 0 then
+        echo("DRCI: list_container_contents exceeded max retries")
+        return nil
+    end
+
+    local cmd
+    if verb == "rummage" then
+        cmd = "rummage my " .. container
+    else
+        cmd = "look in my " .. container
+    end
+
+    local all_patterns = {
+        "You rummage through", "In the .* you see",
+        "There is nothing in there", "That is empty",
+    }
+    for _, p in ipairs(M.CONTAINER_IS_CLOSED) do table.insert(all_patterns, p) end
+    table.insert(all_patterns, "I could not find")
+    table.insert(all_patterns, "What were you referring")
+
+    local result = DRC.bput(cmd, unpack(all_patterns))
+    if not result then return nil end
+
+    -- Closed container: open and retry
+    for _, p in ipairs(M.CONTAINER_IS_CLOSED) do
+        if smart_find(result, p) then
+            M.open_container(container)
+            return list_container_contents(verb, container, retries - 1, parse_fn)
+        end
+    end
+
+    -- Empty
+    if result:find("nothing in there") or result:find("That is empty") then
+        return {}
+    end
+
+    -- Failure
+    if result:find("could not find") or result:find("What were you referring") then
+        return nil
+    end
+
+    return parse_fn(result)
+end
+
+--- Rummage through a container and return a list of item names.
+-- Uses list_container_contents helper with closed-container retry.
+-- @param container string Container to rummage
+-- @param retries number|nil Max retries (default 2)
+-- @return table|nil Array of item strings, or nil on failure
+function M.rummage_container(container, retries)
+    retries = retries or 2
+    return list_container_contents("rummage", container, retries, function(result)
+        local items_str = result:match("You rummage through .* and see .- (.+)%.")
+        if not items_str then return {} end
+        items_str = items_str:gsub(" and (a[n]? )", ", %1")
+        local items = {}
+        for item in items_str:gmatch("[^,]+") do
+            item = item:match("^%s*a[n]?%s+(.+)") or item:match("^%s*some%s+(.+)") or item:match("^%s*(.+)")
+            if item then table.insert(items, item:match("^%s*(.-)%s*$")) end
+        end
+        return items
+    end)
+end
+
+--- Look in a container and return a list of item names.
+-- Uses list_container_contents helper with closed-container retry.
+-- @param container string Container to look in
+-- @param retries number|nil Max retries (default 2)
+-- @return table|nil Array of item strings, or nil on failure
+function M.look_in_container(container, retries)
+    retries = retries or 2
+    return list_container_contents("look", container, retries, function(result)
+        local items_str = result:match("In the .* you see .- (.+)%.")
+        if not items_str then return {} end
+        local items = {}
+        for item in items_str:gmatch("[^,]+") do
+            item = item:gsub("^%s*and%s+", "")
+            item = item:match("^%s*a[n]?%s+(.+)") or item:match("^%s*some%s+(.+)") or item:match("^%s*(.+)")
+            if item then table.insert(items, item:match("^%s*(.-)%s*$")) end
+        end
+        return items
+    end)
+end
+
+--- Check if a container is empty.
+-- @param container string Container to check
+-- @return boolean true if container is empty, false if it has items or on failure
+function M.container_is_empty(container)
+    local contents = M.look_in_container(container)
+    return contents ~= nil and #contents == 0
+end
+
 --- Tap an item (returns the tap description).
 -- @param item string Item to tap
 -- @return string Result of tapping
@@ -927,6 +1021,36 @@ function M.lift(item)
     "You are not strong enough to pick that up",
     "Roundtime")
   return result ~= nil and result:find("You pick up") ~= nil
+end
+
+-------------------------------------------------------------------------------
+-- Accept / Search
+-------------------------------------------------------------------------------
+
+--- Accept an offered item from another player.
+-- @param timeout number|nil seconds to wait (default 5)
+-- @return string|false giver's name on success, false on failure
+function M.accept_item(timeout)
+    timeout = timeout or 5
+    local result = DRC.bput("accept", M.ACCEPT_SUCCESS_PATTERN, "Accept what?", {timeout = timeout})
+    if result then
+        local name = result:match(M.ACCEPT_SUCCESS_PATTERN)
+        if name then return name end
+    end
+    return false
+end
+
+--- Search inventory for an item.
+-- @param item string item to search for
+-- @return boolean true if found
+function M.search(item)
+    local result = DRC.bput("inv search " .. item,
+        "An? .+ is", "Some .+ is",
+        "You aren't carrying anything like that")
+    if result and (result:find("is %a") or result:find("is being")) then
+        return true
+    end
+    return false
 end
 
 return M
