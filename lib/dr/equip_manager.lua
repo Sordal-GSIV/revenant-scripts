@@ -601,8 +601,9 @@ function M.EquipmentManager(settings)
       return self:stow_helper("stow my " .. item_name, item_name,
         DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {}, retries - 1)
     else
-      pause(0.5)
-      return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
+      -- Catch-all: unrecognised recovery pattern (Lich5 logs warning and fails)
+      echo("EquipmentManager: stow_helper unhandled response for '" .. action .. "': " .. result)
+      return false
     end
   end
 
@@ -682,6 +683,18 @@ function M.EquipmentManager(settings)
         break
       end
     end
+    -- Check for unrecognized skill after alias normalization
+    local recognized = false
+    for _, ws in ipairs(M.WEAPON_SKILLS) do
+        if ws:lower():find(skill:lower()) or skill:lower():find(ws:lower()) then
+            recognized = true
+            break
+        end
+    end
+    if not recognized and skill == proper_skill then
+        echo("EquipmentManager: Unsupported weapon swap: " .. noun .. " to " .. skill)
+        return false
+    end
     skill = proper_skill
 
     -- Offhand weapon: no swap needed, just leave in left hand (Lich5 early return)
@@ -725,7 +738,8 @@ function M.EquipmentManager(settings)
         end
       elseif result:find("nothing to swap") or result:find("too injured") or result:find("Will alone") then
         return false
-      elseif result:lower():find(" " .. skill:lower() .. " ") then
+      -- Use smart_find for regex-capable matching (compound aliases use (?:...) syntax)
+      elseif smart_find(result:lower(), " " .. skill:lower() .. " ") then
         return true
       end
     end

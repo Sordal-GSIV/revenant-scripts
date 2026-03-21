@@ -392,7 +392,7 @@ function M.check_health()
   while os.time() < timeout_at do
     local line = get_noblock and get_noblock() or get()
     if line then
-      if Regex.test("Your body feels|You have|Bleeding", line) then
+      if Regex.test("^Your body feels", line) then
         collecting = true
       end
       if collecting then
@@ -706,7 +706,7 @@ function M.perceive_health_other(target)
   end
   local result = DRC.bput("touch " .. target,
     "between you and", "Touch what",
-    "feels cold and you are unable",
+    "feels cold",
     "avoids your touch", "You quickly recoil")
   if not result or result:find("Touch what") or result:find("cold")
     or result:find("avoids") or result:find("recoil") then

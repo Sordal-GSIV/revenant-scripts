@@ -1007,6 +1007,15 @@ function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
         end,
     }
 
+    -- Junk Yard room override (Lich5: XMLData.room_title == '[[A Junk Yard]]')
+    if Room and Room.current and Room.current.title and Room.current.title:find("Junk Yard") then
+        local cmd = "put " .. M.item_ref(item) .. " in bin"
+        local result = DRC.bput(cmd, unpack(all_dispose))
+        for _, p in ipairs(M.DROP_TRASH_SUCCESS) do
+            if result and smart_find(result, p) then return true end
+        end
+    end
+
     -- Get room objects if DRRoom is available
     local room_objs = (DRRoom and DRRoom.room_objs) and DRRoom.room_objs() or nil
 
@@ -1608,6 +1617,7 @@ function M.accept_item(timeout)
     timeout = timeout or 5
     local result = DRC.bput("accept", M.ACCEPT_SUCCESS_PATTERN, "Accept what?",
         "Both of your hands are full", "would push you over your item limit",
+        "You have no offers",
         {timeout = timeout})
     if result then
         local name = result:match(M.ACCEPT_SUCCESS_PATTERN)
