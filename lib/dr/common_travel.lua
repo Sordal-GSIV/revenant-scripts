@@ -61,7 +61,8 @@ M.BUY_NON_PRICE_PATTERNS = {
 -------------------------------------------------------------------------------
 
 --- Walk to a room by room ID.
--- Uses the go2 script for pathfinding. Handles obstacles and engagement.
+-- Uses the go2 script for pathfinding. Monitors for combat engagement,
+-- locked/closed doors, and timeouts — matching Lich5 obstacle handling.
 -- @param target_room number|string Target room ID (or tag string)
 -- @param restart_on_fail boolean Retry on failure (default true)
 -- @return boolean true if we arrived at the target room
@@ -86,23 +87,184 @@ function M.walk_to(target_room, restart_on_fail)
   -- Stand up first
   if DRC then DRC.fix_standing() end
 
-  -- Use go2 script for navigation
-  -- TODO: integrate with script runner when available
-  fput("go2 " .. room_num)
+  -- Handle unknown room: try to orient via room description
+  if Room and Room.id == nil and Map and Map.list then
+    respond("[DRCT] In an unknown room, attempting to navigate to " .. room_num)
+    local desc = XMLData and XMLData.room_description and XMLData.room_description:match("^%s*(.-)%s*$") or ""
+    local title = XMLData and XMLData.room_title or ""
+    local matches = {}
+    for _, r in ipairs(Map.list) do
+      if r.description and r.title then
+        local desc_match = false
+        if type(r.description) == "table" then
+          for _, d in ipairs(r.description) do
+            if d == desc then desc_match = true; break end
+          end
+        elseif r.description == desc then
+          desc_match = true
+        end
+        local title_match = false
+        if type(r.title) == "table" then
+          for _, t in ipairs(r.title) do
+            if t == title then title_match = true; break end
+          end
+        elseif r.title == title then
+          title_match = true
+        end
+        if desc_match and title_match then
+          matches[#matches + 1] = r
+        end
+      end
+    end
+    if #matches == 0 or #matches > 1 then
+      respond("[DRCT] Failed to find a matching room from unknown location.")
+      return false
+    end
+    local found = matches[1]
+    if found.id == room_num then return true end
+    if found.wayto and found.wayto[tostring(room_num)] then
+      fput(found.wayto[tostring(room_num)])
+      return Room and Room.id == room_num
+    end
+    -- Try to take one step and recurse
+    if Map.findpath then
+      local path = Map.findpath(found, Map[room_num])
+      if path and #path > 0 then
+        local way = found.wayto and found.wayto[tostring(path[1])]
+        if way then fput(way) end
+      end
+    end
+    return M.walk_to(room_num)
+  end
 
-  -- Basic wait loop with timeout
-  local timeout = 90
-  local start = os.time()
-  while os.time() - start < timeout do
-    pause(1)
-    if Room and Room.id == room_num then
-      return true
+  -- Register obstacle flags (closed shops, engagement)
+  if Flags and Flags.add then
+    Flags.add("travel-closed-shop",
+      "The door is locked up tightly for the night",
+      "You smash your nose",
+      "^A servant (blocks|stops)")
+    Flags.add("travel-engaged", "You are engaged")
+  end
+
+  -- Start go2 as a background script
+  local script_handle
+  if Script and Script.start then
+    script_handle = Script.start("go2", { tostring(room_num) })
+  elseif start_script then
+    script_handle = start_script("go2", { tostring(room_num) }, { force = true })
+  else
+    fput("go2 " .. room_num)
+  end
+
+  -- Monitor loop: watch for obstacles and timeout
+  local timer = os.time()
+  local prev_room = (XMLData and XMLData.room_description or "") .. (XMLData and XMLData.room_title or "")
+
+  local function script_running()
+    if not script_handle then return false end
+    if Script and Script.running then
+      if type(Script.running) == "function" then
+        return Script.running(script_handle)
+      elseif type(Script.running) == "table" then
+        for _, s in ipairs(Script.running) do
+          if s == script_handle then return true end
+        end
+        return false
+      end
+    end
+    return false
+  end
+
+  local function kill_go2()
+    if not script_handle then return end
+    if kill_script then
+      kill_script(script_handle)
+    elseif Script and Script.kill then
+      Script.kill(script_handle)
     end
   end
 
-  -- Failed — retry if allowed
-  if restart_on_fail then
-    respond("[DRCT] Failed to navigate to room " .. room_num .. ", retrying.")
+  local function restart_go2()
+    if Script and Script.start then
+      return Script.start("go2", { tostring(room_num) })
+    elseif start_script then
+      return start_script("go2", { tostring(room_num) })
+    else
+      fput("go2 " .. room_num)
+      return nil
+    end
+  end
+
+  local ok, err = pcall(function()
+    while script_running() do
+      -- Check for closed/locked doors
+      if Flags and Flags["travel-closed-shop"] then
+        Flags.reset("travel-closed-shop")
+        kill_go2()
+        local door_result = DRC and DRC.bput("open door", "It is locked", "You .+", "What were") or ""
+        if not door_result:find("You open") then
+          restart_on_fail = false
+          return
+        end
+        timer = os.time()
+        script_handle = restart_go2()
+      end
+
+      -- Check for combat engagement
+      if Flags and Flags["travel-engaged"] then
+        Flags.reset("travel-engaged")
+        kill_go2()
+        if DRC and DRC.retreat then DRC.retreat() end
+        timer = os.time()
+        script_handle = restart_go2()
+      end
+
+      -- Timeout handling (90 seconds without progress)
+      if os.time() - timer > 90 then
+        kill_go2()
+        pause(0.5)
+        if not restart_on_fail then return end
+        timer = os.time()
+        script_handle = restart_go2()
+      end
+
+      -- Reset timer on room change or escort script running
+      local cur_room = (XMLData and XMLData.room_description or "") .. (XMLData and XMLData.room_title or "")
+      if cur_room ~= prev_room then
+        timer = os.time()
+      end
+      if Script and Script.running then
+        local function is_running(name)
+          if type(Script.running) == "function" then return Script.running(name) end
+          if type(Script.running) == "table" then
+            for _, s in ipairs(Script.running) do
+              if s == name then return true end
+            end
+          end
+          return false
+        end
+        if is_running("escort") or is_running("bescort") then
+          timer = os.time()
+        end
+      end
+      prev_room = cur_room
+      pause(0.5)
+    end
+  end)
+
+  -- Clean up flags
+  if Flags and Flags.delete then
+    Flags.delete("travel-closed-shop")
+    Flags.delete("travel-engaged")
+  end
+
+  if not ok then
+    respond("[DRCT] walk_to error: " .. tostring(err))
+  end
+
+  -- If we didn't arrive, retry once
+  if room_num ~= (Room and Room.id) and restart_on_fail then
+    respond("[DRCT] Failed to navigate to room " .. room_num .. ", attempting again.")
     return M.walk_to(room_num, false)
   end
 
@@ -379,11 +541,38 @@ function M.find_empty_room(search_rooms, idle_room, predicate, max_search_attemp
 end
 
 --- Sort destination rooms by distance from current location.
--- @param target_list table Array of room IDs
--- @return table Sorted array of room IDs
+-- Uses Dijkstra shortest-path distances. Unreachable rooms are removed.
+-- @param target_list table Array of room IDs (numbers or strings)
+-- @return table Sorted array of reachable room IDs
 function M.sort_destinations(target_list)
-  -- TODO: integrate with Dijkstra pathfinding when Map API is available
-  return target_list
+  -- Normalise to integers
+  local rooms = {}
+  for _, v in ipairs(target_list) do
+    rooms[#rooms + 1] = tonumber(v)
+  end
+
+  if not Map or not Map.dijkstra or not Room or not Room.id then
+    return rooms
+  end
+
+  local _, shortest_distances = Map.dijkstra(Room.id)
+  if not shortest_distances then return rooms end
+
+  -- Remove unreachable rooms (nil distance), keep current room
+  local reachable = {}
+  for _, id in ipairs(rooms) do
+    if shortest_distances[id] ~= nil or id == Room.id then
+      reachable[#reachable + 1] = id
+    end
+  end
+
+  table.sort(reachable, function(a, b)
+    local da = shortest_distances[a] or 0
+    local db = shortest_distances[b] or 0
+    return da < db
+  end)
+
+  return reachable
 end
 
 --- Find a sorted empty room.
@@ -397,12 +586,15 @@ function M.find_sorted_empty_room(search_rooms, idle_room, predicate)
 end
 
 --- Get the time (cost) to travel between two rooms.
+-- Uses Dijkstra shortest-path cost, matching Lich5's Map.dijkstra(origin, destination).
 -- @param origin number Origin room ID
 -- @param destination number Destination room ID
 -- @return number|nil Path cost, or nil if unreachable
 function M.time_to_room(origin, destination)
-  -- TODO: integrate with Map.dijkstra when available
-  return nil
+  if not Map or not Map.dijkstra then return nil end
+  local _, shortest_paths = Map.dijkstra(origin, destination)
+  if not shortest_paths then return nil end
+  return shortest_paths[destination]
 end
 
 --- Get the room ID for a named target in a hometown.
