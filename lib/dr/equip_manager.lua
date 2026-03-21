@@ -196,34 +196,251 @@ function M.EquipmentManager(settings)
     return false
   end
 
+  --- Build retrieval configuration table for an item.
+  -- Each retrieval type (worn, tied, stowed, transform) maps to a table with
+  -- verb, matches, failures, failure_recovery, and exhausted patterns.
+  -- Ported from Lich5 verb_data (equipmanager.rb lines 466-517).
+  -- @param item table Item object
+  -- @return table Keys: worn, tied, stowed, transform
+  function em.verb_data(self, item)
+    local short = item:short_name()
+    return {
+      worn = {
+        verb = "remove my " .. short,
+        matches = DRCI and DRCI.REMOVE_ITEM_SUCCESS or {
+          "You remove", "You pull", "You sling", "You slide",
+          "You work", "You unbuckle", "You loosen", "You yank",
+          "you tug", "you manage to loosen", "you ready the",
+          "slide themselves off",
+        },
+        failures = DRCI and DRCI.REMOVE_ITEM_FAILURE or {"Remove what", "You aren't wearing that"},
+        failure_recovery = function(result)
+          -- Recovery: re-wear the item (Lich5: bput "wear my #{noun}")
+          DRC.bput("wear my " .. short, "^You ")
+          return false
+        end,
+        exhausted = {"Remove what", "You aren't wearing that"},
+      },
+      tied = {
+        verb = "untie my " .. short .. " from my " .. (item.tie_to or "belt"),
+        matches = DRCI and DRCI.UNTIE_ITEM_SUCCESS or {
+          "You remove", "You untie", "you untie your",
+        },
+        failures = {
+          "You are a little too busy",
+          "You are a bit too busy",
+        },
+        failure_recovery = function(result)
+          if result:find("a little too busy") then
+            if DRC.retreat then DRC.retreat() end
+            return self:get_item(item)
+          elseif result:find("a bit too busy") then
+            DRC.bput("stop play", "You stop", "You aren't")
+            return self:get_item(item)
+          else
+            self:stow_weapon()
+            return self:get_item(item)
+          end
+        end,
+        exhausted = {"What were you referring", "Untie what"},
+      },
+      stowed = {
+        verb = item.container
+            and ("get my " .. short .. " from my " .. item.container)
+            or ("get my " .. short),
+        matches = DRCI and DRCI.GET_ITEM_SUCCESS or {
+          "You get", "You pick up", "slides easily out",
+        },
+        failures = {"But that is already"},
+        failure_recovery = function(result)
+          if result:find("But that is already") then
+            -- Already holding — recovery is to stow and re-get
+            DRC.bput("stow my " .. item.name, "You put", "But that is already in")
+            return DRCI and DRCI.in_hands and DRCI.in_hands(item) or false
+          end
+          return false
+        end,
+        exhausted = {"What were you referring", "I could not find"},
+      },
+      transform = {
+        verb = item.transform_verb or ("turn my " .. short),
+        matches = {item.transform_text or "shifts"},
+        failures = {"You'll need a free hand", "You don't seem to be holding"},
+        failure_recovery = function(result)
+          -- Lich5: stow non-matching hands, then re-get and re-transform
+          if DRCI then
+            local lh = DRC.left_hand and DRC.left_hand() or nil
+            local rh = DRC.right_hand and DRC.right_hand() or nil
+            if lh and not lh:lower():find(item.name:lower()) then DRCI.stow_hand("left") end
+            if rh and not rh:lower():find(item.name:lower()) then DRCI.stow_hand("right") end
+            -- Check hands are clear
+            lh = DRC.left_hand and DRC.left_hand() or nil
+            rh = DRC.right_hand and DRC.right_hand() or nil
+            if (lh and not lh:lower():find(item.name:lower())) or
+               (rh and not rh:lower():find(item.name:lower())) then
+              echo("EquipmentManager: Unable to free hands for transform")
+              return false
+            end
+          end
+          -- Re-get the item and retry transform
+          if item.worn then
+            DRC.bput("remove my " .. item.name, "^You")
+          else
+            DRC.bput("get my " .. item.name, "^You")
+          end
+          local transform_verb = item.transform_verb or ("turn my " .. short)
+          DRC.bput(transform_verb, item.transform_text or "shifts", "What were")
+          return true
+        end,
+        exhausted = {"What were you referring"},
+      },
+    }
+  end
+
+  --- Retrieve an item using the verb_data dispatch table.
+  -- Ported from Lich5 get_item_helper (equipmanager.rb lines 528-562).
+  -- @param item table Item object
+  -- @param retrieval_type string One of "worn", "tied", "stowed", "transform"
+  -- @return boolean Success
+  function em.get_item_helper(self, item, retrieval_type)
+    if not item then return false end
+
+    local data = self:verb_data(item)
+    local config = data[retrieval_type]
+    if not config then return false end
+
+    -- Snapshot current hands for change detection
+    local snap_left = DRC.left_hand and DRC.left_hand() or nil
+    local snap_right = DRC.right_hand and DRC.right_hand() or nil
+
+    if waitrt then waitrt() end
+
+    -- Build combined pattern list for bput
+    local all = {}
+    for _, p in ipairs(config.matches) do all[#all + 1] = p end
+    for _, p in ipairs(config.failures) do all[#all + 1] = p end
+    all[#all + 1] = "You are already holding"
+
+    local result = DRC.bput(config.verb, unpack(all))
+    if waitrt then waitrt() end
+
+    if not result or result == "" then
+      echo("EquipmentManager: No response for '" .. config.verb .. "' — command may have been lost")
+      return false
+    end
+
+    -- Already holding — success
+    if result:find("already holding") then return true end
+
+    -- Check exhausted patterns (terminal failure, no recovery)
+    for _, p in ipairs(config.exhausted) do
+      if result:find(p) then return false end
+    end
+
+    -- Check failure patterns with recovery
+    for _, p in ipairs(config.failures) do
+      if smart_find(result, p) then
+        local recovered = config.failure_recovery(result)
+        if recovered then return true end
+        -- After recovery proc, check if item ended up in hand
+        return DRCI and DRCI.in_hands and DRCI.in_hands(item) or false
+      end
+    end
+
+    -- Check success — wait for hands to change (5-second timeout)
+    for _, p in ipairs(config.matches) do
+      if smart_find(result, p) then
+        local deadline = os.time() + 5
+        while snap_left == (DRC.left_hand and DRC.left_hand() or nil)
+          and snap_right == (DRC.right_hand and DRC.right_hand() or nil)
+          and os.time() < deadline do
+          if pause then pause(0.05) end
+        end
+        return true
+      end
+    end
+
+    return false
+  end
+
   --- Get an item from wherever it's stored.
+  -- Ported from Lich5 get_item? (equipmanager.rb lines 381-409).
+  -- Checks hands first, then tries wield, transform, tie-to, worn,
+  -- container, and general stow locations in order.
   function em.get_item(self, item)
     if not item then return false end
     if DRCI and DRCI.in_hands and DRCI.in_hands(item) then return true end
 
     local success = false
-    if item.wield then
-      local result = DRC.bput("wield my " .. item:short_name(),
-        "You draw", "You deftly remove", "You slip",
-        "With a flick", "Wield what",
-        "Your right hand is too injured",
-        "Your left hand is too injured")
-      success = not (result:find("Wield what") or result:find("too injured"))
-    elseif item.tie_to then
-      success = DRCI and DRCI.untie_item and DRCI.untie_item(item:short_name(), item.tie_to) or false
-    elseif item.worn then
-      success = DRCI and DRCI.remove_item and DRCI.remove_item(item:short_name()) or false
-    elseif item.container then
-      success = DRCI and DRCI.get_item and DRCI.get_item(item:short_name(), item.container) or false
-    else
-      success = DRCI and DRCI.get_item and DRCI.get_item(item:short_name()) or false
-    end
 
-    -- Handle transforms after successful get
-    if success and item.transforms_to then
-      local cmd = item.transform_verb or ("turn my " .. item:short_name())
-      DRC.bput(cmd, item.transform_text or "shifts", "What were", "Turn what")
-      if waitrt then waitrt() end
+    if item.wield then
+      -- Wield path is special (no verb_data entry for wield)
+      local wield_all = {}
+      if DRCI and DRCI.WIELD_ITEM_SUCCESS then
+        for _, p in ipairs(DRCI.WIELD_ITEM_SUCCESS) do wield_all[#wield_all + 1] = p end
+      else
+        wield_all[#wield_all + 1] = "You draw"
+        wield_all[#wield_all + 1] = "You deftly remove"
+        wield_all[#wield_all + 1] = "You slip"
+        wield_all[#wield_all + 1] = "With a flick"
+      end
+      if DRCI and DRCI.WIELD_ITEM_FAILURE then
+        for _, p in ipairs(DRCI.WIELD_ITEM_FAILURE) do wield_all[#wield_all + 1] = p end
+      else
+        wield_all[#wield_all + 1] = "Wield what"
+        wield_all[#wield_all + 1] = "Your right hand is too injured"
+        wield_all[#wield_all + 1] = "Your left hand is too injured"
+      end
+      local result = DRC.bput("wield my " .. item:short_name(), unpack(wield_all))
+      success = result ~= nil
+      -- Check for failure patterns
+      if DRCI and DRCI.WIELD_ITEM_FAILURE then
+        for _, p in ipairs(DRCI.WIELD_ITEM_FAILURE) do
+          if result and smart_find(result, p) then success = false; break end
+        end
+      else
+        if result and (result:find("Wield what") or result:find("too injured")) then
+          success = false
+        end
+      end
+      if not success then
+        echo("EquipmentManager: Unable to wield " .. item:short_name())
+      end
+    elseif item.transforms_to then
+      -- Transform path: get the base item first, then transform it
+      local transform_item = self:item_by_desc(item.transforms_to)
+      if not transform_item then
+        echo("EquipmentManager: Could not find transformed item matching '" .. item.transforms_to .. "' in gear list")
+        return false
+      end
+      local got
+      if transform_item.worn then
+        got = self:get_item_helper(transform_item, "worn")
+      else
+        got = self:get_item_helper(transform_item, "stowed")
+      end
+      if not got then
+        echo("EquipmentManager: Unable to retrieve " .. transform_item:short_name() .. " for transform")
+        return false
+      end
+      success = self:get_item_helper(transform_item, "transform")
+    else
+      -- Chain: tied -> worn -> container -> stowed (Lich5 short-circuit OR)
+      if item.tie_to then
+        success = self:get_item_helper(item, "tied")
+      end
+      if not success and item.worn then
+        success = self:get_item_helper(item, "worn")
+      end
+      if not success and item.container then
+        success = DRCI and DRCI.get_item and DRCI.get_item(item:short_name(), item.container) or false
+      end
+      if not success then
+        success = self:get_item_helper(item, "stowed")
+      end
+      if not success then
+        echo("EquipmentManager: Could not find " .. item:short_name() .. " anywhere")
+      end
     end
 
     return success
