@@ -4,6 +4,11 @@
 -- @module lib.dr.common_items
 local M = {}
 
+-- smart_find is a global from builtins.lua; provide fallback for standalone loading
+local smart_find = smart_find or function(text, pattern)
+    return string.find(text, pattern) ~= nil
+end
+
 -------------------------------------------------------------------------------
 -- Constants
 -------------------------------------------------------------------------------
@@ -15,87 +20,262 @@ M.TRASH_STORAGE = {
   "tangle", "tree", "turtle", "urn", "gelapod",
 }
 
---- Patterns indicating successful drop/trash
+--- Patterns indicating successful drop/trash (7 patterns — full Lich5 parity)
 M.DROP_TRASH_SUCCESS = {
-  "You drop", "^You put", "You spread .* on the ground",
-  "smashing it to bits", "As you open your hand to release",
-  "You toss .* at the domesticated gelapod",
-  "You feed .* a bit warily to the domesticated gelapod",
+  "^You drop",
+  "^You put",
+  "^You spread .* on the ground",
+  "smashing it to bits",
+  -- Item crumbles when leaves your hand, like a moonblade
+  "^As you open your hand to release the",
+  "^You toss .* at the domesticated gelapod",
+  "^You feed .* a bit warily to the domesticated gelapod",
 }
 
---- Patterns indicating failed drop/trash
+--- Patterns indicating failed drop/trash (15 patterns — full Lich5 parity)
 M.DROP_TRASH_FAILURE = {
-  "What were you referring to", "I could not find",
-  "But you aren't holding that", "Perhaps you should be holding",
-  "You're kidding, right", "You can't do that",
-  "No littering", "Where do you want to put that",
+  "^What were you referring to",
+  "^I could not find",
+  "^But you aren't holding that",
+  "^Perhaps you should be holding that first",
+  "^You're kidding, right",
+  "^You can't do that",
+  "No littering",
+  "^Where do you want to put that",
+  "^You really shouldn't be loitering",
+  "^You don't seem to be able to move",
+  -- Cursed and unable to let go of items; find a Cleric to uncurse
+  "^Oddly, when you attempt to stash it away safely",
+  "^You need something in your right hand",
+  "^You can't put that there",
+  "^The domesticated gelapod glances warily at",  -- deeds
+  "^You should empty it out, first",  -- container with items
 }
 
---- Get/pickup success patterns
+--- Get/pickup success patterns (11 patterns — full Lich5 parity)
 M.GET_ITEM_SUCCESS = {
-  "You get", "You pick up", "You grab", "You accept",
+  "you draw",  -- case-insensitive in Lich5; note: excludes "draw X's wounds" via negative lookahead in Ruby
+  "^You get",
+  "^You pick",
+  "^You pluck",
+  "^You slip",
+  "^You scoop",
+  "^You deftly remove",
+  "^You are already holding",
+  "^You fade in for a moment as you",
+  "^You carefully lift",
+  "^You carefully remove .* from the bundle",
+  "^With a flick of your wrist, you stealthily unsheath",
 }
 
---- Get/pickup failure patterns
+--- Get/pickup failure patterns (21 patterns — full Lich5 parity)
 M.GET_ITEM_FAILURE = {
-  "What were you referring to", "I could not find",
-  "You need a free hand", "But that is already in your inventory",
-  "What do you want to get", "You can't pick that up",
+  "^A magical force keeps you from grasping",
+  "^You'll need both hands free",
+  "^You need both hands free",
+  "^You need a free hand",
+  "^You can't pick that up with your hand that damaged",
+  "^Your .* hand is too injured",
+  "^You just can't",
+  "^You stop as you realize the .* is not yours",
+  "^You can't reach that from here",  -- on a mount like a flying carpet
+  "^You don't seem to be able to move",
+  "^You should untie",
+  "^You can't do that",
+  "^Get what",
+  "^I could not",
+  "^What were you",
+  "already in your inventory",  -- wearing it
+  "needs to be tended to be removed",  -- ammo lodged in you
+  "push you over the item limit",  -- at item capacity
+  "rapidly decays away",  -- item disappears when try to get it
+  "cracks and rots away",  -- item disappears when try to get it
+  "^You should stop practicing your Athletics skill before you do that",
 }
 
---- Put away success patterns
+--- Put away success patterns (25 patterns + SHEATH splat = ~34 total — full Lich5 parity)
+--- Note: SHEATH_ITEM_SUCCESS is splatted in after definition below.
 M.PUT_AWAY_SUCCESS = {
-  "^You put", "You tuck", "You place", "You slide",
-  "You open .* and put", "You drop",
+  "^You put your .* in",
+  "^You hold out",
+  "^You stuff",
+  "^You tuck",
+  "^You open your pouch and put",
+  "^You guide your",  -- puppy storage
+  "^You nudge your",  -- monkey storage
+  -- Item crumbles when stowed, like a moonblade
+  "^As you open your hand to release the",
+  -- Thief binning a stolen item
+  "nods toward you as your .* falls into the .* bin",
+  "^You add",
+  "^You rearrange",
+  "^You combine the stacks",
+  "^You secure",
+  -- Success messages for putting item in a container OFF your person
+  "^You drop",
+  "^You set",
+  "^You put",
+  "^You carefully fit .* into your bundle",
+  "^You gently set",
+  -- SHEATH patterns are appended below after SHEATH_ITEM_SUCCESS definition
+  "^You toss .* into",
 }
 
---- Put away failure patterns
+--- Put away failure patterns (30 patterns — full Lich5 parity)
 M.PUT_AWAY_FAILURE = {
-  "What were you referring to", "I could not find",
-  "is too .* to fit", "There's no room",
-  "You can't put that there", "Weirdly, you can't manage",
+  "^Stow what",
+  "^I can't find your container for stowing things in",
+  "^Please rephrase that command",
+  "^What were you referring to",
+  "^I could not find what you were referring to",
+  "^There isn't any more room in",
+  "^There's no room",
+  "^(?:The|That).* too heavy to go in there",
+  "^You (?:need to|should) unload",
+  "^You can't do that",
+  "^You just can't get",
+  "^You can't put items",
+  "^You can only take items out",
+  "^You don't seem to be able to move",
+  "^Perhaps you should be holding that first",
+  "^Containers can't be placed in",
+  "^The .* is not designed to carry anything",
+  "^You can't put that.*there",
+  "^Weirdly, you can't manage .* to fit",
+  "^%[Containers can't be placed in",
+  "even after stuffing it",
+  "is too .* to (?:fit|hold)",
+  "no matter how you arrange it",
+  "close the fan",
+  "to fit in the",
+  "doesn't seem to want to leave you",  -- trying to put a pet in a home
+  -- Cursed and unable to let go of items
+  "Oddly, when you attempt to stash it away safely",
+  "completely full",
+  "That doesn't belong in there!",
+  "exerts a steady force preventing",
 }
 
---- Wear item success patterns
+--- Wear item success patterns (29 patterns — full Lich5 parity)
 M.WEAR_ITEM_SUCCESS = {
-  "You put on", "You attach", "You slide .* on",
-  "You work your way into", "You pull .* over",
-  "You strap", "You drape", "You slip",
+  "^You put",
+  "^You pull",
+  "^You sling",
+  "^You attach",
+  "^You strap",
+  "^You slide",
+  "^You spin",
+  "^You slip",
+  "^You place",
+  "^You hang",
+  "^You tug",
+  "^You struggle",
+  "^You squeeze",
+  "^You manage",
+  "^You gently place",
+  "^You toss one strap",
+  "^You carefully loop",
+  "^You work your way into",
+  "^You are already wearing",
+  "^Gritting your teeth, you grip",
+  "^You expertly sling the",
+  "put it on",  -- clerical collar thing
+  "slide effortlessly onto your",
+  "^You carefully arrange",
+  "^A brisk chill rushes through you as you wear",
+  "^You drape",
+  "You lean over and slip your feet into the boots%.",
+  "^You reach down and step into",
+  "Gritting your teeth",
 }
 
---- Wear item failure patterns
+--- Wear item failure patterns (7 patterns — full Lich5 parity)
 M.WEAR_ITEM_FAILURE = {
-  "Wear what", "You can't wear that",
-  "You are already wearing", "Remove what you're wearing first",
+  "^You can't wear",
+  "^You (?:need to|should) unload",
+  "close the fan",
+  "^You don't seem to be able to move",
+  "^Wear what",
+  "^I could not",
+  "^What were you",
 }
 
---- Remove item success patterns
+--- Remove item success patterns (23 patterns — full Lich5 parity)
 M.REMOVE_ITEM_SUCCESS = {
-  "You remove", "You pull .* free", "You sling",
-  "You slide .* off", "You work your way out of",
-  "You unbuckle", "You loosen", "You detach", "You yank",
+  "^Dropping your shoulder",
+  "^The .* slide",
+  "^Without any effort",
+  "^You .* slide",
+  "^You detach",
+  "^You loosen",
+  "^You pull",
+  "^You.*remove",
+  "^You slide",
+  "^You sling",
+  "^You slip",
+  "^You struggle",
+  "^You take",
+  "you tug",  -- case-insensitive in Lich5
+  "^You untie",
+  "as you remove",
+  "slide themselves off of your",
+  "you manage to loosen",
+  "you unlace",
+  "^You slam the heels",
+  "^You work your way out",
   "^Grunting with momentary exertion",
+  "^With masterful grace, you ready",
 }
 
---- Remove item failure patterns
+--- Remove item failure patterns (7 patterns — full Lich5 parity)
 M.REMOVE_ITEM_FAILURE = {
-  "Remove what", "You aren't wearing that",
+  "^You'll need both hands free",
+  "^You need a free hand",
+  "^You aren't wearing",
+  "^You don't seem to be able to move",
+  "^Remove what",
+  "^I could not",
+  "^What were you",
 }
 
---- Tie item success patterns
+--- Tie item success patterns (4 patterns — full Lich5 parity)
 M.TIE_ITEM_SUCCESS = {
-  "you attach", "You tie",
+  "^You .*tie",
+  "^You attach",
+  "has already been tied off",
+  "Tie it off when it's empty%?",
 }
 
---- Tie item failure patterns
+--- Tie item failure patterns (8 patterns — full Lich5 parity)
 M.TIE_ITEM_FAILURE = {
-  "Tie what", "Your wounds hinder",
+  "^There's no more free ties",
+  "^Tie what",
+  "^You are a little too busy",
+  "^You don't seem to be able to move",
+  "^You must be holding",
+  "^Your wounds hinder your ability to do that",
+  "close the fan",
+  "doesn't seem to fit",
+}
+
+--- Untie item success patterns (2 patterns — full Lich5 parity)
+M.UNTIE_ITEM_SUCCESS = {
+  "^You remove",
+  "You untie",  -- case-insensitive in Lich5
+}
+
+--- Untie item failure patterns (4 patterns — full Lich5 parity)
+M.UNTIE_ITEM_FAILURE = {
+  "^You don't seem to be able to move",
+  "^You fumble with the ties",
+  "^Untie what",
+  "^What were you referring",
 }
 
 --- Sheath item success patterns (upstream 375b9a0)
 M.SHEATH_ITEM_SUCCESS = {
     "^Sheathing", "^You sheath", "^You secure your", "^You slip",
-    "^You hang", "^You .-strap",
+    "^You hang", "^You (?:easily )?strap",
     "^With a flick of your wrist,? you stealthily sheath",
     "^With fluid and stealthy movements you slip",
     "^The .* slides easily",
@@ -105,6 +285,9 @@ M.SHEATH_ITEM_FAILURE = {
     "is too small to hold that", "is too wide to fit",
     "^Your .* hand is too injured",
 }
+
+-- Splat SHEATH_ITEM_SUCCESS into PUT_AWAY_SUCCESS (Lich5: *SHEATH_ITEM_SUCCESS_PATTERNS)
+for _, p in ipairs(M.SHEATH_ITEM_SUCCESS) do table.insert(M.PUT_AWAY_SUCCESS, p) end
 
 --- Wield item success patterns (upstream 375b9a0)
 M.WIELD_ITEM_SUCCESS = {
@@ -158,7 +341,135 @@ M.BRAID_TOO_LONG_PATTERN = "The braided (.+) is too long"
 --- Accept pattern (upstream 375b9a0)
 M.ACCEPT_SUCCESS_PATTERN = "You accept (%w+)'s offer and are now holding"
 
---- Stow item combined patterns (upstream 375b9a0)
+--- Rummage success patterns (full Lich5 parity)
+M.RUMMAGE_SUCCESS = {
+    "^You rummage through .* and see",
+    "^In the .* you see",
+    "there is nothing",
+}
+M.RUMMAGE_FAILURE = {
+    "^You don't seem to be able to move",
+    "^I could not find",
+    "^I don't know what you are referring to",
+    "^What were you referring to",
+}
+
+--- Tap success patterns (6 patterns — full Lich5 parity)
+M.TAP_SUCCESS = {
+    "^You tap%s(?!into).*",  -- The `.*` captures entire phrase for parsing
+    "^You (?:thump|drum) your finger",  -- Fancy verbiage tap
+    "^As you tap",
+    "^The orb is delicate",  -- Favor orb
+    "^You .* on the shoulder",  -- Tapped someone
+    "^You suddenly forget what you were doing",  -- tessera with full hands
+}
+
+--- Tap failure patterns (4 patterns — full Lich5 parity)
+M.TAP_FAILURE = {
+    "^You don't seem to be able to move",
+    "^I could not find",
+    "^I don't know what you are referring to",
+    "^What were you referring to",
+}
+
+--- Open container success patterns (6 patterns — full Lich5 parity)
+M.OPEN_CONTAINER_SUCCESS = {
+    "^You open",
+    "^You slowly open",
+    "^The .* opens",
+    "^You unbutton",
+    "(?:It's|is) already open",
+    "^You spread your arms, carefully holding your bag well away from your body",
+}
+
+--- Open container failure patterns (9 patterns — full Lich5 parity)
+M.OPEN_CONTAINER_FAILURE = {
+    "^Please rephrase that command",
+    "^What were you referring to",
+    "^I could not find what you were referring to",
+    "^You don't want to ruin your spell just for that do you",
+    "^It would be a shame to disturb the silence of this place for that",
+    "^This is probably not the time nor place for that",
+    "^You don't seem to be able to move",
+    "^There is no way to do that",
+    "^You can't do that",
+    "^Open what",
+}
+
+--- Close container success patterns (4 patterns — full Lich5 parity)
+M.CLOSE_CONTAINER_SUCCESS = {
+    "^You close",
+    "^You quickly close",
+    "^You pull",
+    "is already closed",
+}
+
+--- Close container failure patterns (9 patterns — full Lich5 parity)
+M.CLOSE_CONTAINER_FAILURE = {
+    "^Please rephrase that command",
+    "^What were you referring to",
+    "^I could not find what you were referring to",
+    "^You don't want to ruin your spell just for that do you",
+    "^It would be a shame to disturb the silence of this place for that",
+    "^This is probably not the time nor place for that",
+    "^You don't seem to be able to move",
+    "^There is no way to do that",
+    "^You can't do that",
+}
+
+--- Lower item success patterns (2 patterns — full Lich5 parity)
+M.LOWER_SUCCESS = {
+    "^You lower",
+    -- Item crumbles when leaves your hand, like a moonblade
+    "^As you open your hand to release the",
+}
+
+--- Lower item failure patterns (5 patterns — full Lich5 parity)
+M.LOWER_FAILURE = {
+    "^You don't seem to be able to move",
+    "^But you aren't holding anything",
+    "^Please rephrase that command",
+    "^What were you referring to",
+    "^I could not find what you were referring to",
+}
+
+--- Lift item success patterns (1 pattern — full Lich5 parity)
+M.LIFT_SUCCESS = {
+    "^You pick up",
+}
+
+--- Lift item failure patterns (4 patterns — full Lich5 parity)
+M.LIFT_FAILURE = {
+    "^There are no items lying at your feet",
+    "^What did you want to try and lift",
+    "can't quite lift it",
+    "^You are not strong enough to pick that up",
+}
+
+--- Give item success patterns (5 patterns — full Lich5 parity)
+M.GIVE_ITEM_SUCCESS = {
+    "has accepted your offer",
+    "your ticket and are handed back",
+    "Please don't lose this ticket!",
+    "^You hand .* gives you back a repair ticket",
+    "^You hand .* your ticket and are handed back",
+}
+
+--- Give item failure patterns (10 patterns — full Lich5 parity)
+M.GIVE_ITEM_FAILURE = {
+    "I don't repair those here",
+    "There isn't a scratch on that",
+    "give me a few more moments",
+    "I will not repair something that isn't broken",
+    "I can't fix those",
+    "has declined the offer",
+    "^Your offer to .* has expired",
+    "^You may only have one outstanding offer at a time",
+    "^What is it you're trying to give",
+    "Lucky for you!  That isn't damaged!",
+}
+
+--- Stow item combined patterns (rebuilt with expanded GET + PUT_AWAY arrays)
 M.STOW_ITEM_SUCCESS = {}
 for _, p in ipairs(M.GET_ITEM_SUCCESS) do table.insert(M.STOW_ITEM_SUCCESS, p) end
 for _, p in ipairs(M.PUT_AWAY_SUCCESS) do table.insert(M.STOW_ITEM_SUCCESS, p) end
@@ -166,6 +477,9 @@ for _, p in ipairs(M.PUT_AWAY_SUCCESS) do table.insert(M.STOW_ITEM_SUCCESS, p) e
 M.STOW_ITEM_FAILURE = {}
 for _, p in ipairs(M.GET_ITEM_FAILURE) do table.insert(M.STOW_ITEM_FAILURE, p) end
 for _, p in ipairs(M.PUT_AWAY_FAILURE) do table.insert(M.STOW_ITEM_FAILURE, p) end
+
+M.STOW_ITEM_RETRY = {}
+for _, p in ipairs(M.PUT_AWAY_ITEM_RETRY) do table.insert(M.STOW_ITEM_RETRY, p) end
 
 -------------------------------------------------------------------------------
 -- Item reference helper
@@ -175,8 +489,8 @@ for _, p in ipairs(M.PUT_AWAY_FAILURE) do table.insert(M.STOW_ITEM_FAILURE, p) e
 -- @param value string Item name
 -- @return string Prefixed name
 function M.item_ref(value)
-  if not value then return value end
-  if value:match("^my ") or value:match("^#") then
+  if not value or value == "" then return value end
+  if value:lower():find("^my ") or value:find("^#") then
     return value
   end
   return "my " .. value
@@ -300,10 +614,35 @@ function M.stow_hand(hand, retries)
     echo("DRCI: stow_hand exceeded max retries")
     return false
   end
-  local result = DRC.bput("stow " .. hand,
-    "You put", "You tuck", "Stow what", "You're not holding anything",
-    "already in your inventory")
-  return not (result:find("Stow what") or result:find("not holding"))
+
+  local all = { M.BRAID_TOO_LONG_PATTERN }
+  for _, p in ipairs(M.CONTAINER_IS_CLOSED) do table.insert(all, p) end
+  for _, p in ipairs(M.STOW_ITEM_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.STOW_ITEM_FAILURE) do table.insert(all, p) end
+  for _, p in ipairs(M.STOW_ITEM_RETRY) do table.insert(all, p) end
+
+  local result = DRC.bput("stow " .. hand, unpack(all))
+  if not result then return false end
+
+  -- Braid handling
+  local braid_name = result:match("The braided (.+) is too long")
+  if braid_name then
+    local noun = DRC.get_noun and DRC.get_noun(braid_name) or braid_name:match("%S+$")
+    M.dispose_trash(noun)
+    return M.stow_hand(hand, retries - 1)
+  end
+
+  -- Retry patterns
+  for _, p in ipairs(M.STOW_ITEM_RETRY) do
+    if smart_find(result, p) then return M.stow_hand(hand, retries - 1) end
+  end
+
+  -- Success
+  for _, p in ipairs(M.STOW_ITEM_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+
+  return false
 end
 
 --- Stow both hands.
@@ -345,39 +684,64 @@ function M.give_item(target, item, retries)
     cmd = "give " .. target
   end
 
-  local result = DRC.bput(cmd,
-    "has accepted your offer",
-    "your ticket and are handed back",
-    "Please don't lose this ticket!",
-    "You hand .* gives you back a repair ticket",
-    "You hand .* your ticket and are handed back",
-    "I don't repair those here",
-    "There isn't a scratch on that",
-    "give me a few more moments",
-    "I will not repair something that isn't broken",
-    "I can't fix those",
-    "has declined the offer",
-    "Your offer to .* has expired",
-    "You may only have one outstanding offer",
-    "What is it you're trying to give",
-    "Lucky for you!  That isn't damaged!",
-    "GIVE it again",
-    "give it to me again",
-    "already has an outstanding offer")
+  local all = { "GIVE it again", "give it to me again",
+                "^You don't need to specify the object",
+                "already has an outstanding offer" }
+  for _, p in ipairs(M.GIVE_ITEM_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.GIVE_ITEM_FAILURE) do table.insert(all, p) end
 
-  if result:find("GIVE it again") or result:find("give it to me again") then
-    if waitrt then waitrt() end
+  local result = DRC.bput(cmd, {timeout = 35}, unpack(all))
+  if not result then return false end
+
+  -- Success
+  for _, p in ipairs(M.GIVE_ITEM_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+
+  -- Failure
+  for _, p in ipairs(M.GIVE_ITEM_FAILURE) do
+    if smart_find(result, p) then return false end
+  end
+
+  -- Retry: "give it to me again"
+  if result:find("give it to me again") then
     return M.give_item(target, item, retries - 1)
   end
+
+  -- Retry: "already has an outstanding offer" — wait then retry
   if result:find("already has an outstanding offer") then
     pause(5)
     return M.give_item(target, item, retries - 1)
   end
 
-  return result:find("has accepted your offer") ~= nil
-      or result:find("your ticket and are handed back") ~= nil
-      or result:find("Please don't lose this ticket!") ~= nil
-      or result:find("gives you back a repair ticket") ~= nil
+  -- Retry: "GIVE it again" — wait for roundtime then retry
+  if result:find("GIVE it again") then
+    if waitrt then waitrt() end
+    return M.give_item(target, item, retries - 1)
+  end
+
+  -- Hand-swap: "You don't need to specify the object"
+  if result:find("You don't need to specify the object") then
+    if M.in_right_hand(item) then
+      return M.give_item(target, nil, retries - 1)
+    elseif M.in_left_hand(item) then
+      local swap_all = {}
+      for _, p in ipairs(M.SWAP_HANDS_SUCCESS) do table.insert(swap_all, p) end
+      for _, p in ipairs(M.SWAP_HANDS_FAILURE) do table.insert(swap_all, p) end
+      local swap_result = DRC.bput("swap", unpack(swap_all))
+      for _, p in ipairs(M.SWAP_HANDS_SUCCESS) do
+        if smart_find(swap_result, p) then
+          return M.give_item(target, nil, retries - 1)
+        end
+      end
+      return false
+    else
+      echo("DRCI: give_item could not find '" .. tostring(item) .. "' in either hand")
+      return false
+    end
+  end
+
+  return false
 end
 
 --- Lower an item to the ground.
@@ -385,9 +749,22 @@ end
 -- @return boolean true on success
 function M.lower_item(item)
   if not item then return false end
-  local result = DRC.bput("lower " .. M.item_ref(item),
-    "You lower", "You gently", "Lower what", "That is already")
-  return result:find("You lower") ~= nil or result:find("You gently") ~= nil
+  if not M.in_hands(item) then return false end
+
+  -- Determine which hand holds the item
+  local hand = "right"
+  local lh = DRC.left_hand and DRC.left_hand() or nil
+  if lh and lh:find(item, 1, true) then hand = "left" end
+
+  local all = {}
+  for _, p in ipairs(M.LOWER_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.LOWER_FAILURE) do table.insert(all, p) end
+  local result = DRC.bput("lower ground " .. hand, unpack(all))
+  if not result then return false end
+  for _, p in ipairs(M.LOWER_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+  return false
 end
 
 -------------------------------------------------------------------------------
@@ -437,10 +814,16 @@ function M.untie_item(item, from)
   if not item then return false end
   local cmd = "untie " .. M.item_ref(item)
   if from then cmd = cmd .. " from " .. M.item_ref(from) end
-  local result = DRC.bput(cmd,
-    "You remove", "You untie", "Untie what",
-    "Your wounds hinder")
-  return result:find("You remove") ~= nil or result:find("You untie") ~= nil
+
+  local all = {}
+  for _, p in ipairs(M.UNTIE_ITEM_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.UNTIE_ITEM_FAILURE) do table.insert(all, p) end
+  local result = DRC.bput(cmd, unpack(all))
+  if not result then return false end
+  for _, p in ipairs(M.UNTIE_ITEM_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+  return false
 end
 
 --- Tie an item to something.
@@ -449,9 +832,17 @@ end
 -- @return boolean
 function M.tie_item(item, to)
   if not item then return false end
-  local result = DRC.bput("tie " .. M.item_ref(item) .. " to " .. M.item_ref(to),
-    "you attach", "You tie", "Tie what", "Your wounds hinder")
-  return result:find("attach") ~= nil or result:find("You tie") ~= nil
+  local place = to and (" to " .. M.item_ref(to)) or ""
+
+  local all = {}
+  for _, p in ipairs(M.TIE_ITEM_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.TIE_ITEM_FAILURE) do table.insert(all, p) end
+  local result = DRC.bput("tie " .. M.item_ref(item) .. place, unpack(all))
+  if not result then return false end
+  for _, p in ipairs(M.TIE_ITEM_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+  return false
 end
 
 -------------------------------------------------------------------------------
@@ -547,20 +938,30 @@ end
 -- @param container string Container to open
 -- @return boolean true if opened or already open
 function M.open_container(container)
-  local result = DRC.bput("open " .. M.item_ref(container),
-    "You open", "That is already open",
-    "What were you referring to", "It is locked")
-  return result:find("You open") ~= nil or result:find("already open") ~= nil
+  local all = {}
+  for _, p in ipairs(M.OPEN_CONTAINER_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.OPEN_CONTAINER_FAILURE) do table.insert(all, p) end
+  local result = DRC.bput("open " .. M.item_ref(container), unpack(all))
+  if not result then return false end
+  for _, p in ipairs(M.OPEN_CONTAINER_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+  return false
 end
 
 --- Close a container.
 -- @param container string Container to close
 -- @return boolean
 function M.close_container(container)
-  local result = DRC.bput("close " .. M.item_ref(container),
-    "You close", "That is already closed",
-    "What were you referring to")
-  return result:find("You close") ~= nil or result:find("already closed") ~= nil
+  local all = {}
+  for _, p in ipairs(M.CLOSE_CONTAINER_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.CLOSE_CONTAINER_FAILURE) do table.insert(all, p) end
+  local result = DRC.bput("close " .. M.item_ref(container), unpack(all))
+  if not result then return false end
+  for _, p in ipairs(M.CLOSE_CONTAINER_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+  return false
 end
 
 --- Shared helper for rummage/look-in container with closed-container retry.
@@ -660,10 +1061,23 @@ end
 --- Tap an item (returns the tap description).
 -- @param item string Item to tap
 -- @return string Result of tapping
-function M.tap(item)
+function M.tap(item, container)
   if not item then return "" end
-  return DRC.bput("tap " .. M.item_ref(item),
-    "You tap", "I could not find", "What were you referring to")
+  local from = ""
+  if container then
+    -- If container already starts with a preposition, use as-is
+    if container:match("^[Ii]n ") or container:match("^[Oo]n ") or container:match("^[Uu]nder ")
+        or container:match("^[Bb]ehind ") or container:match("^[Ff]rom ") then
+      from = " " .. container
+    else
+      from = " from " .. M.item_ref(container)
+    end
+  end
+
+  local all = {}
+  for _, p in ipairs(M.TAP_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.TAP_FAILURE) do table.insert(all, p) end
+  return DRC.bput("tap " .. M.item_ref(item) .. from, unpack(all))
 end
 
 --- Check if a worn item is currently being worn (uses tap command).
@@ -685,7 +1099,11 @@ function M.exists(item, container)
     return M.inside(item, container)
   end
   local result = M.tap(item)
-  return not (result:find("I could not find") or result:find("What were you referring to"))
+  if not result then return false end
+  for _, p in ipairs(M.TAP_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+  return false
 end
 
 --- Count boxes across all configured picking containers.
@@ -1010,17 +1428,28 @@ end
 -- With no argument, attempts to lift any item at feet.
 -- @param item string|nil Item noun to lift (optional)
 -- @return boolean true if item was picked up, false otherwise
-function M.lift(item)
+function M.lift(item, stow)
   if not item then return false end
-  local cmd = "lift " .. item
-  local result = DRC.bput(cmd,
-    "You pick up",
-    "There are no items lying at your feet",
-    "What did you want to try and lift",
-    "can't quite lift it",
-    "You are not strong enough to pick that up",
-    "Roundtime")
-  return result ~= nil and result:find("You pick up") ~= nil
+  -- Necessary until adjectives are implemented for lift (Lich5 compat)
+  local noun = item:match("(%S+)$") or item
+
+  local all = {}
+  for _, p in ipairs(M.LIFT_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.LIFT_FAILURE) do table.insert(all, p) end
+  local result = DRC.bput("lift " .. noun, unpack(all))
+  if not result then return false end
+
+  for _, p in ipairs(M.LIFT_SUCCESS) do
+    if smart_find(result, p) then
+      if type(stow) == "string" then
+        return M.put_away_item(noun, stow)
+      elseif stow then
+        return M.stow_item(noun)
+      end
+      return true
+    end
+  end
+  return false
 end
 
 -------------------------------------------------------------------------------
