@@ -96,7 +96,7 @@ M.PARASITES_REGEX = {
 }
 
 --- Perceived health severity regex (from PERCEIVE HEALTH output).
-M.PERCEIVE_HEALTH_SEVERITY_REGEX = "(?<freshness>Fresh|Scars) (?<location>External|Internal).+--\\s+(?<severity>insignificant|negligible|minor|more than minor|harmful|very harmful|damaging|very damaging|severe|very severe|devastating|very devastating|useless)"
+M.PERCEIVE_HEALTH_SEVERITY_REGEX = "(?<freshness>Fresh|Scars) (?<location>External|Internal).+--\\s+(?<severity>insignificant|negligible|minor|more than minor|harmful|very harmful|damaging|very damaging|severe|very severe|devastating|very devastating|useless)\\b"
 
 --- Body part regex components.
 M.BODY_PART_REGEX = "(?<part>(?:l\\.|r\\.|left|right)?\\s?(?:\\w+))"
@@ -387,10 +387,10 @@ end
 function M.check_health()
   put("health")
   local lines = {}
-  local timeout_at = os.time() + 5
+  local timeout_at = os.time() + 15  -- Increased from 5s; Lich5 has no hard timeout
   local collecting = false
   while os.time() < timeout_at do
-    local line = get()
+    local line = get_noblock and get_noblock() or get()
     if line then
       if Regex.test("Your body feels|You have|Bleeding", line) then
         collecting = true
@@ -398,13 +398,14 @@ function M.check_health()
       if collecting then
         lines[#lines + 1] = DRC.strip_xml(line)
       end
-      -- End on prompt
       if line:find("<prompt") then break end
     else
       pause(0.1)
     end
   end
-
+  if #lines == 0 then
+    echo("DRCH: Failed to capture HEALTH output (timeout)")
+  end
   return M.parse_health_lines(lines)
 end
 
@@ -434,7 +435,7 @@ function M.parse_health_lines(health_lines)
     elseif Regex.test("^You have a dormant infection|^Your wounds are infected|^Your body is covered in open oozing sores", line) then
       diseased = true
     -- Poison
-    elseif Regex.test("^You have .* poison|trouble breathing", line) then
+    elseif Regex.test("^You have .* poison(?:ed)?|^You feel somewhat tired and seem to be having trouble breathing", line) then
       poisoned = true
     -- Parasites
     elseif Regex.test(parasites_pattern, line) or Regex.test("^You have a .* on your", line) then
@@ -676,7 +677,9 @@ function M.perceive_health()
     if waitrt then waitrt() end
     return M.check_health()
   end
-  local output = reget(20)
+  -- Collect perceived health output (Lich5 uses issue_command which captures all lines;
+  -- reget is a best-effort buffer that may truncate for heavily-wounded characters)
+  local output = reget(50)
   local perceived = M.parse_perceived_health_lines(output)
   local health = M.check_health()
   if waitrt then waitrt() end
@@ -709,7 +712,12 @@ function M.perceive_health_other(target)
     or result:find("avoids") or result:find("recoil") then
     return nil
   end
-  local output = reget(20)
+  -- Extract canonical target name from link confirmation
+  local canonical = result:match("between you and (%w+)")
+  if canonical then target = canonical end
+  -- Collect perceived health output (Lich5 uses issue_command which captures all lines;
+  -- reget is a best-effort buffer that may truncate for heavily-wounded characters)
+  local output = reget(50)
   return M.parse_perceived_health_lines(output)
 end
 
@@ -742,7 +750,9 @@ function M.bind_wound(body_part, person)
     if Regex.test(p, result) then
       local dislodge_caps = Regex.new("^You \\w+ remove (?:a|the|some) (?<item>.+) from"):captures(result)
       if dislodge_caps and dislodge_caps.item and DRCI and DRCI.dispose_trash then
-        DRCI.dispose_trash(dislodge_caps.item)
+        local worn_tc = UserVars and UserVars.worn_trashcan or nil
+        local worn_verb = UserVars and UserVars.worn_trashcan_verb or nil
+        DRCI.dispose_trash(dislodge_caps.item, worn_tc, worn_verb)
       end
       return M.bind_wound(body_part, person)
     end
