@@ -481,6 +481,34 @@ for _, p in ipairs(M.PUT_AWAY_FAILURE) do table.insert(M.STOW_ITEM_FAILURE, p) e
 M.STOW_ITEM_RETRY = {}
 for _, p in ipairs(M.PUT_AWAY_ITEM_RETRY) do table.insert(M.STOW_ITEM_RETRY, p) end
 
+--- Patterns indicating a gem pouch fill succeeded.
+M.FILL_POUCH_SUCCESS_PATTERNS = {
+  "^You open",
+  "^You fill your",
+  "^There aren't any gems",
+}
+
+--- Patterns indicating the pouch needs to be tied before filling.
+M.FILL_POUCH_NEEDS_TIE_PATTERNS = {
+  "^You'd better tie it up before putting",
+  "^You'll need to tie it up before",
+}
+
+--- Pattern indicating the gem pouch is too full.
+M.FILL_POUCH_FULL_PATTERN = "is too full to fit"
+
+--- Patterns indicating a gem pouch fill command failed.
+M.FILL_POUCH_FAILURE_PATTERNS = {
+  "^Please rephrase that command",
+  "^What were you referring to",
+}
+
+--- Pattern matching the start of INV BELT output.
+M.INV_BELT_START_PATTERN = "^All of your items worn attached to the belt:"
+
+--- Pattern matching the end of INV BELT output.
+M.INV_BELT_END_PATTERN = "^%[Use INVENTORY HELP"
+
 -------------------------------------------------------------------------------
 -- Item reference helper
 -------------------------------------------------------------------------------
