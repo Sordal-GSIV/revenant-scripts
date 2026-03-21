@@ -1630,6 +1630,163 @@ function M.search(item)
 end
 
 -------------------------------------------------------------------------------
+-- Inventory query methods
+-------------------------------------------------------------------------------
+
+--- Scroll name normalization substitutions (Lich5 parity).
+-- Applied in order when parsing RUMMAGE /SC results.
+local SCROLL_SUBS = {
+  { "^a piece of ", "" },
+  { "^an? ", "" },
+  { "^some ", "" },
+  { "%s+labeled with.*", "" },
+  { "icy blue vellum scroll", "icy scroll" },
+  { "green vellum scroll", "green scroll" },
+  { "fetid antelope vellum", "antelope vellum" },
+  { "papyrus roll", "papyrus.roll" },
+  { "pallid red scroll", "pallid scroll" },
+  { "%s+(bark|leaf|ostracon|papyrus|parchment|roll|scroll|tablet|vellum|manuscript)%s+.*", " %1" },
+  { "crumpled paper", "crumpled" },
+  { "pale ricepaper", "pale" },
+  { "stormy grey", "stormy" },
+  { "mossy green", "mossy" },
+  { "dark purple", "dark" },
+  { "vibrant red", "vibrant" },
+  { "bright green", "bright" },
+  { "icy blue", "blue" },
+  { "pearl%-white silk", "silk" },
+  { "ghostly white", "white" },
+  { "crinkled violet", "crinkled" },
+  { "drawing paper", "drawing" },
+}
+
+--- Count how many of an item exist (taps to find container, then counts).
+-- Mirrors Lich5 DRCI.count_items — taps the item to determine which container
+-- it's in, then delegates to count_items_in_container.
+-- @param item string Item name
+-- @return number Count
+function M.count_items(item)
+  if not item then return 0 end
+
+  local result = M.tap(item)
+  if not result then return 0 end
+
+  -- Lich5 checks "inside your <container>"
+  local container = result:match("inside your (.+)")
+  if not container then return 0 end
+
+  -- Strip trailing period if present
+  container = container:match("^(.-)%.?$")
+  return M.count_items_in_container(item, container)
+end
+
+--- Get inventory items by type (combat, armor, weapon, fluff, container).
+-- Mirrors Lich5 DRCI.get_inventory_by_type — sends INVENTORY <type> and
+-- parses the multi-line output, stripping articles and "(closed)" tags.
+-- @param inv_type string Inventory type (default "combat")
+-- @return table Array of item description strings
+function M.get_inventory_by_type(inv_type)
+  inv_type = inv_type or "combat"
+
+  local start_pattern = "^All of your |^You aren't wearing anything like that|^Both of your hands are empty"
+  local end_pattern = "^%[Use INVENTORY HELP"
+
+  local result = DRC.bput("inventory " .. inv_type,
+    "All of your", "You aren't wearing anything like that",
+    "Both of your hands are empty")
+
+  if not result then return {} end
+  if result:find("aren't wearing") or result:find("hands are empty") then
+    return {}
+  end
+
+  -- Collect lines until the INVENTORY HELP footer
+  local lines = {}
+  local timeout_at = os.time() + 5
+  while os.time() < timeout_at do
+    local line = get_noblock and get_noblock()
+    if line then
+      local stripped = line:gsub("<[^>]+>", ""):match("^%s*(.-)%s*$")
+      if stripped:find("^%[Use INVENTORY HELP") then break end
+      if stripped:find("^Lying at your feet") then break end
+      if stripped ~= "" and not stripped:find(start_pattern) then
+        -- Strip articles and "(closed)" like Lich5
+        stripped = stripped:gsub("^[Aa]n? ", ""):gsub("^[Ss]ome ", ""):gsub("%s+%(closed%)", "")
+        table.insert(lines, stripped)
+      end
+    else
+      if pause then pause(0.1) end
+    end
+  end
+
+  return lines
+end
+
+--- Get list of scrolls in a container via RUMMAGE /SC.
+-- Mirrors Lich5 DRCI.get_scroll_list_in_container — delegates to DRC.rummage
+-- with 'SC' parameter, then applies scroll-specific name normalization.
+-- @param container string Container name
+-- @return table Array of scroll adj+noun strings (e.g. "icy scroll")
+function M.get_scroll_list_in_container(container)
+  if not container then return {} end
+
+  local result = DRC.bput("rummage /SC my " .. container,
+    "but there is nothing in there like that",
+    "looking for .* and see",
+    "While it's closed",
+    "I don't know what you are referring to",
+    "You feel about",
+    "That would accomplish nothing")
+
+  if result:find("You feel about") then
+    if DRC.release_invisibility then DRC.release_invisibility() end
+    return M.get_scroll_list_in_container(container)
+  end
+
+  if result:find("nothing in there") or result:find("closed")
+      or result:find("don't know") or result:find("accomplish nothing") then
+    return {}
+  end
+
+  local text = result:match("looking for .* and see (.*)%.")
+  if not text then return {} end
+
+  -- Parse list and apply scroll-specific substitutions (Lich5 parity)
+  local items = DRC.list_to_array(text)
+  local scrolls = {}
+  for _, entry in ipairs(items) do
+    local s = entry:match("^%s*(.-)%s*$")
+    for _, sub in ipairs(SCROLL_SUBS) do
+      s = s:gsub(sub[1], sub[2])
+    end
+    s = s:match("^%s*(.-)%s*$")
+    if s ~= "" then
+      scrolls[#scrolls + 1] = s
+    end
+  end
+  return scrolls
+end
+
+--- Count items in a Necromancer material stacker via STUDY.
+-- Mirrors Lich5 DRCI.count_necro_stacker.
+-- @param stacker string Stacker item name
+-- @return number Count of items currently held
+function M.count_necro_stacker(stacker)
+  if not stacker then return 0 end
+
+  local result = DRC.bput("study " .. M.item_ref(stacker),
+    "currently holds %d+ items",
+    "I could not find",
+    "What were you referring to",
+    "Study what")
+  if not result then return 0 end
+
+  local count = result:match("currently holds (%d+) items")
+  if count then return tonumber(count) end
+  return 0
+end
+
+-------------------------------------------------------------------------------
 -- Gem Pouch Management
 -------------------------------------------------------------------------------
 
