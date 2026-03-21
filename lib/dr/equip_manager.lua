@@ -654,7 +654,99 @@ function M.EquipmentManager(settings)
     return false
   end
 
-  --- Wear an equipment set by name.
+  ---------------------------------------------------------------------------
+  -- Gear set diff helpers (private)
+  ---------------------------------------------------------------------------
+
+  --- Remove currently worn items that are NOT in the target gear set.
+  -- combat_items are raw description strings from get_combat_items();
+  -- target_items are Item objects from desc_to_items().
+  -- Mirrors Lich5 remove_unmatched_items: rejects descriptions matched by
+  -- any target item's short_regex, looks up the remainder in the master
+  -- gear list, and removes each one.
+  -- @param combat_items table Array of description strings currently worn
+  -- @param target_items table Array of Item objects in the target set
+  function em.remove_unmatched_items(self, combat_items, target_items)
+    for _, desc in ipairs(combat_items) do
+      -- Check whether any target item matches this worn description
+      local dominated = false
+      for _, target in ipairs(target_items) do
+        if target:matches(desc) then
+          dominated = true
+          break
+        end
+      end
+      if not dominated then
+        -- Look up the full Item from master gear list
+        local item = self:item_by_desc(desc)
+        if item then
+          self:remove_item(item)
+        end
+      end
+    end
+  end
+
+  --- Wear items from the target set that are NOT currently worn.
+  -- If a target item is currently in-hand, stow it first so wear_item
+  -- can retrieve it from its container.  Returns items that could not
+  -- be worn (missing from containers).
+  -- Mirrors Lich5 wear_missing_items (lines 157-170).
+  -- @param target_items table Array of Item objects to wear
+  -- @param combat_items table Array of description strings currently worn
+  -- @return table Array of Item objects that could not be worn
+  function em.wear_missing_items(self, target_items, combat_items)
+    local lost = {}
+    for _, target in ipairs(target_items) do
+      -- Already worn?
+      local already_worn = false
+      for _, desc in ipairs(combat_items) do
+        if target:matches(desc) then
+          already_worn = true
+          break
+        end
+      end
+      if not already_worn then
+        -- If item is in hand, stow it first (Lich5 lines 165-166)
+        local rh = DRC and DRC.right_hand and DRC.right_hand() or nil
+        local lh = DRC and DRC.left_hand and DRC.left_hand() or nil
+        local in_hand = (rh and target:matches(rh)) or (lh and target:matches(lh))
+        if in_hand then
+          self:stow_weapon(target:short_name())
+        end
+        -- Now wear from container
+        if not self:wear_item(target) then
+          table.insert(lost, target)
+        end
+      end
+    end
+    return lost
+  end
+
+  --- Notify the user about missing gear items via bold messaging + beep.
+  -- Mirrors Lich5 notify_missing (lines 138-146).
+  -- @param lost_items table Array of Item objects that couldn't be found
+  function em.notify_missing(self, lost_items)
+    if not lost_items or #lost_items == 0 then return end
+    if DRC and DRC.beep then DRC.beep() end
+    local names = {}
+    for _, item in ipairs(lost_items) do
+      table.insert(names, item:short_name())
+    end
+    echo("EquipmentManager: MISSING EQUIPMENT - Please verify these items are in a closed container and not lost:")
+    echo("EquipmentManager: " .. table.concat(names, ", "))
+    pause()
+    if DRC and DRC.beep then DRC.beep() end
+  end
+
+  ---------------------------------------------------------------------------
+  -- wear_equipment_set — full diff approach
+  ---------------------------------------------------------------------------
+
+  --- Wear an equipment set by name, using diff logic.
+  -- Removes items not in the target set, wears items missing from current.
+  -- Mirrors Lich5 wear_equipment_set? (lines 94-115).
+  -- @param set_name string Gear set name
+  -- @return boolean True if all items successfully worn
   function em.wear_equipment_set(self, set_name)
     if not set_name then return false end
     local gear_list = self._gear_sets[set_name]
@@ -665,17 +757,24 @@ function M.EquipmentManager(settings)
 
     local target_items = self:desc_to_items(gear_list)
 
-    -- Get current combat items
-    -- TODO: parse 'inv combat' output
-    -- For now, just wear all target items
-    for _, item in ipairs(target_items) do
-      self:wear_item(item)
-    end
+    -- Get current combat items as description strings
+    local combat_items = self:get_combat_items()
 
+    -- Step 1: Remove worn items not in target set
+    self:remove_unmatched_items(combat_items, target_items)
+
+    -- Step 2: Wear items missing from current
+    local lost_items = self:wear_missing_items(target_items, combat_items)
+
+    -- Step 3: Notify about missing items
+    self:notify_missing(lost_items)
+
+    -- Sort if configured
     if self._sort_head then
       DRC.bput("sort auto head", "Your inventory is now arranged")
     end
-    return true
+
+    return #lost_items == 0
   end
 
   --- Return held gear to its proper storage (E6: gear-set membership check).
