@@ -626,18 +626,24 @@ function M.get_materials(container) return M.rummage("M", container) end
 --- Play a musical instrument (simplified).
 -- @param song string Song to play
 -- @param instrument string|nil Instrument name
-function M.play_song(song, instrument)
+-- @param skip_tuning boolean|nil If true, skip tuning check
+function M.play_song(song, instrument, skip_tuning)
   local cmd = "play " .. song
   if instrument then
     cmd = cmd .. " on my " .. instrument
   end
-  M.bput(cmd,
+  local result = M.bput(cmd,
     "You begin a", "You effortlessly begin", "You begin some",
     "You struggle to begin", "slightest hint of difficulty",
     "fumble slightly", "You're already playing",
     "Play on what instrument", "too damaged to play",
     "dirtiness may affect your performance",
-    "You cannot play", "now isn't the best time")
+    "You cannot play", "now isn't the best time",
+    "tuning is off, and may hinder")
+  if result:find("tuning is off") and not skip_tuning then
+    respond("[DRC] play_song: instrument out of tune")
+  end
+  return result
 end
 
 --- Stop playing music.
@@ -676,12 +682,14 @@ end
 -- @param worn boolean     true = use settings.worn_instrument, false = settings.instrument
 -- @param skip_clean boolean  true = skip dirty/wet cleanup attempt
 -- @param climbing boolean    true = use UserVars.climbing_song, false = UserVars.song
+-- @param skip_tuning boolean  true = skip tuning even if out of tune
 -- @param _depth number    Internal recursion guard (do not pass)
 -- @return boolean true if playing started, false if we could not play
-function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth)
+function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, skip_tuning, _depth)
   if worn == nil     then worn      = true  end
   if skip_clean == nil then skip_clean = false end
   if climbing == nil then climbing  = false end
+  if skip_tuning == nil then skip_tuning = false end
   _depth = _depth or 0
   if _depth > 60 then
     respond("[DRC] play_song_managed: recursion limit, giving up")
@@ -750,7 +758,7 @@ function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _d
         return false
       end
     end
-    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, skip_tuning, _depth + 1)
 
   elseif result:find("now isn't the best time")
       or result:find("find somewhere drier")
@@ -759,7 +767,7 @@ function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _d
 
   elseif result:find("You're already playing") then
     M.stop_playing()
-    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, skip_tuning, _depth + 1)
 
   elseif result:find("You cannot play")
       or result:find("too damaged to play")
@@ -767,13 +775,17 @@ function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _d
     return false
 
   elseif result:find("tuning is off") then
-    respond("[DRC] play_song_managed: instrument out of tune (continuing)")
-    return true  -- caller decides whether to re-tune
+    respond("[DRC] play_song_managed: instrument out of tune.")
+    if DRSkill and DRSkill.getrank("Performance") < 20 then return true end
+    if skip_tuning then return true end
+    if not M.tune_instrument(settings) then return true end
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, skip_tuning, _depth + 1)
 
   elseif result:find("dirtiness may affect") or result:find("really need to drain") then
     if DRSkill and DRSkill.getrank("Performance") < 20 then return true end
     if skip_clean then return true end
-    return true  -- advanced cleanup not yet implemented; treat as playable
+    if not M.clean_instrument(settings, worn) then return true end
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, skip_tuning, _depth + 1)
 
   elseif result:find("slightest hint of difficulty") or result:find("fumble slightly") then
     return true  -- acceptable difficulty
@@ -787,7 +799,7 @@ function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _d
     M.stop_playing()
     if climbing then UserVars.climbing_song = next_song
     else             UserVars.song          = next_song end
-    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, skip_tuning, _depth + 1)
 
   elseif result:find("You struggle to begin") then
     -- Song too hard — reset to first song
@@ -797,7 +809,7 @@ function M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _d
     M.stop_playing()
     if climbing then UserVars.climbing_song = first_song
     else             UserVars.song          = first_song end
-    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, _depth + 1)
+    return M.play_song_managed(settings, song_list, worn, skip_clean, climbing, skip_tuning, _depth + 1)
 
   else
     return false
@@ -857,6 +869,537 @@ function M.kick_pile()
     "But there is no pile to kick",
     "You kick the pile of rocks",
     "You stop in the middle of your kick")
+end
+
+-------------------------------------------------------------------------------
+-- Teaching system
+-------------------------------------------------------------------------------
+
+--- Listen to a teacher.
+-- Mirrors Lich5 DRC.listen?(teacher, observe_flag).
+-- Checks for bad skill classes (guild-restricted) and stops listening if matched.
+-- @param teacher string Teacher name to listen to
+-- @param observe_flag boolean|nil If true, observe instead of listen
+-- @return boolean true if now listening successfully
+function M.listen(teacher, observe_flag)
+  if not teacher or teacher == "" then return false end
+
+  local bad_classes = { "Thievery", "Sorcery" }
+  if DRStats then
+    local guild = DRStats.guild and DRStats.guild() or nil
+    if guild == "Barbarian" or guild == "Thief" then
+      bad_classes[#bad_classes + 1] = "Life Magic"
+      bad_classes[#bad_classes + 1] = "Holy Magic"
+      bad_classes[#bad_classes + 1] = "Lunar Magic"
+      bad_classes[#bad_classes + 1] = "Elemental Magic"
+      bad_classes[#bad_classes + 1] = "Arcane Magic"
+      bad_classes[#bad_classes + 1] = "Targeted Magic"
+      bad_classes[#bad_classes + 1] = "Arcana"
+      bad_classes[#bad_classes + 1] = "Attunement"
+    end
+    if guild == "Barbarian" then
+      bad_classes[#bad_classes + 1] = "Utility"
+    end
+  end
+
+  local observe = observe_flag and "observe" or ""
+
+  local result = M.bput("listen to " .. teacher .. " " .. observe,
+    "begin to listen to %w+ teach the .* skill",
+    "already listening",
+    "could not find who",
+    "You have no idea",
+    "isn't teaching a class",
+    "don't have the appropriate training",
+    "Your teacher appears to have left",
+    "isn't teaching you anymore",
+    "experience differs too much from your own",
+    "but you don't see any harm in listening",
+    "invitation if you wish to join this class",
+    "You cannot concentrate to listen to .* while in combat")
+
+  local skill_match = result:match("begin to listen to %w+ teach the (.*) skill")
+  if skill_match then
+    -- Check if the skill is in the bad_classes list
+    for _, bad in ipairs(bad_classes) do
+      if skill_match:lower():find(bad:lower(), 1, true) then
+        M.bput("stop listening", "You stop listening")
+        return false
+      end
+    end
+    return true
+  elseif result:find("already listening") then
+    return true
+  elseif result:find("don't see any harm in listening") then
+    M.bput("stop listening", "You stop listening")
+  end
+
+  return false
+end
+
+--- Assess teaching environment.
+-- Mirrors Lich5 DRC.assess_teach.
+-- Sends "assess teach" and parses the output into a teacher->skill map.
+-- @return table Map of { teacher_name = skill_name }
+function M.assess_teach()
+  -- Issue the command and collect lines until roundtime
+  put("assess teach")
+  local lines = {}
+  local start = os.time()
+  while os.time() - start < 10 do
+    local line = get()
+    if line then
+      if line:find("Roundtime") then break end
+      if line:find("No one seems to be teaching")
+        or line:find("You are teaching a class") then
+        if waitrt then waitrt() end
+        return {}
+      end
+      lines[#lines + 1] = line
+    else
+      pause(0.1)
+    end
+  end
+  if waitrt then waitrt() end
+
+  -- Strip XML and empty lines
+  local cleaned = {}
+  for _, line in ipairs(lines) do
+    local s = M.strip_xml(line)
+    if s ~= "" then cleaned[#cleaned + 1] = s end
+  end
+
+  return M.parse_assess_teach_lines(cleaned)
+end
+
+--- Parse assess teach output lines into a teacher->skill map.
+-- Pure parsing function (unit-testable).
+-- Mirrors Lich5 DRC.parse_assess_teach_lines.
+-- @param lines table Array of cleaned text lines
+-- @return table Map of { teacher_name = skill_name }
+function M.parse_assess_teach_lines(lines)
+  local result = {}
+  for _, line in ipairs(lines) do
+    local teacher, skill = line:match("(.*) is teaching a class on (.*) which is still open to new students")
+    if teacher and skill then
+      -- Apply skill filter: strip "(compared to what you already know)" prefix
+      local filtered = skill:match(".* %(compared to what you already know%) (.*)")
+      if filtered then skill = filtered end
+      result[teacher] = skill
+    end
+  end
+  return result
+end
+
+-------------------------------------------------------------------------------
+-- Music instrument management
+-------------------------------------------------------------------------------
+
+--- Clean a music instrument.
+-- Mirrors Lich5 DRC.clean_instrument(settings, worn).
+-- Wipes and cleans the instrument using a cleaning cloth.
+-- @param settings table Character settings (cleaning_cloth, worn_instrument, instrument)
+-- @param worn boolean|nil If true (default), use worn_instrument; else use instrument
+-- @return boolean true if cleaned successfully
+function M.clean_instrument(settings, worn)
+  if worn == nil then worn = true end
+  local cloth = settings.cleaning_cloth
+  local instrument = worn and settings.worn_instrument or settings.instrument
+
+  if not DRCI then
+    respond("[DRC] clean_instrument: DRCI module not available")
+    return false
+  end
+
+  if not DRCI.get_item(cloth) then
+    respond("[DRC] clean_instrument: You have no chamois cloth -- this could cause problems with playing an instrument!")
+    M.beep()
+    return false
+  end
+
+  M.stop_playing()
+
+  if worn then
+    if not DRCI.remove_item(instrument) then
+      respond("[DRC] clean_instrument: Could not remove " .. tostring(instrument) .. ", putting away cloth.")
+      DRCI.stow_item(cloth)
+      M.beep()
+      return false
+    end
+  else
+    if not DRCI.get_item(instrument) then
+      respond("[DRC] clean_instrument: Could not get " .. tostring(instrument) .. ", putting away cloth.")
+      DRCI.stow_item(cloth)
+      M.beep()
+      return false
+    end
+  end
+
+  -- Wipe loop: dry until "not in need of drying"
+  while true do
+    local wipe_result = M.bput("wipe my " .. instrument .. " with my " .. cloth,
+      "Roundtime", "not in need of drying", "You should be sitting up")
+    if wipe_result:find("not in need of drying") then
+      break
+    elseif wipe_result:find("You should be sitting up") then
+      M.fix_standing()
+    else
+      pause(1)
+      if waitrt then waitrt() end
+      -- Wring out the cloth until dry
+      while true do
+        local wring_result = M.bput("wring my " .. cloth, "You wring a dry", "You wring out")
+        if wring_result:find("wring a dry") then break end
+        pause(1)
+        if waitrt then waitrt() end
+      end
+    end
+  end
+
+  -- Clean loop: clean until "not in need of cleaning"
+  while true do
+    local clean_result = M.bput("clean my " .. instrument .. " with my " .. cloth,
+      "Roundtime", "not in need of cleaning")
+    if clean_result:find("not in need of cleaning") then break end
+    pause(1)
+    if waitrt then waitrt() end
+  end
+
+  if worn and DRCI.wear_item then DRCI.wear_item(instrument) end
+  if DRCI.stow_item then DRCI.stow_item(cloth) end
+  return true
+end
+
+--- Tune a music instrument.
+-- Mirrors Lich5 DRC.tune_instrument(settings).
+-- Removes/gets the instrument, tunes it, then re-wears/stows.
+-- @param settings table Character settings (worn_instrument, instrument)
+-- @return boolean true if tuned successfully
+function M.tune_instrument(settings)
+  local instrument = settings.worn_instrument or settings.instrument
+
+  if not instrument then
+    respond("[DRC] tune_instrument: Neither worn_instrument nor instrument set.")
+    return false
+  end
+
+  M.stop_playing()
+
+  if not DRCI then
+    respond("[DRC] tune_instrument: DRCI module not available")
+    return false
+  end
+
+  -- Need two free hands unless instrument is already in hands
+  local lh = M.left_hand()
+  local rh = M.right_hand()
+  local in_hands = DRCI.in_hands and DRCI.in_hands(instrument)
+  if not ((lh == nil and rh == nil) or in_hands) then
+    respond("[DRC] tune_instrument: Need two free hands. Not tuning now.")
+    return false
+  end
+
+  if settings.worn_instrument then
+    if not in_hands then
+      if not DRCI.remove_item(instrument) then
+        respond("[DRC] tune_instrument: Could not remove " .. tostring(instrument) .. ". Not trying to tune.")
+        M.beep()
+        return false
+      end
+    end
+  else
+    if not in_hands then
+      if not DRCI.get_item(instrument) then
+        respond("[DRC] tune_instrument: Could not get " .. tostring(instrument) .. ". Not trying to tune.")
+        M.beep()
+        return false
+      end
+    end
+  end
+
+  M.do_tune(instrument)
+  if waitrt then waitrt() end
+  pause(1)
+  if settings.worn_instrument and DRCI.wear_item then
+    DRCI.wear_item(instrument)
+  end
+  return true
+end
+
+--- Internal tuning loop.
+-- Mirrors Lich5 DRC.do_tune(instrument, tuning).
+-- Recursively adjusts sharp/flat until instrument is in tune.
+-- @param instrument string Instrument name (must be in hands)
+-- @param tuning string|nil "" (auto), "sharp", or "flat"
+-- @return boolean true if tuned successfully
+function M.do_tune(instrument, tuning)
+  tuning = tuning or ""
+
+  if not DRCI or not instrument then
+    respond("[DRC] do_tune: No instrument found in hands. Not trying to tune.")
+    M.beep()
+    return false
+  end
+
+  if DRCI.in_hands and not DRCI.in_hands(instrument) then
+    respond("[DRC] do_tune: No instrument found in hands. Not trying to tune.")
+    M.beep()
+    return false
+  end
+
+  local result = M.bput("tune my " .. instrument .. " " .. tuning,
+    "You should be sitting up",
+    "After a moment, you .* flat",
+    "After a moment, you .* sharp",
+    "After a moment, you .* tune")
+
+  if result:find("After a moment, you.*tune") and not result:find("flat") and not result:find("sharp") then
+    respond("[DRC] do_tune: Instrument tuned.")
+    return true
+  elseif result:find("After a moment, you.*flat") then
+    return M.do_tune(instrument, "sharp")
+  elseif result:find("After a moment, you.*sharp") then
+    return M.do_tune(instrument, "flat")
+  elseif result:find("You should be sitting up") then
+    M.fix_standing()
+    return M.do_tune(instrument)
+  end
+  return false
+end
+
+-------------------------------------------------------------------------------
+-- Stance management
+-------------------------------------------------------------------------------
+
+--- Set game stance based on defending skill.
+-- Mirrors Lich5 DRC.set_stance(skill).
+-- Calculates stance points from Defending rank and guild, then issues stance set.
+-- @param skill string "parry" or "shield"
+function M.set_stance(skill)
+  local div = 70  -- default for most guilds
+  if DRStats then
+    local guild = DRStats.guild and DRStats.guild() or nil
+    if guild == "Paladin" then
+      div = 50
+    elseif guild == "Barbarian" or guild == "Ranger"
+        or guild == "Trader" or guild == "Commoner" then
+      div = 60
+    end
+  end
+
+  local defending_rank = 0
+  if DRSkill and DRSkill.getrank then
+    defending_rank = DRSkill.getrank("Defending") or 0
+  end
+
+  local points = 80 + math.floor(defending_rank / div)
+  local secondary = points > 100 and 100 or points
+  local tertiary = points > 100 and (points - 100) or 0
+
+  local stance
+  if skill and skill:lower() == "shield" then
+    stance = "100 " .. tertiary .. " " .. secondary
+  else
+    -- parry or default
+    stance = "100 " .. secondary .. " " .. tertiary
+  end
+
+  M.bput("stance set " .. stance, "Setting your")
+end
+
+-------------------------------------------------------------------------------
+-- Script management
+-------------------------------------------------------------------------------
+
+--- Pause all running scripts except excluded ones.
+-- Mirrors Lich5 DRC.pause_all.
+-- Records already-paused scripts so unpause_all won't unpause them.
+-- @return boolean true if paused successfully
+function M.pause_all()
+  if not Script then return false end
+
+  M._pause_all_no_unpause = {}
+
+  -- Record scripts that are already paused (so we don't unpause them later)
+  if Script.list and Script.is_paused then
+    for _, name in ipairs(Script.list()) do
+      if Script.is_paused(name) then
+        M._pause_all_no_unpause[name] = true
+      end
+    end
+  end
+
+  -- Pause all non-paused, non-current scripts
+  local current = Script.name or nil
+  if Script.list and Script.pause then
+    for _, name in ipairs(Script.list()) do
+      if name ~= current and not Script.is_paused(name) then
+        Script.pause(name)
+      end
+    end
+  end
+
+  pause(1)
+  return true
+end
+
+--- Unpause scripts paused by pause_all.
+-- Mirrors Lich5 DRC.unpause_all.
+-- Only unpauses scripts that were NOT already paused before pause_all was called.
+-- @return boolean true if unpaused successfully
+function M.unpause_all()
+  if not Script then return false end
+  local no_unpause = M._pause_all_no_unpause or {}
+
+  if Script.list and Script.unpause and Script.is_paused then
+    for _, name in ipairs(Script.list()) do
+      if Script.is_paused(name) and not no_unpause[name] then
+        Script.unpause(name)
+      end
+    end
+  end
+
+  M._pause_all_no_unpause = {}
+  return true
+end
+
+--- Pause all scripts with smart exclusion of critical scripts.
+-- Mirrors Lich5 DRC.smart_pause_all.
+-- Returns the list of paused script names for use with unpause_all_list.
+-- @return table Array of script names that were paused
+function M.smart_pause_all()
+  local paused_script_list = {}
+  if not Script then return paused_script_list end
+
+  local current = Script.name or nil
+  if Script.list and Script.pause and Script.is_paused then
+    for _, name in ipairs(Script.list()) do
+      if name ~= current and not Script.is_paused(name) then
+        Script.pause(name)
+        paused_script_list[#paused_script_list + 1] = name
+      end
+    end
+  end
+  respond("DRC: Pausing " .. table.concat(paused_script_list, ", ") .. " to run " .. (current or "script"))
+  return paused_script_list
+end
+
+--- Unpause a specific list of scripts.
+-- Mirrors Lich5 DRC.unpause_all_list(scripts_to_unpause).
+-- @param scripts_to_unpause table Array of script names to unpause
+function M.unpause_all_list(scripts_to_unpause)
+  if not Script then return end
+  local current = Script and Script.name or "script"
+
+  if not scripts_to_unpause or #scripts_to_unpause == 0 then
+    respond("DRC: " .. current .. " has finished.")
+    return
+  end
+
+  respond("DRC: Unpausing " .. table.concat(scripts_to_unpause, ", ") .. ", " .. current .. " has finished.")
+  if Script.list and Script.unpause and Script.is_paused then
+    local to_unpause_set = {}
+    for _, name in ipairs(scripts_to_unpause) do
+      to_unpause_set[name] = true
+    end
+    for _, name in ipairs(Script.list()) do
+      if Script.is_paused(name) and to_unpause_set[name] then
+        Script.unpause(name)
+      end
+    end
+  end
+end
+
+--- Verify that required script files exist.
+-- Mirrors Lich5 DRC.verify_script(script_names).
+-- @param script_names string|table Script name(s) to check
+-- @return boolean true if all scripts exist
+function M.verify_script(script_names)
+  if type(script_names) == "string" then
+    script_names = { script_names }
+  end
+  if not Script or not Script.exists then
+    respond("[DRC] verify_script: Script.exists not available")
+    return false
+  end
+
+  local state = true
+  for _, name in ipairs(script_names) do
+    if not Script.exists(name) then
+      respond("[DRC] verify_script: Failed to find a script named '" .. name .. "'")
+      state = false
+    end
+  end
+  return state
+end
+
+-------------------------------------------------------------------------------
+-- Hand utilities
+-------------------------------------------------------------------------------
+
+--- Get the noun of the item in the right hand.
+-- Mirrors Lich5 DRC.right_hand_noun.
+-- @return string|nil The noun, or nil if empty
+function M.right_hand_noun()
+  if GameObj and GameObj.right_hand then
+    local rh = GameObj.right_hand()
+    if rh and rh ~= "Empty" then
+      if type(rh) == "table" then
+        return rh.noun
+      end
+    end
+  end
+  return nil
+end
+
+--- Get the noun of the item in the left hand.
+-- Mirrors Lich5 DRC.left_hand_noun.
+-- @return string|nil The noun, or nil if empty
+function M.left_hand_noun()
+  if GameObj and GameObj.left_hand then
+    local lh = GameObj.left_hand()
+    if lh and lh ~= "Empty" then
+      if type(lh) == "table" then
+        return lh.noun
+      end
+    end
+  end
+  return nil
+end
+
+-------------------------------------------------------------------------------
+-- Text utilities
+-------------------------------------------------------------------------------
+
+--- Normalize DR-specific text quirks.
+-- Mirrors Lich5 DRC.fix_dr_bullshit(string).
+-- For multi-word item names, returns just first + last word.
+-- Handles "ball and chain" special case.
+-- @param text string Raw item text
+-- @return string Normalized text (first + last word)
+function M.fix_dr_bullshit(text)
+  if not text then return text end
+  -- If two words or fewer, return as-is
+  local words = {}
+  for w in text:gmatch("%S+") do words[#words + 1] = w end
+  if #words <= 2 then return text end
+
+  -- Special case: "ball and chain" -> strip " and chain"
+  if text:find("ball and chain") then
+    text = text:gsub(" and chain", "", 1)
+    -- Recount words
+    words = {}
+    for w in text:gmatch("%S+") do words[#words + 1] = w end
+    if #words <= 2 then return text end
+  end
+
+  -- Return first + last word
+  local first = words[1]
+  local last = words[#words]
+  if first and last then
+    return first .. " " .. last
+  end
+  return text
 end
 
 return M
