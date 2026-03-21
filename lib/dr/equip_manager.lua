@@ -10,15 +10,15 @@ local M = {}
 
 --- Sheath success patterns.
 M.SHEATH_SUCCESS = {
-  "Sheathing", "You sheathe", "You secure your",
+  "Sheathing", "You sheath", "You secure your",
   "You slip", "You hang", "You strap", "You easily strap",
-  "With a flick of your wrist you stealthily sheathe",
+  "With a flick of your wrist you stealthily sheath",
   "The .* slides easily",
 }
 
 --- Sheath failure patterns.
 M.SHEATH_FAILURE = {
-  "Sheathe your .* where", "There's no room",
+  "Sheath your .* where", "There's no room",
   "is too small to hold that", "is too wide to fit",
   "Your .* hand is too injured",
 }
@@ -32,6 +32,16 @@ M.WEAPON_SKILLS = {
 }
 
 M.STOW_HELPER_MAX_RETRIES = 10
+
+local STOW_RECOVERY_PATTERNS = {
+    "unload",
+    "close the fan",
+    "You are a little too busy",
+    "You don't seem to be able to move",
+    "is too small to hold that",
+    "Your wounds hinder your ability to do that",
+    "Sheath your .* where",  -- NOTE: "Sheath" not "Sheathe"
+}
 
 -------------------------------------------------------------------------------
 -- Item class
@@ -196,64 +206,82 @@ function M.EquipmentManager(settings)
 
     -- Stow based on item properties
     if item.tie_to then
-      self:stow_helper("tie my " .. item:short_name() .. " to my " .. item.tie_to, item:short_name())
+      self:stow_helper("tie my " .. item:short_name() .. " to my " .. item.tie_to,
+        item:short_name(), DRCI and DRCI.TIE_ITEM_SUCCESS or {}, DRCI and DRCI.TIE_ITEM_FAILURE or {})
     elseif item.wield then
-      self:stow_helper("sheath my " .. item:short_name(), item:short_name())
+      self:stow_helper("sheath my " .. item:short_name(),
+        item:short_name(), DRCI and DRCI.SHEATH_ITEM_SUCCESS or {}, DRCI and DRCI.SHEATH_ITEM_FAILURE or {})
     elseif item.container then
-      self:stow_helper("put my " .. item:short_name() .. " into my " .. item.container, item:short_name())
+      self:stow_helper("put my " .. item:short_name() .. " in my " .. item.container,
+        item:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
     else
-      DRC.bput("stow my " .. item:short_name(),
-        "You put", "You tuck", "There isn't any more room",
-        "straps have all been used", "is too long to fit")
+      self:stow_helper("stow my " .. item:short_name(),
+        item:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
     end
     if waitrt then waitrt() end
     return true
   end
 
-  --- Stow helper with retry logic for common recovery scenarios.
-  function em.stow_helper(self, action, weapon_name, retries)
+  --- Stow helper with retry logic and failure detection.
+  -- @param action string game command
+  -- @param item_name string short name for logging
+  -- @param success_patterns table success pattern strings
+  -- @param failure_patterns table|nil terminal failure patterns (default {})
+  -- @param retries number|nil remaining retries
+  -- @return boolean true on success, false on failure
+  function em.stow_helper(self, action, item_name, success_patterns, failure_patterns, retries)
+    success_patterns = success_patterns or {}
+    failure_patterns = failure_patterns or {}
     retries = retries or M.STOW_HELPER_MAX_RETRIES
     if retries <= 0 then
-      respond("[EquipMgr] stow_helper exceeded max retries for: " .. action)
-      return
+      echo("EquipmentManager: stow_helper exceeded max retries for '" .. action .. "'")
+      return false
     end
 
     local all = {}
-    -- Add sheath/put success patterns
-    for _, p in ipairs(M.SHEATH_SUCCESS) do all[#all + 1] = p end
-    if DRCI then
-      for _, p in ipairs(DRCI.PUT_AWAY_SUCCESS or {}) do all[#all + 1] = p end
-      for _, p in ipairs(DRCI.TIE_ITEM_SUCCESS or {}) do all[#all + 1] = p end
-      for _, p in ipairs(DRCI.WEAR_ITEM_SUCCESS or {}) do all[#all + 1] = p end
-    end
-    -- Recovery patterns
-    all[#all + 1] = "unload"
-    all[#all + 1] = "close the fan"
-    all[#all + 1] = "You are a little too busy"
-    all[#all + 1] = "You don't seem to be able to move"
-    all[#all + 1] = "is too small to hold that"
-    all[#all + 1] = "Your wounds hinder"
-    all[#all + 1] = "Sheathe your .* where"
+    for _, p in ipairs(success_patterns) do all[#all + 1] = p end
+    for _, p in ipairs(failure_patterns) do all[#all + 1] = p end
+    for _, p in ipairs(STOW_RECOVERY_PATTERNS) do all[#all + 1] = p end
 
     local result = DRC.bput(action, unpack(all))
 
-    if result:find("unload") then
-      self:unload_weapon(weapon_name)
-      self:stow_helper(action, weapon_name, retries - 1)
-    elseif result:find("close the fan") then
-      fput("close my " .. weapon_name)
-      self:stow_helper(action, weapon_name, retries - 1)
-    elseif result:find("little too busy") then
-      DRC.retreat()
-      self:stow_helper(action, weapon_name, retries - 1)
-    elseif result:find("seem to be able to move") then
-      pause(1)
-      self:stow_helper(action, weapon_name, retries - 1)
-    elseif result:find("too small") then
-      fput("swap my " .. weapon_name)
-      self:stow_helper(action, weapon_name, retries - 1)
-    elseif result:find("wounds hinder") or result:find("Sheathe your") then
-      self:stow_helper("stow my " .. weapon_name, weapon_name, retries - 1)
+    if not result or result == "" then
+      echo("EquipmentManager: stow_helper got no response for '" .. action .. "'")
+      return false
+    end
+
+    -- Check terminal failure
+    for _, p in ipairs(failure_patterns) do
+      if smart_find(result, p) then
+        echo("EquipmentManager: stow_helper failed for '" .. action .. "': " .. result)
+        return false
+      end
+    end
+
+    -- Check success
+    for _, p in ipairs(success_patterns) do
+      if smart_find(result, p) then
+        return true
+      end
+    end
+
+    -- Recovery
+    if smart_find(result, "unload") then
+      if DRCI then DRCI.stow_hand("left"); DRCI.stow_hand("right") end
+      return self:stow_helper("stow my " .. item_name, item_name,
+        DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {}, retries - 1)
+    elseif smart_find(result, "close the fan") then
+      DRC.bput("close my " .. item_name, "You close", "already closed", "What were")
+      return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
+    elseif smart_find(result, "too busy") or smart_find(result, "can't .* move") then
+      if DRC.retreat then DRC.retreat() end
+      return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
+    elseif smart_find(result, "wounds hinder") or smart_find(result, "Sheath your .* where") then
+      return self:stow_helper("stow my " .. item_name, item_name,
+        DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {}, retries - 1)
+    else
+      pause(0.5)
+      return self:stow_helper(action, item_name, success_patterns, failure_patterns, retries - 1)
     end
   end
 
@@ -370,15 +398,20 @@ function M.EquipmentManager(settings)
     end
 
     if weapon.wield then
-      self:stow_helper("sheath my " .. weapon:short_name(), weapon:short_name())
+      self:stow_helper("sheath my " .. weapon:short_name(),
+        weapon:short_name(), DRCI and DRCI.SHEATH_ITEM_SUCCESS or {}, DRCI and DRCI.SHEATH_ITEM_FAILURE or {})
     elseif weapon.worn then
-      self:stow_helper("wear my " .. weapon:short_name(), weapon:short_name())
+      self:stow_helper("wear my " .. weapon:short_name(),
+        weapon:short_name(), DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
     elseif weapon.tie_to then
-      self:stow_helper("tie my " .. weapon:short_name() .. " to my " .. weapon.tie_to, weapon:short_name())
+      self:stow_helper("tie my " .. weapon:short_name() .. " to my " .. weapon.tie_to,
+        weapon:short_name(), DRCI and DRCI.TIE_ITEM_SUCCESS or {}, DRCI and DRCI.TIE_ITEM_FAILURE or {})
     elseif weapon.container then
-      self:stow_helper("put my " .. weapon:short_name() .. " in my " .. weapon.container, weapon:short_name())
+      self:stow_helper("put my " .. weapon:short_name() .. " in my " .. weapon.container,
+        weapon:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
     else
-      self:stow_helper("stow my " .. weapon:short_name(), weapon:short_name())
+      self:stow_helper("stow my " .. weapon:short_name(),
+        weapon:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
     end
   end
 
@@ -425,15 +458,20 @@ function M.EquipmentManager(settings)
         end
         -- Stow according to item type
         if info.worn then
-          self:stow_helper("wear my " .. info:short_name(), info:short_name())
+          self:stow_helper("wear my " .. info:short_name(),
+            info:short_name(), DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
         elseif info.tie_to then
-          self:stow_helper("tie my " .. info:short_name() .. " to my " .. info.tie_to, info:short_name())
+          self:stow_helper("tie my " .. info:short_name() .. " to my " .. info.tie_to,
+            info:short_name(), DRCI and DRCI.TIE_ITEM_SUCCESS or {}, DRCI and DRCI.TIE_ITEM_FAILURE or {})
         elseif info.wield then
-          self:stow_helper("sheath my " .. info:short_name(), info:short_name())
+          self:stow_helper("sheath my " .. info:short_name(),
+            info:short_name(), DRCI and DRCI.SHEATH_ITEM_SUCCESS or {}, DRCI and DRCI.SHEATH_ITEM_FAILURE or {})
         elseif info.container then
-          self:stow_helper("put my " .. info:short_name() .. " in my " .. info.container, info:short_name())
+          self:stow_helper("put my " .. info:short_name() .. " in my " .. info.container,
+            info:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
         else
-          self:stow_helper("stow my " .. info:short_name(), info:short_name())
+          self:stow_helper("stow my " .. info:short_name(),
+            info:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
         end
       end
     end
