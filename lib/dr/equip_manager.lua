@@ -43,6 +43,40 @@ local STOW_RECOVERY_PATTERNS = {
     "Sheath your .* where",  -- NOTE: "Sheath" not "Sheathe"
 }
 
+local SKILL_ALIASES = {
+    {pattern = "^he$",              skill = "heavy edged"},
+    {pattern = "heavy edge",        skill = "heavy edged"},
+    {pattern = "large edge",        skill = "heavy edged"},
+    {pattern = "one%-handed",       skill = "heavy edged"},
+    {pattern = "^2he$",             skill = "two%-handed edged"},
+    {pattern = "^the$",             skill = "two%-handed edged"},
+    {pattern = "twohanded edge",    skill = "two%-handed edged"},
+    {pattern = "two%-handed edge",  skill = "two%-handed edged"},
+    {pattern = "^hb$",              skill = "heavy blunt"},
+    {pattern = "heavy blunt",       skill = "heavy blunt"},
+    {pattern = "large blunt",       skill = "heavy blunt"},
+    {pattern = "^2hb$",             skill = "two%-handed blunt"},
+    {pattern = "^thb$",             skill = "two%-handed blunt"},
+    {pattern = "twohanded blunt",   skill = "two%-handed blunt"},
+    {pattern = "two%-handed blunt", skill = "two%-handed blunt"},
+    {pattern = "^se$",              skill = "light edged"},
+    {pattern = "small edged",       skill = "light edged"},
+    {pattern = "light edge",        skill = "light edged"},
+    {pattern = "medium edge",       skill = "medium edged"},
+    {pattern = "^sb$",              skill = "light blunt"},
+    {pattern = "small blunt",       skill = "light blunt"},
+    {pattern = "light blunt",       skill = "light blunt"},
+    {pattern = "medium blunt",      skill = "medium blunt"},
+    {pattern = "^lt$",              skill = "light thrown"},
+    {pattern = "light thrown",      skill = "light thrown"},
+    {pattern = "^ht$",              skill = "heavy thrown"},
+    {pattern = "heavy thrown",      skill = "heavy thrown"},
+    {pattern = "stave",             skill = "quarter staff"},
+    {pattern = "polearm",           skill = "halberd"},
+    {pattern = "^ow$",              skill = "offhand weapon"},
+    {pattern = "offhand weapon",    skill = "offhand weapon"},
+}
+
 -------------------------------------------------------------------------------
 -- Item class
 -------------------------------------------------------------------------------
@@ -167,33 +201,49 @@ function M.EquipmentManager(settings)
     if not item then return false end
     if DRCI and DRCI.in_hands and DRCI.in_hands(item) then return true end
 
+    local success = false
     if item.wield then
       local result = DRC.bput("wield my " .. item:short_name(),
         "You draw", "You deftly remove", "You slip",
         "With a flick", "Wield what",
         "Your right hand is too injured",
         "Your left hand is too injured")
-      return not (result:find("Wield what") or result:find("too injured"))
+      success = not (result:find("Wield what") or result:find("too injured"))
     elseif item.tie_to then
-      return DRCI and DRCI.untie_item and DRCI.untie_item(item:short_name(), item.tie_to) or false
+      success = DRCI and DRCI.untie_item and DRCI.untie_item(item:short_name(), item.tie_to) or false
     elseif item.worn then
-      return DRCI and DRCI.remove_item and DRCI.remove_item(item:short_name()) or false
+      success = DRCI and DRCI.remove_item and DRCI.remove_item(item:short_name()) or false
     elseif item.container then
-      return DRCI and DRCI.get_item and DRCI.get_item(item:short_name(), item.container) or false
+      success = DRCI and DRCI.get_item and DRCI.get_item(item:short_name(), item.container) or false
     else
-      return DRCI and DRCI.get_item and DRCI.get_item(item:short_name()) or false
+      success = DRCI and DRCI.get_item and DRCI.get_item(item:short_name()) or false
     end
+
+    -- Handle transforms after successful get
+    if success and item.transforms_to then
+      local cmd = item.transform_verb or ("turn my " .. item:short_name())
+      DRC.bput(cmd, item.transform_text or "shifts", "What were", "Turn what")
+      if waitrt then waitrt() end
+    end
+
+    return success
   end
 
   --- Remove an item and stow it properly.
-  function em.remove_item(self, item)
-    if not item then return end
+  function em.remove_item(self, item, retries)
+    if not item then return false end
+    retries = retries or 2
+    if retries <= 0 then
+      echo("EquipmentManager: remove_item exceeded max retries")
+      return false
+    end
+
     local result = DRC.bput("remove my " .. item:short_name(),
       "You remove", "You pull", "You sling", "You slide",
       "You work your way out", "You unbuckle", "You loosen",
-      "You detach", "You yank",
+      "You detach", "You yank", "^Grunting with momentary exertion",
       "Remove what", "You aren't wearing that",
-      "constricts tighter")
+      "constricts tighter", "You'll need both hands free")
     if waitrt then waitrt() end
 
     if result:find("constricts") then
@@ -203,21 +253,18 @@ function M.EquipmentManager(settings)
     if result:find("Remove what") or result:find("aren't wearing") then
       return false
     end
-
-    -- Stow based on item properties
-    if item.tie_to then
-      self:stow_helper("tie my " .. item:short_name() .. " to my " .. item.tie_to,
-        item:short_name(), DRCI and DRCI.TIE_ITEM_SUCCESS or {}, DRCI and DRCI.TIE_ITEM_FAILURE or {})
-    elseif item.wield then
-      self:stow_helper("sheath my " .. item:short_name(),
-        item:short_name(), DRCI and DRCI.SHEATH_ITEM_SUCCESS or {}, DRCI and DRCI.SHEATH_ITEM_FAILURE or {})
-    elseif item.container then
-      self:stow_helper("put my " .. item:short_name() .. " in my " .. item.container,
-        item:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
-    else
-      self:stow_helper("stow my " .. item:short_name(),
-        item:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
+    if result:find("both hands free") then
+      -- Lower items, retry
+      if DRCI then
+        local lh = DRC.left_hand and DRC.left_hand()
+        local rh = DRC.right_hand and DRC.right_hand()
+        if lh then DRCI.lower_item(lh) end
+        if rh then DRCI.lower_item(rh) end
+      end
+      return self:remove_item(item, retries - 1)
     end
+
+    self:stow_by_type(item)
     if waitrt then waitrt() end
     return true
   end
@@ -285,6 +332,23 @@ function M.EquipmentManager(settings)
     end
   end
 
+  --- Route item to correct stow destination.
+  function em.stow_by_type(self, item)
+    if item.tie_to then
+      return self:stow_helper("tie my " .. item:short_name() .. " to my " .. item.tie_to,
+        item:short_name(), DRCI.TIE_ITEM_SUCCESS, DRCI.TIE_ITEM_FAILURE)
+    elseif item.wield then
+      return self:stow_helper("sheath my " .. item:short_name(),
+        item:short_name(), DRCI.SHEATH_ITEM_SUCCESS, DRCI.SHEATH_ITEM_FAILURE)
+    elseif item.container then
+      return self:stow_helper("put my " .. item:short_name() .. " in my " .. item.container,
+        item:short_name(), DRCI.PUT_AWAY_SUCCESS, DRCI.PUT_AWAY_FAILURE)
+    else
+      return self:stow_helper("stow my " .. item:short_name(),
+        item:short_name(), DRCI.PUT_AWAY_SUCCESS, DRCI.PUT_AWAY_FAILURE)
+    end
+  end
+
   --- Wield a weapon into the right hand.
   function em.wield_weapon(self, description, skill)
     if not description or description == "" then return false end
@@ -335,6 +399,16 @@ function M.EquipmentManager(settings)
   --- Swap a weapon to a different weapon skill configuration.
   function em.swap_to_skill(self, noun, skill)
     if not noun or not skill then return false end
+
+    -- Normalize skill aliases
+    local proper_skill = skill
+    for _, alias in ipairs(SKILL_ALIASES) do
+      if skill:lower():find(alias.pattern) then
+        proper_skill = alias.skill
+        break
+      end
+    end
+    skill = proper_skill
 
     -- Fan handling
     if noun:lower():find("fan") then
@@ -437,7 +511,8 @@ function M.EquipmentManager(settings)
   end
 
   --- Stow all weapons currently in hands.
-  function em.stow_weapon(self, description)
+  function em.stow_weapon(self, description, transform_depth)
+    transform_depth = transform_depth or 3
     if not description then
       local rh = DRC and DRC.right_hand and DRC.right_hand()
       local lh = DRC and DRC.left_hand and DRC.left_hand()
@@ -447,28 +522,37 @@ function M.EquipmentManager(settings)
     end
 
     local weapon = self:item_by_desc(description)
-    if not weapon then return end
+    if not weapon then
+      if DRCI then DRCI.stow_hand("right"); DRCI.stow_hand("left") end
+      return
+    end
+
+    -- Handle transforms
+    if weapon.transforms_to then
+      if transform_depth <= 0 then
+        echo("EquipmentManager: stow_weapon exceeded max transform depth")
+        return
+      end
+      local cmd = weapon.transform_verb or ("turn my " .. weapon:short_name())
+      DRC.bput(cmd, weapon.transform_text or "shifts", "What were", "Turn what")
+      if waitrt then waitrt() end
+      return self:stow_weapon(weapon.transforms_to, transform_depth - 1)
+    end
 
     if weapon.needs_unloading then
       self:unload_weapon(weapon:short_name())
     end
 
-    if weapon.wield then
-      self:stow_helper("sheath my " .. weapon:short_name(),
-        weapon:short_name(), DRCI and DRCI.SHEATH_ITEM_SUCCESS or {}, DRCI and DRCI.SHEATH_ITEM_FAILURE or {})
-    elseif weapon.worn then
-      self:stow_helper("wear my " .. weapon:short_name(),
-        weapon:short_name(), DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
-    elseif weapon.tie_to then
-      self:stow_helper("tie my " .. weapon:short_name() .. " to my " .. weapon.tie_to,
-        weapon:short_name(), DRCI and DRCI.TIE_ITEM_SUCCESS or {}, DRCI and DRCI.TIE_ITEM_FAILURE or {})
-    elseif weapon.container then
-      self:stow_helper("put my " .. weapon:short_name() .. " in my " .. weapon.container,
-        weapon:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
-    else
-      self:stow_helper("stow my " .. weapon:short_name(),
-        weapon:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
-    end
+    self:stow_by_type(weapon)
+  end
+
+  --- Turn a multi-form weapon to a specific form.
+  function em.turn_to_weapon(self, old_noun, new_noun)
+    local result = DRC.bput("turn my " .. old_noun .. " to " .. new_noun,
+      "Turn what", "Which weapon did you want to pull out",
+      "shifts .* before resolving itself into")
+    if waitrt then waitrt() end
+    return result ~= nil and result:find("shifts") ~= nil
   end
 
   --- Wear an equipment set by name.
@@ -512,23 +596,7 @@ function M.EquipmentManager(settings)
         if info.needs_unloading then
           self:unload_weapon(info:short_name())
         end
-        -- Stow according to item type
-        if info.worn then
-          self:stow_helper("wear my " .. info:short_name(),
-            info:short_name(), DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
-        elseif info.tie_to then
-          self:stow_helper("tie my " .. info:short_name() .. " to my " .. info.tie_to,
-            info:short_name(), DRCI and DRCI.TIE_ITEM_SUCCESS or {}, DRCI and DRCI.TIE_ITEM_FAILURE or {})
-        elseif info.wield then
-          self:stow_helper("sheath my " .. info:short_name(),
-            info:short_name(), DRCI and DRCI.SHEATH_ITEM_SUCCESS or {}, DRCI and DRCI.SHEATH_ITEM_FAILURE or {})
-        elseif info.container then
-          self:stow_helper("put my " .. info:short_name() .. " in my " .. info.container,
-            info:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
-        else
-          self:stow_helper("stow my " .. info:short_name(),
-            info:short_name(), DRCI and DRCI.PUT_AWAY_SUCCESS or {}, DRCI and DRCI.PUT_AWAY_FAILURE or {})
-        end
+        self:stow_by_type(info)
       end
     end
     return true
