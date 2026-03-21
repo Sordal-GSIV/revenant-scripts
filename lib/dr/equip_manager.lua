@@ -369,15 +369,71 @@ function M.EquipmentManager(settings)
     return false
   end
 
-  --- Unload a ranged weapon.
+  --- Unload a ranged weapon with 3-scenario ammo recovery.
   function em.unload_weapon(self, name)
     if not name then return end
-    DRC.bput("unload my " .. name,
-      "You unload", "falls .* to your feet",
-      "As you release", "isn't loaded",
-      "You can't unload", "You don't have a ranged",
-      "You must be holding")
+    local all = {}
+    if DRCI then
+      for _, p in ipairs(DRCI.UNLOAD_WEAPON_SUCCESS) do all[#all + 1] = p end
+      for _, p in ipairs(DRCI.UNLOAD_WEAPON_FAILURE) do all[#all + 1] = p end
+    else
+      all = {"You unload", "falls .* to your feet", "As you release",
+             "isn't loaded", "You can't unload", "You don't have a ranged", "You must be holding"}
+    end
+
+    local result = DRC.bput("unload my " .. name, unpack(all))
     if waitrt then waitrt() end
+    if not result then return end
+
+    -- Check failure
+    if DRCI then
+      for _, p in ipairs(DRCI.UNLOAD_WEAPON_FAILURE) do
+        if smart_find(result, p) then return end
+      end
+    end
+
+    -- Scenario 1: Ammo fell to feet
+    local ammo = result:match("(%w+) fall.* from your .* to your feet")
+    if ammo then
+      if DRCI and DRCI.lower_item then
+        if not DRCI.lower_item(name) then
+          echo("EquipmentManager: Unable to lower " .. name .. " to pick up ammo")
+          return
+        end
+        DRCI.put_away_item(ammo)
+        if not DRCI.get_item(name) then
+          echo("EquipmentManager: Unable to pick " .. name .. " back up after unloading")
+        end
+      end
+      return
+    end
+
+    -- Scenario 2: Bow release, ammo tumbles
+    if result:find("As you release the string") then
+      local tumbled = result:match("the (%w+) tumbles")
+      if tumbled and DRCI and DRCI.lower_item then
+        if not DRCI.lower_item(name) then
+          echo("EquipmentManager: Unable to lower " .. name .. " to pick up ammo")
+          return
+        end
+        DRCI.put_away_item(tumbled)
+        if not DRCI.get_item(name) then
+          echo("EquipmentManager: Unable to pick " .. name .. " back up after unloading")
+        end
+      end
+      return
+    end
+
+    -- Scenario 3: Normal unload, ammo in hand
+    if result:find("You unload") or result:find("unloading") then
+      local left = DRC.left_hand and DRC.left_hand()
+      local right = DRC.right_hand and DRC.right_hand()
+      if left and not left:find(name) then
+        if DRCI then DRCI.stow_hand("left") end
+      elseif right and not right:find(name) then
+        if DRCI then DRCI.stow_hand("right") end
+      end
+    end
   end
 
   --- Stow all weapons currently in hands.
