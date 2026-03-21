@@ -767,6 +767,70 @@ function M.EquipmentManager(settings)
     end
   end
 
+  --- Get list of currently worn combat items by parsing INV COMBAT output.
+  -- Mirrors Lich5 get_combat_items: issues "inv combat" and returns stripped
+  -- description strings (header/footer lines excluded).
+  -- @return table Array of item description strings
+  function em.get_combat_items(self)
+    put("inv combat")
+    local lines = {}
+    local collecting = false
+    local timeout_at = os.time() + 10
+    while os.time() < timeout_at do
+      local line = get_noblock()
+      if line then
+        local stripped = DRC.strip_xml and DRC.strip_xml(line) or line
+        stripped = stripped:match("^%s*(.-)%s*$") or stripped
+        if stripped == "All of your worn combat equipment:"
+            or stripped == "You aren't wearing anything like that." then
+          collecting = true
+        elseif stripped:find("^Use INVENTORY HELP") then
+          break
+        elseif collecting and stripped ~= "" then
+          table.insert(lines, stripped)
+        end
+        if line:find("<prompt") then break end
+      else
+        pause(0.1)
+      end
+    end
+    return lines
+  end
+
+  --- Get currently worn combat items matching a description list.
+  -- Mirrors Lich5 matching_combat_items: converts both the filter list and
+  -- the INV COMBAT output to Item objects and returns the intersection.
+  -- @param list table Array of descriptions to filter by
+  -- @return table Array of Item objects currently worn that match the list
+  function em.matching_combat_items(self, list)
+    local filter_gear = self:desc_to_items(list)
+    local gear = self:desc_to_items(self:get_combat_items())
+    local result = {}
+    for _, g in ipairs(gear) do
+      for _, f in ipairs(filter_gear) do
+        if g == f then
+          table.insert(result, g)
+          break
+        end
+      end
+    end
+    return result
+  end
+
+  --- @deprecated Use matching_combat_items instead.
+  em.worn_items = em.matching_combat_items
+
+  --- Check if a description matches any item in the gear list.
+  -- Mirrors Lich5 listed_item?: finds an item whose short_regex matches desc.
+  -- @param desc string Item description to check
+  -- @return table|nil Matching Item object, or nil if not found
+  function em.listed_item(self, desc)
+    return self:item_by_desc(desc)
+  end
+
+  --- @deprecated Use listed_item instead.
+  em.is_listed_item = em.listed_item
+
   -- Initialize items if settings provided
   if settings then em:items(settings) end
 
