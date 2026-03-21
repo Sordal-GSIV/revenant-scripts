@@ -1,5 +1,5 @@
 --- DRCH — DR Common Healing utilities.
--- Ported from Lich5 common-healing.rb (module DRCH).
+-- Ported from Lich5 common-healing.rb + common-healing-data.rb (module DRCH).
 -- Provides health checking, wound parsing, tending, and healing prioritization.
 -- @module lib.dr.common_healing
 local M = {}
@@ -82,50 +82,190 @@ M.WOUND_SEVERITY = {
   useless          = 13,
 }
 
+-------------------------------------------------------------------------------
+-- Regex constants (ported from common-healing-data.rb)
+-------------------------------------------------------------------------------
+
 --- Parasite types (regex patterns).
-M.PARASITES = {
-  "blood mite", "leech", "blood worm", "retch maggot",
+-- https://elanthipedia.play.net/Damage#Parasites
+M.PARASITES_REGEX = {
+  "(?:small|large) (?:black|red) blood mite",
+  "(?:black|red|albino) (?:sand|forest) leech",
+  "(?:green|red) blood worm",
+  "retch maggot",
 }
 
---- Wound severity patterns for HEALTH command output parsing.
--- Ordered from most specific to least specific for correct matching.
-M.WOUND_SEVERITY_MAP = {
-    { pattern = "gone",                 severity = 3 },
-    { pattern = "useless",              severity = 3 },
-    { pattern = "mangled",              severity = 3 },
-    { pattern = "more than .* harmful", severity = 3 },
-    { pattern = "severe",               severity = 3 },
-    { pattern = "harmful",              severity = 2 },
-    { pattern = "more than .* minor",   severity = 2 },
-    { pattern = "minor",                severity = 1 },
-    { pattern = "bruise",               severity = 1 },
-    { pattern = "small",                severity = 1 },
+--- Perceived health severity regex (from PERCEIVE HEALTH output).
+M.PERCEIVE_HEALTH_SEVERITY_REGEX = "(?<freshness>Fresh|Scars) (?<location>External|Internal).+--\\s+(?<severity>insignificant|negligible|minor|more than minor|harmful|very harmful|damaging|very damaging|severe|very severe|devastating|very devastating|useless)"
+
+--- Body part regex components.
+M.BODY_PART_REGEX = "(?<part>(?:l\\.|r\\.|left|right)?\\s?(?:\\w+))"
+
+--- Wound body part regex (includes optional "inside" prefix).
+M.WOUND_BODY_PART_REGEX = "(?:inside)?\\s?" .. M.BODY_PART_REGEX
+
+--- Lodged body part regex.
+M.LODGED_BODY_PART_REGEX = "lodged .* into your " .. M.BODY_PART_REGEX
+
+--- Parasite body part regex.
+M.PARASITE_BODY_PART_REGEX = "on your " .. M.BODY_PART_REGEX
+
+--- Bleeder line regex (matches body part lines in HEALTH bleeder table).
+M.BLEEDER_LINE_REGEX = "^\\b(inside\\s+)?((l\\.|r\\.|left|right)\\s+)?(head|eye|neck|chest|abdomen|back|arm|hand|leg|tail|skin)\\b"
+
+--- Wound comma separator (protects compound descriptions from splitting).
+M.WOUND_COMMA_SEPARATOR = "(?<=swollen|bruised|scarred|painful),(?=\\s(?:swollen|bruised|mangled|inflamed))"
+
+-------------------------------------------------------------------------------
+-- WOUND_SEVERITY_REGEX_MAP — all 114 entries from common-healing-data.rb
+-- https://elanthipedia.play.net/Damage#Wounds
+-------------------------------------------------------------------------------
+
+M.WOUND_SEVERITY_REGEX_MAP = {
+  -- insignificant (severity 1)
+  { pattern = "minor abrasions to the " .. M.WOUND_BODY_PART_REGEX,                                                                    severity = 1, internal = false, scar = false },
+  { pattern = "a few nearly invisible scars along the " .. M.WOUND_BODY_PART_REGEX,                                                    severity = 1, internal = false, scar = true },
+  -- negligible (severity 2)
+  { pattern = "some tiny scars (?:across|along) the " .. M.WOUND_BODY_PART_REGEX,                                                      severity = 2, internal = false, scar = true },
+  { pattern = "(?:light|tiny) scratches to the " .. M.WOUND_BODY_PART_REGEX,                                                           severity = 2, internal = false, scar = false },
+  -- minor / more than minor (severity 3)
+  { pattern = "a bruised (?<part>head)",                                                                                                severity = 3, internal = true,  scar = false },
+  { pattern = "(?<skin>a small skin rash)",                                                                                             severity = 3, internal = false, scar = false },
+  { pattern = "(?<skin>loss of skin tone)",                                                                                             severity = 3, internal = false, scar = true },
+  { pattern = "(?<skin>some minor twitching)",                                                                                          severity = 3, internal = true,  scar = false },
+  { pattern = "(?<skin>slight difficulty moving your fingers and toes)",                                                                severity = 3, internal = true,  scar = true },
+  { pattern = "cuts and bruises about the " .. M.WOUND_BODY_PART_REGEX,                                                                severity = 3, internal = false, scar = false },
+  { pattern = "minor scar\\w+ (?:about|along|across) the " .. M.WOUND_BODY_PART_REGEX,                                                 severity = 3, internal = false, scar = true },
+  { pattern = "minor swelling and bruising (?:around|in) the " .. M.WOUND_BODY_PART_REGEX,                                             severity = 3, internal = true,  scar = false },
+  { pattern = "occasional twitch\\w* (?:on|in) the " .. M.WOUND_BODY_PART_REGEX,                                                       severity = 3, internal = true,  scar = true },
+  { pattern = "a black and blue " .. M.WOUND_BODY_PART_REGEX,                                                                          severity = 3, internal = false, scar = false },
+  -- harmful / very harmful (severity 4)
+  { pattern = "a deeply bruised (?<part>head)",                                                                                         severity = 4, internal = true,  scar = false },
+  { pattern = "(?<skin>a large skin rash)",                                                                                             severity = 4, internal = false, scar = false },
+  { pattern = "(?<skin>minor skin discoloration)",                                                                                      severity = 4, internal = false, scar = true },
+  { pattern = "(?<skin>some severe twitching)",                                                                                         severity = 4, internal = true,  scar = false },
+  { pattern = "(?<skin>slight numbness in your arms and legs)",                                                                         severity = 4, internal = true,  scar = true },
+  { pattern = "deep cuts (?:about|across) the " .. M.WOUND_BODY_PART_REGEX,                                                            severity = 4, internal = false, scar = false },
+  { pattern = "severe scarring (?:across|along|about) the " .. M.WOUND_BODY_PART_REGEX,                                                severity = 4, internal = false, scar = true },
+  { pattern = "a severely swollen and\\s?(?:deeply)? bruised " .. M.WOUND_BODY_PART_REGEX,                                             severity = 4, internal = true,  scar = false },
+  { pattern = "(?:occasional|constant) twitch\\w* (?:on|in) the " .. M.WOUND_BODY_PART_REGEX,                                          severity = 4, internal = true,  scar = true },
+  { pattern = "a bruised and swollen (?<part>(?:right|left) (?:eye))",                                                                  severity = 4, internal = false, scar = false },
+  -- damaging / very damaging (severity 5)
+  { pattern = "some deep slashes and cuts about the (?<part>head)",                                                                     severity = 5, internal = false, scar = false },
+  { pattern = "severe scarring and ugly gashes about the " .. M.WOUND_BODY_PART_REGEX,                                                 severity = 5, internal = false, scar = true },
+  { pattern = "major swelling and bruising around the (?<part>head)",                                                                   severity = 5, internal = true,  scar = false },
+  { pattern = "an occasional twitch on the fore(?<part>head)",                                                                          severity = 5, internal = true,  scar = true },
+  { pattern = "a bruised,* swollen and bleeding " .. M.WOUND_BODY_PART_REGEX,                                                          severity = 5, internal = false, scar = false },
+  { pattern = "deeply scarred gashes across the " .. M.WOUND_BODY_PART_REGEX,                                                          severity = 5, internal = false, scar = true },
+  { pattern = "a severely swollen, bruised and crossed " .. M.WOUND_BODY_PART_REGEX,                                                   severity = 5, internal = true,  scar = false },
+  { pattern = "a constant twitching in the " .. M.WOUND_BODY_PART_REGEX,                                                               severity = 5, internal = true,  scar = true },
+  { pattern = "deep slashes across the " .. M.WOUND_BODY_PART_REGEX,                                                                   severity = 5, internal = false, scar = false },
+  { pattern = "a severely swollen and deeply bruised " .. M.WOUND_BODY_PART_REGEX,                                                     severity = 5, internal = true,  scar = false },
+  { pattern = "severely swollen and bruised " .. M.WOUND_BODY_PART_REGEX,                                                              severity = 5, internal = true,  scar = false },
+  { pattern = "a constant twitching in the (?<part>chest) area and difficulty breathing",                                               severity = 5, internal = true,  scar = true },
+  { pattern = "(?<abdomen>a somewhat emaciated look)",                                                                                  severity = 5, internal = true,  scar = true },
+  { pattern = "a constant twitching in the " .. M.WOUND_BODY_PART_REGEX .. " and difficulty moving in general",                         severity = 5, internal = true,  scar = true },
+  { pattern = "(?<skin>a body rash)",                                                                                                   severity = 5, internal = false, scar = false },
+  { pattern = "severe (?<part>skin) discoloration",                                                                                     severity = 5, internal = false, scar = true },
+  { pattern = "(?<skin>difficulty controlling actions)",                                                                                severity = 5, internal = true,  scar = false },
+  { pattern = "(?<skin>numbness in your fingers and toes)",                                                                             severity = 5, internal = true,  scar = true },
+  -- severe / very severe (severity 6)
+  { pattern = "(?<head>a cracked skull with deep slashes)",                                                                             severity = 6, internal = false, scar = false },
+  { pattern = "missing chunks out of the (?<part>head)",                                                                                severity = 6, internal = false, scar = true },
+  { pattern = "a bruised, swollen and slashed " .. M.WOUND_BODY_PART_REGEX,                                                            severity = 6, internal = false, scar = false },
+  { pattern = "a punctured and shriveled " .. M.WOUND_BODY_PART_REGEX,                                                                 severity = 6, internal = false, scar = true },
+  { pattern = "a severely swollen,* bruised and cloudy " .. M.WOUND_BODY_PART_REGEX,                                                   severity = 6, internal = true,  scar = false },
+  { pattern = "a clouded " .. M.WOUND_BODY_PART_REGEX,                                                                                 severity = 6, internal = true,  scar = true },
+  { pattern = "gaping holes in the " .. M.WOUND_BODY_PART_REGEX,                                                                       severity = 6, internal = false, scar = false },
+  { pattern = "a broken " .. M.WOUND_BODY_PART_REGEX .. " with gaping holes",                                                          severity = 6, internal = false, scar = false },
+  { pattern = "severe scarring and ugly gashes about the " .. M.WOUND_BODY_PART_REGEX,                                                 severity = 6, internal = false, scar = true },
+  { pattern = "severe scarring and chunks of flesh missing from the " .. M.WOUND_BODY_PART_REGEX,                                      severity = 6, internal = false, scar = true },
+  { pattern = "a severely swollen and deeply bruised " .. M.WOUND_BODY_PART_REGEX .. " with odd protrusions under the skin",            severity = 6, internal = true,  scar = false },
+  { pattern = "a severely swollen and deeply bruised (?<part>chest) area with odd protrusions under the skin",                          severity = 6, internal = true,  scar = false },
+  { pattern = "a partially paralyzed " .. M.WOUND_BODY_PART_REGEX,                                                                     severity = 6, internal = true,  scar = true },
+  { pattern = "a painful " .. M.WOUND_BODY_PART_REGEX .. " and difficulty moving without pain",                                         severity = 6, internal = true,  scar = true },
+  { pattern = "a painful (?<part>chest) area and difficulty getting a breath without pain",                                             severity = 6, internal = true,  scar = true },
+  { pattern = "a severely bloated and discolored " .. M.WOUND_BODY_PART_REGEX .. " with strange round lumps under the skin",            severity = 6, internal = true,  scar = false },
+  { pattern = "(?<abdomen>a definite greenish pallor and emaciated look)",                                                              severity = 6, internal = true,  scar = true },
+  { pattern = "(?<skin>a painful,* inflamed body rash)",                                                                                severity = 6, internal = false, scar = false },
+  { pattern = "(?<skin>a painful,* enflamed body rash)",                                                                                severity = 6, internal = false, scar = false },
+  { pattern = "some shriveled and oddly folded (?<part>skin)",                                                                          severity = 6, internal = false, scar = true },
+  { pattern = "(?<skin>partial paralysis of the entire body)",                                                                          severity = 6, internal = true,  scar = false },
+  { pattern = "(?<skin>numbness in your arms and legs)",                                                                                severity = 6, internal = true,  scar = true },
+  -- devastating / very devastating (severity 7)
+  { pattern = "(?<head>a crushed skull with horrendous wounds)",                                                                        severity = 7, internal = false, scar = false },
+  { pattern = "a mangled and malformed (?<part>head)",                                                                                  severity = 7, internal = false, scar = true },
+  { pattern = "a ghastly bloated (?<part>head) with bleeding from the ears",                                                            severity = 7, internal = true,  scar = false },
+  { pattern = "a confused look with sporadic twitching of the fore(?<part>head)",                                                       severity = 7, internal = true,  scar = true },
+  { pattern = "a bruised,* swollen and shattered " .. M.WOUND_BODY_PART_REGEX,                                                         severity = 7, internal = false, scar = false },
+  { pattern = "a painfully mangled and malformed " .. M.WOUND_BODY_PART_REGEX .. " in a shattered eye socket",                          severity = 7, internal = false, scar = true },
+  { pattern = "a severely swollen,* bruised and blind " .. M.WOUND_BODY_PART_REGEX,                                                    severity = 7, internal = true,  scar = false },
+  { pattern = "severely scarred,* mangled and malformed " .. M.WOUND_BODY_PART_REGEX,                                                  severity = 7, internal = false, scar = true },
+  { pattern = "a completely clouded " .. M.WOUND_BODY_PART_REGEX,                                                                       severity = 7, internal = true,  scar = true },
+  { pattern = "a shattered " .. M.WOUND_BODY_PART_REGEX .. " with gaping wounds",                                                      severity = 7, internal = false, scar = false },
+  { pattern = "shattered (?<part>chest) area with gaping wounds",                                                                       severity = 7, internal = false, scar = false },
+  { pattern = "a severely swollen and deeply bruised " .. M.WOUND_BODY_PART_REGEX .. " with bones protruding out from the skin",        severity = 7, internal = true,  scar = false },
+  { pattern = "a severely swollen and deeply bruised " .. M.WOUND_BODY_PART_REGEX .. " with ribs or vertebrae protruding out from the skin", severity = 7, internal = true,  scar = false },
+  { pattern = "a severely paralyzed " .. M.WOUND_BODY_PART_REGEX,                                                                      severity = 7, internal = true,  scar = true },
+  { pattern = "a severely painful " .. M.WOUND_BODY_PART_REGEX .. " with significant problems moving",                                 severity = 7, internal = true,  scar = true },
+  { pattern = "a severely painful (?<part>chest) area with significant problems breathing",                                             severity = 7, internal = true,  scar = true },
+  { pattern = M.WOUND_BODY_PART_REGEX .. " deeply gouged with gaping wounds",                                                          severity = 7, internal = false, scar = false },
+  { pattern = "a severely bloated and discolored " .. M.WOUND_BODY_PART_REGEX .. " with strange round lumps under the skin",            severity = 7, internal = true,  scar = false },
+  { pattern = "(?<abdomen>a severely yellow pallor and a look of starvation)",                                                          severity = 7, internal = true,  scar = true },
+  { pattern = "boils and sores around the (?<part>skin)",                                                                               severity = 7, internal = false, scar = false },
+  { pattern = "severely stiff and shriveled (?<part>skin) that seems to be peeling off the body",                                       severity = 7, internal = false, scar = true },
+  { pattern = "(?<skin>severe paralysis of the entire body)",                                                                           severity = 7, internal = true,  scar = false },
+  { pattern = "(?<skin>general numbness all over)",                                                                                     severity = 7, internal = true,  scar = true },
+  -- useless (severity 8)
+  { pattern = "pulpy stump for a (?<part>head)",                                                                                        severity = 8, internal = false, scar = false },
+  { pattern = "a stump for a (?<part>head)",                                                                                            severity = 8, internal = false, scar = true },
+  { pattern = "an ugly stump for a " .. M.WOUND_BODY_PART_REGEX,                                                                       severity = 8, internal = false, scar = false },
+  { pattern = "a grotesquely bloated (?<part>head) with bleeding from the eyes and ears",                                               severity = 8, internal = true,  scar = false },
+  { pattern = "(?<head>a blank stare)",                                                                                                 severity = 8, internal = true,  scar = true },
+  { pattern = "a pulpy cavity for a " .. M.WOUND_BODY_PART_REGEX,                                                                      severity = 8, internal = false, scar = false },
+  { pattern = "an empty " .. M.WOUND_BODY_PART_REGEX .. " socket overgrown with bits of odd shaped flesh",                              severity = 8, internal = false, scar = true },
+  { pattern = "a severely swollen,* bruised and blind " .. M.WOUND_BODY_PART_REGEX,                                                    severity = 8, internal = true,  scar = false },
+  { pattern = "a blind " .. M.WOUND_BODY_PART_REGEX,                                                                                   severity = 8, internal = true,  scar = true },
+  { pattern = "a completely useless " .. M.WOUND_BODY_PART_REGEX .. " with nearly all flesh and bone torn away",                        severity = 8, internal = false, scar = false },
+  { pattern = "a completely destroyed " .. M.WOUND_BODY_PART_REGEX .. " with nearly all flesh and bone torn away revealing a gaping hole", severity = 8, internal = false, scar = false },
+  { pattern = "an ugly flesh stump for a " .. M.WOUND_BODY_PART_REGEX,                                                                 severity = 8, internal = false, scar = true },
+  { pattern = "an ugly flesh stump for a " .. M.WOUND_BODY_PART_REGEX .. " with little left to support the head",                      severity = 8, internal = false, scar = true },
+  { pattern = "a severely swollen and shattered " .. M.WOUND_BODY_PART_REGEX .. " which appears completely useless",                    severity = 8, internal = true,  scar = false },
+  { pattern = "a severely swollen and shattered " .. M.WOUND_BODY_PART_REGEX .. " which appears useless to hold up the head",           severity = 8, internal = true,  scar = false },
+  { pattern = "a completely paralyzed " .. M.WOUND_BODY_PART_REGEX,                                                                    severity = 8, internal = true,  scar = true },
+  { pattern = "a mostly non-existent " .. M.WOUND_BODY_PART_REGEX .. " filled with ugly chunks of scarred flesh",                      severity = 8, internal = false, scar = true },
+  { pattern = "a severely swollen (?<part>chest) area with a shattered rib cage",                                                       severity = 8, internal = true,  scar = false },
+  { pattern = "an extremely painful " .. M.WOUND_BODY_PART_REGEX .. " while gasping for breath in short shallow bursts",                severity = 8, internal = true,  scar = true },
+  { pattern = "a severely bloated and discolored " .. M.WOUND_BODY_PART_REGEX .. " which appears oddly rearranged",                     severity = 8, internal = true,  scar = false },
+  { pattern = "(?<abdomen>a death pallor and extreme loss of weight)",                                                                  severity = 8, internal = true,  scar = true },
+  { pattern = "a severely swollen " .. M.WOUND_BODY_PART_REGEX .. " with a shattered spinal cord",                                     severity = 8, internal = true,  scar = false },
+  { pattern = "an extremely painful and bizarrely twisted " .. M.WOUND_BODY_PART_REGEX .. " making it nearly impossible to move",       severity = 8, internal = true,  scar = true },
+  { pattern = "open and bleeding sores all over the (?<part>skin)",                                                                     severity = 8, internal = false, scar = false },
+  { pattern = "severe (?<part>skin) loss exposing bone and internal organs",                                                            severity = 8, internal = false, scar = true },
+  { pattern = "(?<skin>complete paralysis of the entire body)",                                                                         severity = 8, internal = true,  scar = false },
+  { pattern = "(?<skin>general numbness all over and have difficulty thinking)",                                                        severity = 8, internal = true,  scar = true },
 }
 
---- Bleeder severity for HEALTH command (simple text matching).
-M.BLEED_SEVERITY_MAP = {
-    { pattern = "very heavy",  severity = 5 },
-    { pattern = "heavy",       severity = 4 },
-    { pattern = "moderate",    severity = 3 },
-    { pattern = "light",       severity = 2 },
-    { pattern = "slight",      severity = 1 },
-}
-
---- Tend success patterns
+--- Tend success patterns.
 M.TEND_SUCCESS = {
-  "You skillfully tend", "You tend", "Roundtime",
+  "You work carefully at tending",
+  "You work carefully at binding",
+  "That area has already been tended to",
+  "That area is not bleeding",
 }
 
---- Tend failure patterns
+--- Tend failure patterns.
 M.TEND_FAILURE = {
-  "Tend what", "That area is not bleeding",
-  "have nothing to tend", "too injured to tend",
   "You fumble",
+  "too injured for you to do that",
+  "TEND allows for the tending of wounds",
+  "^You must have a hand free",
 }
 
---- Tend dislodge patterns
+--- Tend dislodge patterns.
 M.TEND_DISLODGE = {
-  "You .* remove .* from",
+  "^You \\w+ remove (?:a|the|some) .* from",
+  "^As you reach for the clay fragment",
 }
 
 -------------------------------------------------------------------------------
@@ -162,6 +302,13 @@ function M.Wound(opts)
       end
       return M.skilled_to_tend_wound(self.bleeding_rate, self.is_internal)
     end,
+
+    internal = function(self) return self.is_internal end,
+    scar = function(self) return self.is_scar end,
+    parasite = function(self) return self.is_parasite end,
+    lodged_item = function(self) return self.is_lodged_item end,
+    location = function(self) return self.is_internal and "internal" or "external" end,
+    wound_type = function(self) return self.is_scar and "scar" or "wound" end,
   }
 end
 
@@ -210,6 +357,28 @@ function M.HealthResult(opts)
 end
 
 -------------------------------------------------------------------------------
+-- Internal helpers
+-------------------------------------------------------------------------------
+
+--- Extract body part from regex captures, handling named groups.
+-- Named captures like (?<skin>...) mean body_part IS "skin".
+-- Named captures like (?<head>...) mean body_part IS "head".
+-- Named captures like (?<abdomen>...) mean body_part IS "abdomen".
+-- Named capture (?<part>...) means use the captured text as body_part.
+-- @param caps table Regex captures table
+-- @return string|nil body part name
+local function extract_body_part(caps)
+  if not caps then return nil end
+  -- Check for specific named body part overrides
+  if caps.skin then return "skin" end
+  if caps.head then return "head" end
+  if caps.abdomen then return "abdomen" end
+  -- Use the generic 'part' capture
+  if caps.part then return caps.part end
+  return nil
+end
+
+-------------------------------------------------------------------------------
 -- Health checking
 -------------------------------------------------------------------------------
 
@@ -250,83 +419,134 @@ function M.parse_health_lines(health_lines)
   local parasites = {}
   local lodged = {}
 
+  -- Build combined parasites regex
+  local parasites_pattern = table.concat(M.PARASITES_REGEX, "|")
+
+  local wounds_line = nil
+  local parasites_line = nil
+  local lodged_line = nil
+
   for _, line in ipairs(health_lines) do
+    -- Skip non-diagnostic lines
+    if Regex.test("^Your body feels\\b|^Your spirit feels\\b|^You are .*fatigued|^You feel fully rested", line) then
+      -- skip
     -- Disease
-    if Regex.test("dormant infection|wounds are infected|open oozing sores", line) then
+    elseif Regex.test("^You have a dormant infection|^Your wounds are infected|^Your body is covered in open oozing sores", line) then
       diseased = true
-    end
     -- Poison
-    if Regex.test("poison|trouble breathing", line) then
+    elseif Regex.test("^You have .* poison|trouble breathing", line) then
       poisoned = true
-    end
     -- Parasites
-    for _, parasite in ipairs(M.PARASITES) do
-      if line:find(parasite) then
-        local bp = line:match("on your ([%w%s]*)")
-        if not parasites[1] then parasites[1] = {} end
-        parasites[1][#parasites[1] + 1] = M.Wound({ body_part = bp, severity = 1, is_parasite = true })
-      end
-    end
+    elseif Regex.test(parasites_pattern, line) or Regex.test("^You have a .* on your", line) then
+      parasites_line = line
     -- Lodged items
-    if line:find("lodged .* in") then
-      for depth, sev in pairs(M.LODGED_SEVERITY) do
-        if line:find(depth) then
-          local bp = line:match("into? your ([%w%s]*)")
-          if not lodged[sev] then lodged[sev] = {} end
-          lodged[sev][#lodged[sev] + 1] = M.Wound({ body_part = bp, severity = sev, is_lodged_item = true })
+    elseif Regex.test("lodged .* in(?:to)? your", line) then
+      lodged_line = line
+    -- Wounds line: "You have ..." but NOT "no significant injuries", NOT lodged, NOT infection, NOT poison, NOT parasites
+    elseif Regex.test("^You have ", line)
+      and not Regex.test("no significant injuries", line)
+      and not Regex.test("lodged .* in(?:to)? your", line)
+      and not Regex.test("infection", line)
+      and not Regex.test("poison", line)
+      and not Regex.test(parasites_pattern, line) then
+      wounds_line = line
+    end
+  end
+
+  -- Parse wound descriptions from the "You have ..." line
+  if wounds_line then
+    -- Remove comma separators inside compound wound descriptions
+    local cleaned = Regex.new(M.WOUND_COMMA_SEPARATOR):replace_all(wounds_line, "")
+    -- Strip "You have " prefix and trailing period
+    cleaned = Regex.new("^You have\\s+"):replace(cleaned, "")
+    cleaned = Regex.new("\\.$"):replace(cleaned, "")
+    -- Split on commas
+    local fragments = Regex.split(",", cleaned)
+    for _, frag in ipairs(fragments) do
+      frag = frag:match("^%s*(.-)%s*$") -- trim whitespace
+      if frag ~= "" then
+        for _, entry in ipairs(M.WOUND_SEVERITY_REGEX_MAP) do
+          local re = Regex.new(entry.pattern)
+          local caps = re:captures(frag)
+          if caps then
+            local body_part = extract_body_part(caps)
+            if not wounds[entry.severity] then wounds[entry.severity] = {} end
+            wounds[entry.severity][#wounds[entry.severity] + 1] = M.Wound({
+              body_part = body_part,
+              severity = entry.severity,
+              is_internal = entry.internal,
+              is_scar = entry.scar,
+            })
+            break
+          end
         end
       end
     end
+  end
 
-    -- Wounds (from HEALTH output: "Your body feels ... <part> has a <severity> wound")
-    -- DR HEALTH shows each body part on its own line with wound and bleed info
-    if line:find("wound") and not line:find("lodged") and not line:find("parasite") then
-        -- Try to extract body part and wound severity
-        for _, bp_pattern in ipairs({"(%w[%w%s]-)%s+has%s+a%s+", "(%w[%w%s]-)%s+have%s+a%s+"}) do
-            local bp = line:match(bp_pattern)
-            if bp then
-                local severity = 0
-                for _, entry in ipairs(M.WOUND_SEVERITY_MAP) do
-                    if line:find(entry.pattern) then
-                        severity = entry.severity
-                        break
-                    end
-                end
-                local is_internal = line:find("internal") ~= nil
-                local is_scar = line:find("scar") ~= nil
-                local wound = M.Wound({
-                    body_part = bp,
-                    severity = severity,
-                    is_internal = is_internal,
-                    is_scar = is_scar,
-                })
-                if not wounds[severity] then wounds[severity] = {} end
-                table.insert(wounds[severity], wound)
-
-                -- Check for bleeding on same line
-                local bleed_rate = line:match("bleeding%s+(.-)%s*$") or line:match("bleeding%s+(.-)%s*[,.]")
-                if bleed_rate then
-                    local bleed_sev = 0
-                    for _, entry in ipairs(M.BLEED_SEVERITY_MAP) do
-                        if bleed_rate:find(entry.pattern) then
-                            bleed_sev = entry.severity
-                            break
-                        end
-                    end
-                    -- Also look up in the full BLEED_RATE_TO_SEVERITY for exact text match
-                    local exact = M.BLEED_RATE_TO_SEVERITY[bleed_rate]
-                    if exact then bleed_sev = exact.severity end
-                    local bleeder = M.Wound({
-                        body_part = bp,
-                        severity = bleed_sev,
-                        bleeding_rate = bleed_rate,
-                    })
-                    if not bleeders[bleed_sev] then bleeders[bleed_sev] = {} end
-                    table.insert(bleeders[bleed_sev], bleeder)
-                end
-                break
-            end
+  -- Parse bleeder table lines
+  local bleeder_re = Regex.new(M.BLEEDER_LINE_REGEX)
+  local in_bleeders = false
+  for _, line in ipairs(health_lines) do
+    if bleeder_re:captures(line) then
+      in_bleeders = true
+      local bp_re = Regex.new(M.WOUND_BODY_PART_REGEX)
+      local bp_caps = bp_re:captures(line)
+      local body_part = extract_body_part(bp_caps)
+      if body_part then
+        body_part = body_part:gsub("l%.", "left"):gsub("r%.", "right")
+      end
+      -- Extract bleed rate: everything after the body part keyword
+      local rate_caps = Regex.new("(?:head|eye|neck|chest|abdomen|back|arm|hand|leg|tail|skin)\\s+(?<rate>.+)"):captures(line)
+      if rate_caps and rate_caps.rate then
+        local bleed_rate = rate_caps.rate:match("^%s*(.-)%s*$") -- trim
+        local bleed_info = M.BLEED_RATE_TO_SEVERITY[bleed_rate]
+        if bleed_info then
+          if not bleeders[bleed_info.severity] then bleeders[bleed_info.severity] = {} end
+          bleeders[bleed_info.severity][#bleeders[bleed_info.severity] + 1] = M.Wound({
+            body_part = body_part,
+            severity = bleed_info.severity,
+            bleeding_rate = bleed_rate,
+            is_internal = line:find("^inside") ~= nil,
+          })
         end
+      end
+    elseif in_bleeders then
+      break -- end of bleeder table
+    end
+  end
+
+  -- Parse parasites
+  if parasites_line then
+    local cleaned = Regex.new("^You have\\s+"):replace(parasites_line, "")
+    cleaned = Regex.new("\\.$"):replace(cleaned, "")
+    local frags = Regex.split(",", cleaned)
+    for _, frag in ipairs(frags) do
+      frag = frag:match("^%s*(.-)%s*$")
+      local bp_caps = Regex.new(M.PARASITE_BODY_PART_REGEX):captures(frag)
+      local bp = extract_body_part(bp_caps)
+      if not parasites[1] then parasites[1] = {} end
+      parasites[1][#parasites[1] + 1] = M.Wound({ body_part = bp, severity = 1, is_parasite = true })
+    end
+  end
+
+  -- Parse lodged items
+  if lodged_line then
+    local cleaned = Regex.new("^You have\\s+"):replace(lodged_line, "")
+    cleaned = Regex.new("\\.$"):replace(cleaned, "")
+    local frags = Regex.split(",", cleaned)
+    for _, frag in ipairs(frags) do
+      frag = frag:match("^%s*(.-)%s*$")
+      local bp_caps = Regex.new(M.LODGED_BODY_PART_REGEX):captures(frag)
+      local bp = extract_body_part(bp_caps)
+      -- Determine lodged depth
+      local depth_caps = Regex.new("lodged\\s+(?<depth>.+?)\\s+in(?:to)? your"):captures(frag)
+      local sev = 1
+      if depth_caps and depth_caps.depth then
+        sev = M.LODGED_SEVERITY[depth_caps.depth] or 1
+      end
+      if not lodged[sev] then lodged[sev] = {} end
+      lodged[sev][#lodged[sev] + 1] = M.Wound({ body_part = bp, severity = sev, is_lodged_item = true })
     end
   end
 
@@ -347,121 +567,150 @@ end
 -- @param lines table Array of stripped text lines
 -- @return HealthResult
 function M.parse_perceived_health_lines(lines)
-    local wounds = {}
-    local parasites = {}
-    local lodged = {}
-    local poisoned = false
-    local diseased = false
-    local dead = false
-    local vitality = 100
+  local wounds = {}
+  local parasites = {}
+  local poisoned = false
+  local diseased = false
+  local dead = false
+  local vitality = 100
+  local wound_body_part = nil
 
-    for _, line in ipairs(lines) do
-        line = line:match("^%s*(.-)%s*$") -- trim
+  -- Build combined parasites regex
+  local parasites_pattern = table.concat(M.PARASITES_REGEX, "|")
 
-        -- Vitality parsing (upstream 8a65de0)
-        local vit = line:match("has (%d+)%% vitality remaining")
-        if vit then
-            vitality = tonumber(vit)
-        end
+  local perceive_re = Regex.new(M.PERCEIVE_HEALTH_SEVERITY_REGEX)
+  local dead_re = Regex.new("^(?:He|She) is dead")
+  local poisons_re = Regex.new("has a .* poison|having trouble breathing|Cyanide poison")
+  local diseases_re = Regex.new("wounds are (?:badly )?infected|has a dormant infection|(?:body|skin) is covered (?:in|with) open oozing sores")
 
-        -- Dead check
-        if line:find("feel only an aching emptiness") then
-            dead = true
-        end
+  for _, line in ipairs(lines) do
+    line = line:match("^%s*(.-)%s*$") -- trim
 
-        -- Poison/disease
-        if line:find("affected by .* poison") then poisoned = true end
-        if line:find("affected by .* disease") then diseased = true end
-
-        -- Perceived wound parsing
-        if line:find("wound") or line:find("scar") then
-            local part = line:match("the ([%w%s]+)$")
-            if part then
-                part = part:match("^(.-)%.?$")  -- strip trailing period
-                local severity = 0
-                for _, entry in ipairs(M.WOUND_SEVERITY_MAP) do
-                    if line:find(entry.pattern) then
-                        severity = entry.severity
-                        break
-                    end
-                end
-                local wound = M.Wound({
-                    body_part = part,
-                    severity = severity,
-                    is_scar = line:find("scar") ~= nil,
-                })
-                if not wounds[severity] then wounds[severity] = {} end
-                table.insert(wounds[severity], wound)
-            end
-        end
-
-        -- Parasites in perceived output
-        if line:find("parasite") then
-            local part = line:match("on the ([%w%s]+)$") or line:match("in the ([%w%s]+)$")
-            if part then
-                part = part:match("^(.-)%.?$")
-                local p = M.Wound({ body_part = part, severity = 1, is_parasite = true })
-                if not parasites[1] then parasites[1] = {} end
-                table.insert(parasites[1], p)
-            end
-        end
-
-        -- Lodged items in perceived output
-        if line:find("lodged") then
-            local part = line:match("in the ([%w%s]+)$") or line:match("the ([%w%s]+)$")
-            if part then
-                part = part:match("^(.-)%.?$")
-                local l = M.Wound({ body_part = part, severity = 1, is_lodged_item = true })
-                if not lodged[1] then lodged[1] = {} end
-                table.insert(lodged[1], l)
-            end
-        end
+    -- Dead check (third-person: "He is dead" / "She is dead")
+    if dead_re:captures(line) then
+      dead = true
     end
 
-    local score = M.calculate_score(wounds)
+    -- Vitality parsing
+    local vit = line:match("has (%d+)%% vitality remaining")
+    if vit then
+      vitality = tonumber(vit)
+    end
 
-    return M.HealthResult({
-        wounds = wounds,
-        bleeders = {},   -- perceived output doesn't show bleeders
-        parasites = parasites,
-        lodged = lodged,
-        poisoned = poisoned,
-        diseased = diseased,
-        score = score,
-        dead = dead,
-        vitality = vitality,
-    })
+    -- Disease
+    if diseases_re:captures(line) then
+      diseased = true
+    end
+
+    -- Poison
+    if poisons_re:captures(line) then
+      poisoned = true
+    end
+
+    -- Parasites (using PARASITES_REGEX patterns)
+    if Regex.test(parasites_pattern, line) then
+      local bp_caps = Regex.new("on (?:his|her|your) (?<part>[\\w\\s]*)"):captures(line)
+      local bp = bp_caps and bp_caps.part or nil
+      if not parasites[1] then parasites[1] = {} end
+      parasites[1][#parasites[1] + 1] = M.Wound({ body_part = bp, severity = 1, is_parasite = true })
+    end
+
+    -- Wound body part header: "Wounds to the <part>:"
+    local part_header = line:match("^Wounds to the (.+):")
+    if part_header then
+      wound_body_part = part_header
+      if not wounds[wound_body_part] then wounds[wound_body_part] = {} end
+    end
+
+    -- Perceived wound severity lines: "Fresh External: ... -- severity"
+    local caps = perceive_re:captures(line)
+    if caps and wound_body_part then
+      local severity = M.WOUND_SEVERITY[caps.severity]
+      if severity then
+        if not wounds[severity] then wounds[severity] = {} end
+        wounds[severity][#wounds[severity] + 1] = M.Wound({
+          body_part = wound_body_part,
+          severity = severity,
+          is_internal = caps.location == "Internal",
+          is_scar = caps.freshness == "Scars",
+        })
+      end
+    end
+  end
+
+  -- Remove any string-keyed body part header entries (they were tracking state)
+  local clean_wounds = {}
+  for k, v in pairs(wounds) do
+    if type(k) == "number" then
+      clean_wounds[k] = v
+    end
+  end
+
+  local score = M.calculate_score(clean_wounds)
+
+  return M.HealthResult({
+    wounds = clean_wounds,
+    bleeders = {},
+    parasites = parasites,
+    lodged = {},
+    poisoned = poisoned,
+    diseased = diseased,
+    score = score,
+    dead = dead,
+    vitality = vitality,
+  })
 end
 
 --- Perceive own health (empath ability).
 -- @return HealthResult|nil
 function M.perceive_health()
-    local result = DRC.bput("perceive health self",
-        "You feel .* vitality remaining",
-        "You feel completely fine",
-        "You feel only an aching emptiness",
-        "You don't have the ability to do that")
-    if not result or result:find("don't have the ability") then
-        return nil
-    end
-    local output = reget(20)
-    return M.parse_perceived_health_lines(output)
+  if DRStats and DRStats.empath and not DRStats.empath() then
+    echo("DRCH: perceive_health requires empath")
+    return nil
+  end
+  local result = DRC.bput("perceive health self",
+    "injuries include", "feel only an aching emptiness",
+    "You don't have the ability to do that")
+  if not result or result:find("don't have the ability") then return nil end
+  if result:find("aching emptiness") then
+    if waitrt then waitrt() end
+    return M.check_health()
+  end
+  local output = reget(20)
+  local perceived = M.parse_perceived_health_lines(output)
+  local health = M.check_health()
+  if waitrt then waitrt() end
+  return M.HealthResult({
+    wounds = perceived.wounds,
+    bleeders = health.bleeders,
+    parasites = health.parasites,
+    lodged = health.lodged,
+    poisoned = health.poisoned,
+    diseased = health.diseased,
+    score = perceived.score,
+    dead = perceived.dead,
+    vitality = perceived.vitality,
+  })
 end
 
 --- Perceive another's health via TOUCH (empath ability).
 -- @param target string Character name
 -- @return HealthResult|nil
 function M.perceive_health_other(target)
-    local result = DRC.bput("touch " .. target,
-        "has %d+%% vitality remaining",
-        "in good shape",
-        "feel only an aching emptiness",
-        "You don't have the ability")
-    if not result or result:find("don't have the ability") then
-        return nil
-    end
-    local output = reget(20)
-    return M.parse_perceived_health_lines(output)
+  if DRStats and DRStats.empath and not DRStats.empath() then
+    echo("DRCH: perceive_health_other requires empath")
+    return nil
+  end
+  local result = DRC.bput("touch " .. target,
+    "between you and", "Touch what",
+    "feels cold and you are unable",
+    "avoids your touch", "You quickly recoil")
+  if not result or result:find("Touch what") or result:find("cold")
+    or result:find("avoids") or result:find("recoil") then
+    return nil
+  end
+  local output = reget(20)
+  return M.parse_perceived_health_lines(output)
 end
 
 --- Check if character has tendable bleeders.
@@ -490,11 +739,10 @@ function M.bind_wound(body_part, person)
 
   -- Dislodge: dispose of the item and re-tend
   for _, p in ipairs(M.TEND_DISLODGE) do
-    if result:find(p) then
-      -- Dispose dislodged item
-      local dislodged = result:match("remove .* ([%a]+) from")
-      if dislodged and DRCI and DRCI.dispose_trash then
-        DRCI.dispose_trash(dislodged)
+    if Regex.test(p, result) then
+      local dislodge_caps = Regex.new("^You \\w+ remove (?:a|the|some) (?<item>.+) from"):captures(result)
+      if dislodge_caps and dislodge_caps.item and DRCI and DRCI.dispose_trash then
+        DRCI.dispose_trash(dislodge_caps.item)
       end
       return M.bind_wound(body_part, person)
     end
@@ -502,7 +750,7 @@ function M.bind_wound(body_part, person)
 
   -- Check failure
   for _, p in ipairs(M.TEND_FAILURE) do
-    if result:find(p) then return false end
+    if Regex.test(p, result) then return false end
   end
 
   return true
