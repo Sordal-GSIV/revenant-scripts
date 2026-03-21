@@ -854,40 +854,157 @@ end
 -- @param worn_trashcan string|nil Worn trashcan name
 -- @param worn_trashcan_verb string|nil Verb (default "put")
 function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
-  retries = retries or 3
-  if retries <= 0 then
-    echo("DRCI: dispose_trash exceeded max retries")
+    if not item then return false end
+    retries = retries or 3
+    if retries <= 0 then
+        echo("DRCI: dispose_trash exceeded max retries")
+        return false
+    end
+
+    -- I1: Ensure item is in hand first (Lich5: get_item_if_not_held?)
+    if not M.in_hands(item) then
+        if not M.get_item(item) then
+            return false  -- Can't pick up the item to dispose
+        end
+    end
+
+    -- Build combined pattern list for bput
+    local all_dispose = {}
+    for _, p in ipairs(M.DROP_TRASH_SUCCESS) do table.insert(all_dispose, p) end
+    for _, p in ipairs(M.DROP_TRASH_FAILURE) do table.insert(all_dispose, p) end
+
+    -- Helper: check if result matches any success pattern
+    local function is_success(result)
+        if not result then return false end
+        for _, p in ipairs(M.DROP_TRASH_SUCCESS) do
+            if smart_find(result, p) then return true end
+        end
+        return false
+    end
+
+    -- I2: Worn trashcan handling (Lich5: put item in trashcan, then fire verb twice)
+    if worn_trashcan then
+        local cmd = "put " .. M.item_ref(item) .. " in " .. M.item_ref(worn_trashcan)
+        local result = DRC.bput(cmd, unpack(all_dispose))
+        if is_success(result) then
+            -- Fire activation verb twice (Lich5 behavior)
+            if worn_trashcan_verb then
+                DRC.bput(worn_trashcan_verb .. " " .. M.item_ref(worn_trashcan), unpack(M.WORN_TRASHCAN_VERB))
+                DRC.bput(worn_trashcan_verb .. " " .. M.item_ref(worn_trashcan), unpack(M.WORN_TRASHCAN_VERB))
+            end
+            return true
+        end
+        -- If worn trashcan failed, fall through to room trash
+    end
+
+    -- I4: Check for meta:trashcan room tag (Lich5 priority)
+    if Room and Room.current and Room.current.tags then
+        for _, tag in ipairs(Room.current.tags) do
+            local meta_noun = tag:match("^meta:trashcan:(.+)$")
+            if meta_noun then
+                local cmd
+                if meta_noun == "gelapod" then
+                    cmd = "feed " .. M.item_ref(item) .. " to gelapod"
+                else
+                    cmd = "put " .. M.item_ref(item) .. " in " .. meta_noun
+                end
+                local result = DRC.bput(cmd, unpack(all_dispose))
+                if is_success(result) then return true end
+            end
+        end
+    end
+
+    -- I3: Noun disambiguation table (Lich5 common-items.rb lines 688-716)
+    local NOUN_ALIASES = {
+        gloop = function(room_objs)
+            if room_objs then
+                for _, obj in ipairs(room_objs) do
+                    if obj:find("small bubbling cauldron of viscous gloop") then return "cauldron" end
+                    if obj:find("bucket of viscous gloop") then return "bucket" end
+                end
+            end
+            return "bucket"
+        end,
+        bucket = function(room_objs)
+            if room_objs then
+                for _, obj in ipairs(room_objs) do
+                    if obj:find("sturdy bucket") then return "sturdy bucket" end
+                end
+            end
+            return "bucket"
+        end,
+        basket = function(room_objs)
+            if room_objs then
+                for _, obj in ipairs(room_objs) do
+                    if obj:find("waste basket") then return "waste basket" end
+                end
+            end
+            return "basket"
+        end,
+        bin = function(room_objs)
+            if room_objs then
+                for _, obj in ipairs(room_objs) do
+                    if obj:find("small bin") then return "small bin" end
+                    if obj:find("waste bin") then return "waste bin" end
+                end
+            end
+            return "bin"
+        end,
+        arms = "statue",
+        birdbath = "alabaster birdbath",
+        turtle = "stone turtle",
+        tree = function(room_objs)
+            if room_objs then
+                for _, obj in ipairs(room_objs) do
+                    if obj:find("dead tree with a darkened hollow") then return "hollow" end
+                end
+            end
+            return "tree"
+        end,
+        basin = function(room_objs)
+            if room_objs then
+                for _, obj in ipairs(room_objs) do
+                    if obj:find("hollow stone basin") then return "stone basin" end
+                end
+            end
+            return "basin"
+        end,
+        tangle = function(room_objs)
+            if room_objs then
+                for _, obj in ipairs(room_objs) do
+                    if obj:find("tangle of thick roots forming a dark gap") then return "dark gap" end
+                end
+            end
+            return "tangle"
+        end,
+    }
+
+    -- Get room objects if DRRoom is available
+    local room_objs = (DRRoom and DRRoom.room_objs) and DRRoom.room_objs() or nil
+
+    -- Try room trash receptacles
+    for _, noun in ipairs(M.TRASH_STORAGE) do
+        local cmd
+        if noun == "gelapod" then
+            cmd = "feed " .. M.item_ref(item) .. " to gelapod"
+        else
+            local target = noun
+            local alias = NOUN_ALIASES[noun]
+            if type(alias) == "function" then
+                target = alias(room_objs)
+            elseif type(alias) == "string" then
+                target = alias
+            end
+            cmd = "put " .. M.item_ref(item) .. " in " .. target
+        end
+        local result = DRC.bput(cmd, unpack(all_dispose))
+        if is_success(result) then return true end
+    end
+
+    -- Last resort: just drop it
+    DRC.bput("drop " .. M.item_ref(item), "You drop", "You spread",
+        "What were you referring to")
     return false
-  end
-  if not item then return end
-
-  -- Try worn trashcan first
-  if worn_trashcan then
-    local verb = worn_trashcan_verb or "put"
-    local result = DRC.bput(verb .. " " .. M.item_ref(item) .. " in " .. M.item_ref(worn_trashcan),
-      "You put", "You tuck", "What were you referring to",
-      "is too .* to fit", "There's no room")
-    if result:find("You put") or result:find("You tuck") then return end
-  end
-
-  -- Try room trash receptacles
-  for _, receptacle in ipairs(M.TRASH_STORAGE) do
-    local result = DRC.bput("put " .. M.item_ref(item) .. " in " .. receptacle,
-      "You put", "You drop", "You toss",
-      "What were you referring to", "I could not find",
-      "is too .* to fit", "There's no room",
-      "You can't put that there")
-    if result:find("You put") or result:find("You drop") or result:find("You toss") then
-      return
-    end
-    if result:find("I could not find") then
-      -- No such receptacle in room, try next
-    end
-  end
-
-  -- Last resort: just drop it
-  DRC.bput("drop " .. M.item_ref(item), "You drop", "You spread",
-    "What were you referring to")
 end
 
 -------------------------------------------------------------------------------
@@ -1461,7 +1578,9 @@ end
 -- @return string|false giver's name on success, false on failure
 function M.accept_item(timeout)
     timeout = timeout or 5
-    local result = DRC.bput("accept", M.ACCEPT_SUCCESS_PATTERN, "Accept what?", {timeout = timeout})
+    local result = DRC.bput("accept", M.ACCEPT_SUCCESS_PATTERN, "Accept what?",
+        "Both of your hands are full", "would push you over your item limit",
+        {timeout = timeout})
     if result then
         local name = result:match(M.ACCEPT_SUCCESS_PATTERN)
         if name then return name end
