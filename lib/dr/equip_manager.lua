@@ -257,10 +257,21 @@ function M.EquipmentManager(settings)
       -- Save current hand contents BEFORE lowering
       local saved_left = DRC.left_hand and DRC.left_hand() or nil
       local saved_right = DRC.right_hand and DRC.right_hand() or nil
-      -- Lower both hands
+      -- Lower both hands; check success (E4)
+      local lowered = true
       if DRCI then
-        if saved_left then DRCI.lower_item(saved_left) end
-        if saved_right then DRCI.lower_item(saved_right) end
+        if saved_left and not DRCI.lower_item(saved_left) then
+            echo("EquipmentManager: Unable to lower " .. saved_left .. " for remove")
+            lowered = false
+        end
+        if saved_right and not DRCI.lower_item(saved_right) then
+            echo("EquipmentManager: Unable to lower " .. saved_right .. " for remove")
+            lowered = false
+        end
+      end
+      if not lowered then
+        echo("EquipmentManager: Unable to empty your hands to remove " .. item:short_name())
+        return false
       end
       -- Recursive remove
       local success = self:remove_item(item, retries - 1)
@@ -271,14 +282,41 @@ function M.EquipmentManager(settings)
         -- Check hand order and swap if needed
         local new_left = DRC.left_hand and DRC.left_hand() or nil
         local new_right = DRC.right_hand and DRC.right_hand() or nil
-        if saved_left and saved_right and new_left ~= saved_left then
+        if (new_left ~= saved_left) or (new_right ~= saved_right) then
           DRC.bput("swap", "You move", "Will alone cannot conquer")
         end
       end
       return success
     end
 
-    self:stow_by_type(item)
+    -- After successful remove, handle transforms_to (E1, Lich5 lines 263-271)
+    if item.transforms_to and DRCI and DRCI.in_hands and DRCI.in_hands(item.transforms_to) then
+        local transform_desc = item.transforms_to
+        local transform_item = self:item_by_desc(transform_desc)
+        if transform_item then
+            item = transform_item
+        else
+            echo("EquipmentManager: Could not find transformed item matching '" .. transform_desc .. "' in gear list")
+            return false
+        end
+    end
+    -- Route to stow destination (E5, Lich5 lines 272-276)
+    if item.tie_to or item.wield or item.container then
+        self:stow_by_type(item)
+    else
+        -- Try generic stow; if no room, fall back to wearing
+        local stow_patterns = {}
+        local base = DRCI and DRCI.PUT_AWAY_SUCCESS or {"You put"}
+        for _, p in ipairs(base) do stow_patterns[#stow_patterns + 1] = p end
+        stow_patterns[#stow_patterns + 1] = "There isn't any more room"
+        stow_patterns[#stow_patterns + 1] = "straps have all been used"
+        stow_patterns[#stow_patterns + 1] = "is too long to fit"
+        local result = DRC.bput("stow my " .. item:short_name(), unpack(stow_patterns))
+        if result and (result:find("more room") or result:find("too long to fit") or result:find("straps have all been used")) then
+            self:stow_helper("wear my " .. item:short_name(), item:short_name(),
+                DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
+        end
+    end
     if waitrt then waitrt() end
     return true
   end
@@ -455,12 +493,22 @@ function M.EquipmentManager(settings)
         if DRCI then
           local lh = DRC and DRC.left_hand and DRC.left_hand()
           local rh = DRC and DRC.right_hand and DRC.right_hand()
-          if lh and not lh:find(noun) then DRCI.stow_hand("left") end
-          if rh and not rh:find(noun) then DRCI.stow_hand("right") end
+          if lh and not lh:lower():find(noun:lower()) then DRCI.stow_hand("left") end
+          if rh and not rh:lower():find(noun:lower()) then DRCI.stow_hand("right") end
+        end
+        -- Verify hands are actually free now (E7)
+        local lh2 = DRC.left_hand and DRC.left_hand() or nil
+        local rh2 = DRC.right_hand and DRC.right_hand() or nil
+        local hands_ok = true
+        if lh2 and not lh2:lower():find(noun:lower()) then hands_ok = false end
+        if rh2 and not rh2:lower():find(noun:lower()) then hands_ok = false end
+        if not hands_ok then
+            echo("EquipmentManager: Unable to free hands for weapon swap")
+            return false
         end
       elseif result:find("nothing to swap") or result:find("too injured") or result:find("Will alone") then
         return false
-      elseif result:lower():find(skill:lower()) then
+      elseif result:lower():find(" " .. skill:lower() .. " ") then
         return true
       end
     end
@@ -480,13 +528,15 @@ function M.EquipmentManager(settings)
     end
 
     local result = DRC.bput("unload my " .. name, unpack(all))
-    if waitrt then waitrt() end
     if not result then return end
 
     -- Check failure
     if DRCI then
       for _, p in ipairs(DRCI.UNLOAD_WEAPON_FAILURE) do
-        if smart_find(result, p) then return end
+        if smart_find(result, p) then
+          if waitrt then waitrt() end
+          return
+        end
       end
     end
 
@@ -496,6 +546,7 @@ function M.EquipmentManager(settings)
       if DRCI and DRCI.lower_item then
         if not DRCI.lower_item(name) then
           echo("EquipmentManager: Unable to lower " .. name .. " to pick up ammo")
+          if waitrt then waitrt() end
           return
         end
         DRCI.put_away_item(ammo)
@@ -503,6 +554,7 @@ function M.EquipmentManager(settings)
           echo("EquipmentManager: Unable to pick " .. name .. " back up after unloading")
         end
       end
+      if waitrt then waitrt() end
       return
     end
 
@@ -512,6 +564,7 @@ function M.EquipmentManager(settings)
       if tumbled and DRCI and DRCI.lower_item then
         if not DRCI.lower_item(name) then
           echo("EquipmentManager: Unable to lower " .. name .. " to pick up ammo")
+          if waitrt then waitrt() end
           return
         end
         DRCI.put_away_item(tumbled)
@@ -519,19 +572,24 @@ function M.EquipmentManager(settings)
           echo("EquipmentManager: Unable to pick " .. name .. " back up after unloading")
         end
       end
+      if waitrt then waitrt() end
       return
     end
 
-    -- Scenario 3: Normal unload, ammo in hand
+    -- Scenario 3: Normal unload, ammo in hand (E9: independent checks, not elseif)
     if result:find("You unload") or result:find("unloading") then
-      local left = DRC.left_hand and DRC.left_hand()
-      local right = DRC.right_hand and DRC.right_hand()
+      local left = DRC.left_hand and DRC.left_hand() or nil
+      local right = DRC.right_hand and DRC.right_hand() or nil
       if left and not left:find(name) then
         if DRCI then DRCI.stow_hand("left") end
-      elseif right and not right:find(name) then
+      end
+      if right and not right:find(name) then
         if DRCI then DRCI.stow_hand("right") end
       end
     end
+
+    -- waitrt at end (E9, Lich5 placement — after all ammo recovery)
+    if waitrt then waitrt() end
   end
 
   --- Stow all weapons currently in hands.
@@ -549,6 +607,11 @@ function M.EquipmentManager(settings)
     if not weapon then
       if DRCI then DRCI.stow_hand("right"); DRCI.stow_hand("left") end
       return
+    end
+
+    -- Unload FIRST, before any routing (E2, matches Lich5 order)
+    if weapon.needs_unloading then
+      self:unload_weapon(weapon:short_name())
     end
 
     -- Worn items get re-worn (not stowed)
@@ -570,10 +633,6 @@ function M.EquipmentManager(settings)
       return self:stow_weapon(weapon.transforms_to, transform_depth - 1)
     end
 
-    if weapon.needs_unloading then
-      self:unload_weapon(weapon:short_name())
-    end
-
     self:stow_by_type(weapon)
   end
 
@@ -584,7 +643,15 @@ function M.EquipmentManager(settings)
       "Turn what", "Which weapon did you want to pull out",
       "shifts .* before resolving itself into")
     if waitrt then waitrt() end
-    return result ~= nil and result:find("shifts") ~= nil
+    -- Verify the correct form was reached (E10, matches Lich5 regex check)
+    if result and result:find("shifts") then
+        if result:lower():find(new_noun:lower()) then
+            return true
+        end
+        echo("EquipmentManager: weapon shifted but not to expected form " .. new_noun)
+        return false
+    end
+    return false
   end
 
   --- Wear an equipment set by name.
@@ -611,7 +678,7 @@ function M.EquipmentManager(settings)
     return true
   end
 
-  --- Return held gear to its proper storage.
+  --- Return held gear to its proper storage (E6: gear-set membership check).
   function em.return_held_gear(self, gear_set)
     gear_set = gear_set or "standard"
     local rh = DRC and DRC.right_hand and DRC.right_hand()
@@ -622,22 +689,49 @@ function M.EquipmentManager(settings)
     if lh then held[#held + 1] = lh end
     if rh then held[#held + 1] = rh end
 
+    -- Build gear set items list (Lich5 checks gear set membership for wear-back)
+    local gear_set_items = self:desc_to_items(self._gear_sets[gear_set] or {})
+
+    local all_ok = true
     for _, held_item in ipairs(held) do
-      local info = self:item_by_desc(held_item)
-      if info then
-        if info.needs_unloading then
-          self:unload_weapon(info:short_name())
+      -- Check gear set membership first (Lich5 line 437)
+      local gs_info = nil
+      for _, gs_item in ipairs(gear_set_items) do
+        if gs_item:matches(held_item) then
+          gs_info = gs_item
+          break
         end
-        -- If item is worn-type, wear it back on (Lich5 gear-set aware)
-        if info.worn then
-          self:stow_helper("wear my " .. info:short_name(), info:short_name(),
-            DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
-        else
+      end
+
+      if gs_info then
+        -- Item is in the gear set: unload if needed, then wear
+        if gs_info.needs_unloading then
+          self:unload_weapon(gs_info:short_name())
+        end
+        self:stow_helper("wear my " .. gs_info:short_name(), gs_info:short_name(),
+          DRCI and DRCI.WEAR_ITEM_SUCCESS or {}, DRCI and DRCI.WEAR_ITEM_FAILURE or {})
+      else
+        -- Not in gear set; check general gear list
+        local info = self:item_by_desc(held_item)
+        if info then
+          if info.needs_unloading then
+            self:unload_weapon(info:short_name())
+          end
           self:stow_by_type(info)
+        else
+          -- Unknown item, generic stow (E6)
+          all_ok = false
+          if DRCI then
+            if held_item == (DRC.left_hand and DRC.left_hand()) then
+              DRCI.stow_hand("left")
+            else
+              DRCI.stow_hand("right")
+            end
+          end
         end
       end
     end
-    return true
+    return all_ok
   end
 
   --- Remove all worn items matching a predicate function.
