@@ -578,6 +578,13 @@ end
 -- @return boolean true on success
 function M.get_item(item, container)
   if not item then return false end
+  -- Array-of-containers support (Lich5 parity)
+  if type(container) == "table" then
+    for _, c in ipairs(container) do
+      if M.get_item(item, c) then return true end
+    end
+    return false
+  end
   if M.in_hands(item) then return true end
 
   local cmd = "get " .. M.item_ref(item)
@@ -614,6 +621,13 @@ end
 -- @return boolean true on success
 function M.put_away_item(item, container)
   if not item then return false end
+  -- Array-of-containers support (Lich5 parity)
+  if type(container) == "table" then
+    for _, c in ipairs(container) do
+      if M.put_away_item(item, c) then return true end
+    end
+    return false
+  end
 
   local cmd
   if container then
@@ -900,6 +914,7 @@ function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
     local all_dispose = {}
     for _, p in ipairs(M.DROP_TRASH_SUCCESS) do table.insert(all_dispose, p) end
     for _, p in ipairs(M.DROP_TRASH_FAILURE) do table.insert(all_dispose, p) end
+    for _, p in ipairs(M.DROP_TRASH_RETRY) do table.insert(all_dispose, p) end
 
     -- Helper: check if result matches any success pattern
     local function is_success(result)
@@ -910,10 +925,22 @@ function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
         return false
     end
 
+    -- Helper: check if result matches any retry pattern
+    local function is_retry(result)
+        if not result then return false end
+        for _, p in ipairs(M.DROP_TRASH_RETRY) do
+            if smart_find(result, p) then return true end
+        end
+        return false
+    end
+
     -- I2: Worn trashcan handling (Lich5: put item in trashcan, then fire verb twice)
     if worn_trashcan then
         local cmd = "put " .. M.item_ref(item) .. " in " .. M.item_ref(worn_trashcan)
         local result = DRC.bput(cmd, unpack(all_dispose))
+        if is_retry(result) then
+            return M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries - 1)
+        end
         if is_success(result) then
             -- Fire activation verb twice (Lich5 behavior)
             if worn_trashcan_verb then
@@ -937,6 +964,9 @@ function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
                     cmd = "put " .. M.item_ref(item) .. " in " .. meta_noun
                 end
                 local result = DRC.bput(cmd, unpack(all_dispose))
+                if is_retry(result) then
+                    return M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries - 1)
+                end
                 if is_success(result) then return true end
             end
         end
@@ -1011,6 +1041,9 @@ function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
     if Room and Room.current and Room.current.title and Room.current.title:find("Junk Yard") then
         local cmd = "put " .. M.item_ref(item) .. " in bin"
         local result = DRC.bput(cmd, unpack(all_dispose))
+        if is_retry(result) then
+            return M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries - 1)
+        end
         for _, p in ipairs(M.DROP_TRASH_SUCCESS) do
             if result and smart_find(result, p) then return true end
         end
@@ -1035,12 +1068,19 @@ function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
             cmd = "put " .. M.item_ref(item) .. " in " .. target
         end
         local result = DRC.bput(cmd, unpack(all_dispose))
+        if is_retry(result) then
+            return M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries - 1)
+        end
         if is_success(result) then return true end
     end
 
     -- Last resort: just drop it
-    DRC.bput("drop " .. M.item_ref(item), "You drop", "You spread",
-        "What were you referring to")
+    local drop_patterns = {"You drop", "You spread", "What were you referring to"}
+    for _, p in ipairs(M.DROP_TRASH_RETRY) do table.insert(drop_patterns, p) end
+    local result = DRC.bput("drop " .. M.item_ref(item), unpack(drop_patterns))
+    if is_retry(result) then
+        return M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries - 1)
+    end
     return false
 end
 
@@ -1053,10 +1093,16 @@ end
 -- @param container string Container name
 -- @return boolean
 function M.inside(item, container)
-  local result = DRC.bput("look in " .. M.item_ref(container),
-    "In the .* you see", "There is nothing in there",
-    "I could not find", "That is closed")
-  return result:find(item) ~= nil
+  if not item or not container then return false end
+  local all = {}
+  for _, p in ipairs(M.TAP_SUCCESS) do table.insert(all, p) end
+  for _, p in ipairs(M.TAP_FAILURE) do table.insert(all, p) end
+  local result = DRC.bput("tap my " .. item .. " in my " .. container, unpack(all))
+  if not result then return false end
+  for _, p in ipairs(M.TAP_SUCCESS) do
+    if smart_find(result, p) then return true end
+  end
+  return false
 end
 
 --- Check if you have an item by looking in a container.

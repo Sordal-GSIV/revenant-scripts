@@ -212,6 +212,7 @@ function M.EquipmentManager(settings)
           "You work", "You unbuckle", "You loosen", "You yank",
           "you tug", "you manage to loosen", "you ready the",
           "slide themselves off",
+          "^A brisk chill leaves you as you",
         },
         failures = DRCI and DRCI.REMOVE_ITEM_FAILURE or {"Remove what", "You aren't wearing that"},
         failure_recovery = function(result)
@@ -494,8 +495,13 @@ function M.EquipmentManager(settings)
       local success = self:remove_item(item, retries - 1)
       -- Restore items (reverse order)
       if DRCI then
-        if saved_right then DRCI.get_item(saved_right) end
-        if saved_left then DRCI.get_item(saved_left) end
+        -- Use get_item_if_not_held to avoid redundant GET (Lich5 parity)
+        if saved_right and not DRCI.in_right_hand(saved_right) then
+            DRCI.get_item(saved_right)
+        end
+        if saved_left and not DRCI.in_left_hand(saved_left) then
+            DRCI.get_item(saved_left)
+        end
         -- Check hand order and swap if needed
         local new_left = DRC.left_hand and DRC.left_hand() or nil
         local new_right = DRC.right_hand and DRC.right_hand() or nil

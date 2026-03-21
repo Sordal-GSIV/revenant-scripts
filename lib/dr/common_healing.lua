@@ -620,7 +620,6 @@ function M.parse_perceived_health_lines(lines)
     local part_header = line:match("^Wounds to the (.+):")
     if part_header then
       wound_body_part = part_header
-      if not wounds[wound_body_part] then wounds[wound_body_part] = {} end
     end
 
     -- Perceived wound severity lines: "Fresh External: ... -- severity"
@@ -710,6 +709,7 @@ function M.perceive_health_other(target)
     "avoids your touch", "You quickly recoil")
   if not result or result:find("Touch what") or result:find("cold")
     or result:find("avoids") or result:find("recoil") then
+    echo("DRCH: Unable to perceive health of " .. target)
     return nil
   end
   -- Extract canonical target name from link confirmation
