@@ -1629,4 +1629,58 @@ function M.search(item)
     return false
 end
 
+-------------------------------------------------------------------------------
+-- Gem Pouch Management
+-------------------------------------------------------------------------------
+
+--- Check if a gem pouch matching adj+noun is tied to belt.
+-- Issues INV BELT and scans output for adj.*gem.*noun.
+-- @param adj string Adjective (e.g. "black")
+-- @param noun string Noun (e.g. "pouch")
+-- @return boolean
+function M.check_belt_for_pouch(adj, noun)
+  local belt_contents = DRC.issue_command(
+    "inv belt",
+    M.INV_BELT_START_PATTERN,
+    M.INV_BELT_END_PATTERN,
+    { timeout = 3, silent = true, quiet = true, usexml = false, include_end = false }
+  )
+  if not belt_contents or #belt_contents == 0 then
+    return false
+  end
+  local pouch_pattern = adj:lower() .. ".*gem.*" .. noun:lower()
+  for _, line in ipairs(belt_contents) do
+    if line:lower():find(pouch_pattern) then
+      return true
+    end
+  end
+  return false
+end
+
+--- Tie a gem pouch to belt.
+-- @param adj string Adjective (e.g. "black")
+-- @param noun string Noun (e.g. "pouch")
+-- @return boolean
+function M.tie_gem_pouch(adj, noun)
+  return M.tie_item(adj .. " " .. noun)
+end
+
+--- Remove current pouch and stow it.
+-- @param adj string Adjective (e.g. "black")
+-- @param noun string Noun (e.g. "pouch")
+-- @param container string|nil Container to stow in (nil = default stow)
+-- @return boolean
+function M.remove_and_stow_pouch(adj, noun, container)
+  local pouch = adj .. " " .. noun
+  if not M.remove_item(pouch) then
+    DRC.message("bold", "DRCI: Unable to remove existing pouch.")
+    return false
+  end
+  if container then
+    return M.put_away_item(pouch, container) or M.stow_item(pouch) or false
+  else
+    return M.stow_item(pouch) or false
+  end
+end
+
 return M
