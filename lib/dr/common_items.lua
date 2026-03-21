@@ -74,6 +74,7 @@ M.REMOVE_ITEM_SUCCESS = {
   "You remove", "You pull .* free", "You sling",
   "You slide .* off", "You work your way out of",
   "You unbuckle", "You loosen", "You detach", "You yank",
+  "^Grunting with momentary exertion",
 }
 
 --- Remove item failure patterns
@@ -90,6 +91,81 @@ M.TIE_ITEM_SUCCESS = {
 M.TIE_ITEM_FAILURE = {
   "Tie what", "Your wounds hinder",
 }
+
+--- Sheath item success patterns (upstream 375b9a0)
+M.SHEATH_ITEM_SUCCESS = {
+    "^Sheathing", "^You sheath", "^You secure your", "^You slip",
+    "^You hang", "^You .-strap",
+    "^With a flick of your wrist,? you stealthily sheath",
+    "^With fluid and stealthy movements you slip",
+    "^The .* slides easily",
+}
+M.SHEATH_ITEM_FAILURE = {
+    "^Sheath your .* where", "^There's no room",
+    "is too small to hold that", "is too wide to fit",
+    "^Your .* hand is too injured",
+}
+
+--- Wield item success patterns (upstream 375b9a0)
+M.WIELD_ITEM_SUCCESS = {
+    "you draw", "^You deftly remove", "^You slip",
+    "^With a flick of your wrist,? you stealthily unsheath",
+    "^With fluid and stealthy movements you draw",
+    "^The .* slides easily out",
+}
+M.WIELD_ITEM_FAILURE = {
+    "^Wield what", "^Your .* hand is too injured",
+}
+
+--- Swap hands patterns (upstream 375b9a0)
+M.SWAP_HANDS_SUCCESS = { "^You move" }
+M.SWAP_HANDS_FAILURE = { "^Will alone cannot conquer the paralysis" }
+
+--- Unload weapon patterns (upstream 375b9a0)
+M.UNLOAD_WEAPON_SUCCESS = {
+    "^You unload", "^Your .* fall.* to your feet%.$",
+    "As you release the string", "^You .* unloading",
+}
+M.UNLOAD_WEAPON_FAILURE = {
+    "But your .* isn't loaded", "You can't unload such a weapon",
+    "You don't have a ranged weapon to unload",
+    "You must be holding the weapon to do that",
+}
+
+--- Container closed patterns (upstream 375b9a0)
+M.CONTAINER_IS_CLOSED = {
+    "^But that's closed", "^That is closed", "^While it's closed",
+}
+
+--- Retry patterns (upstream 375b9a0)
+M.DROP_TRASH_RETRY = {
+    "^If you still wish to drop it", "would damage it",
+    "^Something appears different about", "perhaps try doing that again",
+}
+M.PUT_AWAY_ITEM_RETRY = {
+    "Something appears different about", "perhaps try doing that again",
+}
+
+--- Worn trashcan verb patterns (upstream 375b9a0)
+M.WORN_TRASHCAN_VERB = {
+    "^You drum your fingers", "^You pull a lever",
+    "^You poke your finger around",
+}
+
+--- Braid too long (upstream 375b9a0)
+M.BRAID_TOO_LONG_PATTERN = "The braided (.+) is too long"
+
+--- Accept pattern (upstream 375b9a0)
+M.ACCEPT_SUCCESS_PATTERN = "You accept (%w+)'s offer and are now holding"
+
+--- Stow item combined patterns (upstream 375b9a0)
+M.STOW_ITEM_SUCCESS = {}
+for _, p in ipairs(M.GET_ITEM_SUCCESS) do table.insert(M.STOW_ITEM_SUCCESS, p) end
+for _, p in ipairs(M.PUT_AWAY_SUCCESS) do table.insert(M.STOW_ITEM_SUCCESS, p) end
+
+M.STOW_ITEM_FAILURE = {}
+for _, p in ipairs(M.GET_ITEM_FAILURE) do table.insert(M.STOW_ITEM_FAILURE, p) end
+for _, p in ipairs(M.PUT_AWAY_FAILURE) do table.insert(M.STOW_ITEM_FAILURE, p) end
 
 -------------------------------------------------------------------------------
 -- Item reference helper
@@ -218,7 +294,12 @@ end
 --- Stow the item in a hand.
 -- @param hand string "left" or "right"
 -- @return boolean true on success
-function M.stow_hand(hand)
+function M.stow_hand(hand, retries)
+  retries = retries or 3
+  if retries <= 0 then
+    echo("DRCI: stow_hand exceeded max retries")
+    return false
+  end
   local result = DRC.bput("stow " .. hand,
     "You put", "You tuck", "Stow what", "You're not holding anything",
     "already in your inventory")
@@ -235,7 +316,12 @@ end
 -- Equivalent to Lich5's DRCI.stow_item?
 -- @param item string Item name
 -- @return boolean true on success
-function M.stow_item(item)
+function M.stow_item(item, retries)
+  retries = retries or 3
+  if retries <= 0 then
+    echo("DRCI: stow_item exceeded max retries")
+    return false
+  end
   return M.put_away_item(item, nil)
 end
 
@@ -246,7 +332,12 @@ end
 -- @param target string Target name (NPC or player)
 -- @param item string|nil Item to give (nil = give whatever is held)
 -- @return boolean true if the target accepted
-function M.give_item(target, item)
+function M.give_item(target, item, retries)
+  retries = retries or 5
+  if retries <= 0 then
+    echo("DRCI: give_item exceeded max retries")
+    return false
+  end
   local cmd
   if item then
     cmd = "give " .. M.item_ref(item) .. " to " .. target
@@ -276,11 +367,11 @@ function M.give_item(target, item)
 
   if result:find("GIVE it again") or result:find("give it to me again") then
     if waitrt then waitrt() end
-    return M.give_item(target, item)
+    return M.give_item(target, item, retries - 1)
   end
   if result:find("already has an outstanding offer") then
     pause(5)
-    return M.give_item(target, item)
+    return M.give_item(target, item, retries - 1)
   end
 
   return result:find("has accepted your offer") ~= nil
@@ -371,7 +462,12 @@ end
 -- @param item string Item to dispose
 -- @param worn_trashcan string|nil Worn trashcan name
 -- @param worn_trashcan_verb string|nil Verb (default "put")
-function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb)
+function M.dispose_trash(item, worn_trashcan, worn_trashcan_verb, retries)
+  retries = retries or 3
+  if retries <= 0 then
+    echo("DRCI: dispose_trash exceeded max retries")
+    return false
+  end
   if not item then return end
 
   -- Try worn trashcan first
@@ -548,28 +644,53 @@ function M.count_all_boxes(settings)
   return total
 end
 
---- Put an item away, trying container then default stow. "Unsafe" — no retry.
+--- Put an item away, trying container then default stow.
+-- Includes closed-container recovery and retry logic (upstream 375b9a0).
 -- @param item string Item name
 -- @param container string|nil Container
--- @param preposition string|nil Preposition (default "in"), e.g., "on"
+-- @param retries number|nil Max retries (default 3)
 -- @return boolean
-function M.put_away_item_unsafe(item, container, preposition)
-  if not item then return false end
-  preposition = preposition or "in"
-  local cmd
-  if container then
-    cmd = "put " .. M.item_ref(item) .. " " .. preposition .. " " .. M.item_ref(container)
-  else
-    cmd = "stow " .. M.item_ref(item)
+function M.put_away_item_unsafe(item, container, retries)
+  retries = retries or 3
+  if retries <= 0 then
+    echo("DRCI: put_away_item_unsafe exceeded max retries")
+    return false
   end
-  local result = DRC.bput(cmd,
-    "You put", "You tuck", "You slide", "You place",
-    "What were you referring to", "is too .* to fit",
-    "There's no room", "You can't put that there")
-  return result:find("You put") ~= nil
-      or result:find("You tuck") ~= nil
-      or result:find("You slide") ~= nil
-      or result:find("You place") ~= nil
+  if not item then return false end
+
+  local cmd = container and ("put my " .. item .. " in my " .. container)
+                         or ("stow my " .. item)
+  local all_patterns = {}
+  for _, p in ipairs(M.PUT_AWAY_SUCCESS) do table.insert(all_patterns, p) end
+  for _, p in ipairs(M.PUT_AWAY_FAILURE) do table.insert(all_patterns, p) end
+  for _, p in ipairs(M.PUT_AWAY_ITEM_RETRY) do table.insert(all_patterns, p) end
+  for _, p in ipairs(M.CONTAINER_IS_CLOSED) do table.insert(all_patterns, p) end
+
+  local result = DRC.bput(cmd, unpack(all_patterns))
+
+  -- Closed container recovery
+  for _, p in ipairs(M.CONTAINER_IS_CLOSED) do
+    if result and smart_find(result, p) then
+      M.open_container(container)
+      return M.put_away_item_unsafe(item, container, retries - 1)
+    end
+  end
+
+  -- Retry patterns
+  for _, p in ipairs(M.PUT_AWAY_ITEM_RETRY) do
+    if result and smart_find(result, p) then
+      return M.put_away_item_unsafe(item, container, retries - 1)
+    end
+  end
+
+  -- Check success
+  for _, p in ipairs(M.PUT_AWAY_SUCCESS) do
+    if result and smart_find(result, p) then
+      return true
+    end
+  end
+
+  return false
 end
 
 -------------------------------------------------------------------------------
@@ -712,15 +833,15 @@ function M.count_item_parts(item)
   if not item then return 0 end
 
   local COUNT_PATTERNS = {
-    "and see there [is|are]+ (.+) left%.",
-    "There [is|are]+ only (.+) parts? left",
-    "There [is|are]+ (.+) parts? left",
+    "and see there %w+ (.+) left%.",
+    "There %w+ only (.+) parts? left",
+    "There %w+ (.+) parts? left",
     "There's only (.+) parts? left",
     "There's (.+) parts? left",
     "The .+ has (.+) uses remaining%.",
     "There are enough left to create (.+) more",
     "You count out (.+) pieces? of material there",
-    "There [is|are]+ (.+) scrolls? left for use with crafting",
+    "There %w+ (.+) scrolls? left for use with crafting",
   }
 
   -- Word-to-number for common DR responses
@@ -796,7 +917,8 @@ end
 -- @param item string|nil Item noun to lift (optional)
 -- @return boolean true if item was picked up, false otherwise
 function M.lift(item)
-  local cmd = item and ("lift " .. item) or "lift"
+  if not item then return false end
+  local cmd = "lift " .. item
   local result = DRC.bput(cmd,
     "You pick up",
     "There are no items lying at your feet",
