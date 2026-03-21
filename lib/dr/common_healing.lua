@@ -87,6 +87,30 @@ M.PARASITES = {
   "blood mite", "leech", "blood worm", "retch maggot",
 }
 
+--- Wound severity patterns for HEALTH command output parsing.
+-- Ordered from most specific to least specific for correct matching.
+M.WOUND_SEVERITY_MAP = {
+    { pattern = "gone",                 severity = 3 },
+    { pattern = "useless",              severity = 3 },
+    { pattern = "mangled",              severity = 3 },
+    { pattern = "more than .* harmful", severity = 3 },
+    { pattern = "severe",               severity = 3 },
+    { pattern = "harmful",              severity = 2 },
+    { pattern = "more than .* minor",   severity = 2 },
+    { pattern = "minor",                severity = 1 },
+    { pattern = "bruise",               severity = 1 },
+    { pattern = "small",                severity = 1 },
+}
+
+--- Bleeder severity for HEALTH command (simple text matching).
+M.BLEED_SEVERITY_MAP = {
+    { pattern = "very heavy",  severity = 5 },
+    { pattern = "heavy",       severity = 4 },
+    { pattern = "moderate",    severity = 3 },
+    { pattern = "light",       severity = 2 },
+    { pattern = "slight",      severity = 1 },
+}
+
 --- Tend success patterns
 M.TEND_SUCCESS = {
   "You skillfully tend", "You tend", "Roundtime",
@@ -159,6 +183,7 @@ function M.HealthResult(opts)
     diseased  = opts.diseased or false,
     score     = opts.score or 0,
     dead      = opts.dead or false,
+    vitality  = opts.vitality or 100,
 
     injured = function(self)
       return self.score > 0
@@ -252,6 +277,57 @@ function M.parse_health_lines(health_lines)
         end
       end
     end
+
+    -- Wounds (from HEALTH output: "Your body feels ... <part> has a <severity> wound")
+    -- DR HEALTH shows each body part on its own line with wound and bleed info
+    if line:find("wound") and not line:find("lodged") and not line:find("parasite") then
+        -- Try to extract body part and wound severity
+        for _, bp_pattern in ipairs({"(%w[%w%s]-)%s+has%s+a%s+", "(%w[%w%s]-)%s+have%s+a%s+"}) do
+            local bp = line:match(bp_pattern)
+            if bp then
+                local severity = 0
+                for _, entry in ipairs(M.WOUND_SEVERITY_MAP) do
+                    if line:find(entry.pattern) then
+                        severity = entry.severity
+                        break
+                    end
+                end
+                local is_internal = line:find("internal") ~= nil
+                local is_scar = line:find("scar") ~= nil
+                local wound = M.Wound({
+                    body_part = bp,
+                    severity = severity,
+                    is_internal = is_internal,
+                    is_scar = is_scar,
+                })
+                if not wounds[severity] then wounds[severity] = {} end
+                table.insert(wounds[severity], wound)
+
+                -- Check for bleeding on same line
+                local bleed_rate = line:match("bleeding%s+(.-)%s*$") or line:match("bleeding%s+(.-)%s*[,.]")
+                if bleed_rate then
+                    local bleed_sev = 0
+                    for _, entry in ipairs(M.BLEED_SEVERITY_MAP) do
+                        if bleed_rate:find(entry.pattern) then
+                            bleed_sev = entry.severity
+                            break
+                        end
+                    end
+                    -- Also look up in the full BLEED_RATE_TO_SEVERITY for exact text match
+                    local exact = M.BLEED_RATE_TO_SEVERITY[bleed_rate]
+                    if exact then bleed_sev = exact.severity end
+                    local bleeder = M.Wound({
+                        body_part = bp,
+                        severity = bleed_sev,
+                        bleeding_rate = bleed_rate,
+                    })
+                    if not bleeders[bleed_sev] then bleeders[bleed_sev] = {} end
+                    table.insert(bleeders[bleed_sev], bleeder)
+                end
+                break
+            end
+        end
+    end
   end
 
   local score = M.calculate_score(wounds)
@@ -264,6 +340,128 @@ function M.parse_health_lines(health_lines)
     diseased  = diseased,
     score     = score,
   })
+end
+
+--- Parse PERCEIVE HEALTH / TOUCH output into a HealthResult.
+-- Different format from HEALTH — shows perceived wound severity and vitality.
+-- @param lines table Array of stripped text lines
+-- @return HealthResult
+function M.parse_perceived_health_lines(lines)
+    local wounds = {}
+    local parasites = {}
+    local lodged = {}
+    local poisoned = false
+    local diseased = false
+    local dead = false
+    local vitality = 100
+
+    for _, line in ipairs(lines) do
+        line = line:match("^%s*(.-)%s*$") -- trim
+
+        -- Vitality parsing (upstream 8a65de0)
+        local vit = line:match("has (%d+)%% vitality remaining")
+        if vit then
+            vitality = tonumber(vit)
+        end
+
+        -- Dead check
+        if line:find("feel only an aching emptiness") then
+            dead = true
+        end
+
+        -- Poison/disease
+        if line:find("affected by .* poison") then poisoned = true end
+        if line:find("affected by .* disease") then diseased = true end
+
+        -- Perceived wound parsing
+        if line:find("wound") or line:find("scar") then
+            local part = line:match("the ([%w%s]+)$")
+            if part then
+                part = part:match("^(.-)%.?$")  -- strip trailing period
+                local severity = 0
+                for _, entry in ipairs(M.WOUND_SEVERITY_MAP) do
+                    if line:find(entry.pattern) then
+                        severity = entry.severity
+                        break
+                    end
+                end
+                local wound = M.Wound({
+                    body_part = part,
+                    severity = severity,
+                    is_scar = line:find("scar") ~= nil,
+                })
+                if not wounds[severity] then wounds[severity] = {} end
+                table.insert(wounds[severity], wound)
+            end
+        end
+
+        -- Parasites in perceived output
+        if line:find("parasite") then
+            local part = line:match("on the ([%w%s]+)$") or line:match("in the ([%w%s]+)$")
+            if part then
+                part = part:match("^(.-)%.?$")
+                local p = M.Wound({ body_part = part, severity = 1, is_parasite = true })
+                if not parasites[1] then parasites[1] = {} end
+                table.insert(parasites[1], p)
+            end
+        end
+
+        -- Lodged items in perceived output
+        if line:find("lodged") then
+            local part = line:match("in the ([%w%s]+)$") or line:match("the ([%w%s]+)$")
+            if part then
+                part = part:match("^(.-)%.?$")
+                local l = M.Wound({ body_part = part, severity = 1, is_lodged_item = true })
+                if not lodged[1] then lodged[1] = {} end
+                table.insert(lodged[1], l)
+            end
+        end
+    end
+
+    local score = M.calculate_score(wounds)
+
+    return M.HealthResult({
+        wounds = wounds,
+        bleeders = {},   -- perceived output doesn't show bleeders
+        parasites = parasites,
+        lodged = lodged,
+        poisoned = poisoned,
+        diseased = diseased,
+        score = score,
+        dead = dead,
+        vitality = vitality,
+    })
+end
+
+--- Perceive own health (empath ability).
+-- @return HealthResult|nil
+function M.perceive_health()
+    local result = DRC.bput("perceive health self",
+        "You feel .* vitality remaining",
+        "You feel completely fine",
+        "You feel only an aching emptiness",
+        "You don't have the ability to do that")
+    if not result or result:find("don't have the ability") then
+        return nil
+    end
+    local output = reget(20)
+    return M.parse_perceived_health_lines(output)
+end
+
+--- Perceive another's health via TOUCH (empath ability).
+-- @param target string Character name
+-- @return HealthResult|nil
+function M.perceive_health_other(target)
+    local result = DRC.bput("touch " .. target,
+        "has %d+%% vitality remaining",
+        "in good shape",
+        "feel only an aching emptiness",
+        "You don't have the ability")
+    if not result or result:find("don't have the ability") then
+        return nil
+    end
+    local output = reget(20)
+    return M.parse_perceived_health_lines(output)
 end
 
 --- Check if character has tendable bleeders.
