@@ -1840,4 +1840,146 @@ function M.remove_and_stow_pouch(adj, noun, container)
   end
 end
 
+--- Swap out a full gem pouch for a spare.
+-- Removes the current (full) pouch, stows it, then obtains a spare from
+-- the belt or a container, wears it, and optionally ties it.
+-- @param adj string Pouch adjective (e.g. "black")
+-- @param noun string Pouch noun (e.g. "pouch")
+-- @param full_container string|nil Container to stow the full pouch
+-- @param spare_container string|nil Container holding spare pouches
+-- @param tie boolean Whether to tie the new pouch to belt
+-- @return boolean Success
+function M.swap_out_full_gempouch(adj, noun, full_container, spare_container, tie)
+  -- Need a free hand to swap pouches
+  local lh = DRC and DRC.left_hand and DRC.left_hand()
+  local rh = DRC and DRC.right_hand and DRC.right_hand()
+  if lh and rh then
+    DRC.message("bold", "DRCI: No free hand. Not swapping pouches now.")
+    return false
+  end
+
+  -- Step 1: Remove and stow the full pouch
+  if not M.remove_and_stow_pouch(adj, noun, full_container) then
+    DRC.message("bold", "DRCI: Remove and stow pouch routine failed.")
+    return false
+  end
+
+  local pouch = adj .. " " .. noun
+
+  -- Step 2: Check belt for a spare, otherwise get from container
+  if M.check_belt_for_pouch(adj, noun) then
+    DRC.message("plain", "DRCI: Found existing " .. pouch .. " on belt, using that.")
+    if not M.untie_item(pouch) then
+      DRC.message("bold", "DRCI: Could not untie existing pouch on belt.")
+      return false
+    end
+  elseif not M.get_item(pouch, spare_container) then
+    DRC.message("bold", "DRCI: No spare pouch found in " .. (spare_container or "default container") .. ".")
+    return false
+  end
+
+  -- Step 3: Wear the new pouch
+  if not M.wear_item(pouch) then
+    DRC.message("bold", "DRCI: Could not wear new pouch.")
+    return false
+  end
+
+  -- Step 4: Optionally tie to belt (non-fatal if it fails)
+  if tie and not M.tie_gem_pouch(adj, noun) then
+    DRC.message("bold", "DRCI: Could not tie new pouch.")
+  end
+
+  return true
+end
+
+--- Fill a gem pouch from a container, handling full pouches and untied state.
+-- Loops fill commands with bounded retries. On success, continues filling.
+-- On needs-tie, ties (or swaps if tie=false). On full, swaps out the pouch.
+-- On failure, stops.
+-- @param adj string Pouch adjective (e.g. "black")
+-- @param noun string Pouch noun (e.g. "pouch")
+-- @param source string Source container holding gems
+-- @param full_container string|nil Where to stow full pouches
+-- @param spare_container string|nil Where spare pouches are stored
+-- @param tie boolean Whether to tie pouches to belt
+-- @param retries number|nil Max retries (default 10)
+function M.fill_gem_pouch_with_container(adj, noun, source, full_container, spare_container, tie, retries)
+  retries = retries or 10
+  if retries <= 0 then
+    DRC.message("bold", "DRCI: fill_gem_pouch_with_container exceeded max retries")
+    return
+  end
+
+  local pouch = adj .. " " .. noun
+
+  -- Build match pattern list
+  local all = {}
+  for _, p in ipairs(M.FILL_POUCH_SUCCESS_PATTERNS) do table.insert(all, p) end
+  table.insert(all, M.FILL_POUCH_FULL_PATTERN)
+  for _, p in ipairs(M.FILL_POUCH_NEEDS_TIE_PATTERNS) do table.insert(all, p) end
+  for _, p in ipairs(M.FILL_POUCH_FAILURE_PATTERNS) do table.insert(all, p) end
+
+  local result = DRC.bput(
+    "fill " .. M.item_ref(pouch) .. " with " .. M.item_ref(source),
+    unpack(all))
+  if not result then return end
+
+  -- Check failure first
+  for _, p in ipairs(M.FILL_POUCH_FAILURE_PATTERNS) do
+    if smart_find(result, p) then
+      DRC.message("bold", "DRCI: Fill failed - " .. result)
+      return
+    end
+  end
+
+  -- Check needs-tie
+  for _, p in ipairs(M.FILL_POUCH_NEEDS_TIE_PATTERNS) do
+    if smart_find(result, p) then
+      if tie then
+        -- Tie the pouch and retry
+        if not M.tie_gem_pouch(adj, noun) then
+          DRC.message("bold", "DRCI: Could not tie " .. pouch .. ".")
+          return
+        end
+        return M.fill_gem_pouch_with_container(adj, noun, source,
+          full_container, spare_container, tie, retries - 1)
+      else
+        -- Treat as full — swap out the pouch
+        if not M.swap_out_full_gempouch(adj, noun, full_container, spare_container, tie) then
+          DRC.message("bold", "DRCI: Could not swap gem pouches.")
+          return
+        end
+        return M.fill_gem_pouch_with_container(adj, noun, source,
+          full_container, spare_container, tie, retries - 1)
+      end
+    end
+  end
+
+  -- Check full
+  if smart_find(result, M.FILL_POUCH_FULL_PATTERN) then
+    if not M.swap_out_full_gempouch(adj, noun, full_container, spare_container, tie) then
+      DRC.message("bold", "DRCI: Could not swap gem pouches.")
+      return
+    end
+    return M.fill_gem_pouch_with_container(adj, noun, source,
+      full_container, spare_container, tie, retries - 1)
+  end
+
+  -- Success — keep filling
+  for _, p in ipairs(M.FILL_POUCH_SUCCESS_PATTERNS) do
+    if smart_find(result, p) then
+      return M.fill_gem_pouch_with_container(adj, noun, source,
+        full_container, spare_container, tie, retries - 1)
+    end
+  end
+
+  -- TODO: Lich5 uses Flags["pouch-full"] to detect mid-fill full pouches.
+  -- Implement when the Flags system is available in the Lua engine.
+
+  -- Optionally tie the pouch after successful fill
+  if tie then
+    M.tie_gem_pouch(adj, noun)
+  end
+end
+
 return M
