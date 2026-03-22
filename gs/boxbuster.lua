@@ -64,7 +64,7 @@ local POOL_ROOMS = {
     [5751]  = { npc = "dwarf",      bin = "barrel" },
 }
 
-local room_info = POOL_ROOMS[Room.current.id]
+local room_info = POOL_ROOMS[Room.id]
 if not room_info then
     respond("Not at known locksmith pool.")
     return

@@ -1,16 +1,23 @@
 --- @revenant-script
 --- name: gems
---- version: 1.2.0
+--- version: 1.2.1
 --- author: Brute
 --- game: gs
 --- description: Set active (equipped) gemstones by number
 --- tags: gems, equip, gemstone, loadout
+--- lic-source: gems.lic (lichless repo mirror, lib/gems.lic)
+--- lic-certified: complete 2026-03-19
 ---
 --- Usage:
 ---   ;gems 1 4 6 15 20    - equip specific gems
 ---   ;gems none            - unequip all gems
 ---   ;gems clear           - unequip all gems
 ---   ;gems help            - show help
+---
+--- Sets SessionVars.gems_equipped = true on success (false on any error).
+--- Mirrors Lich5 $gems_equipped global for cross-script coordination.
+
+SessionVars.gems_equipped = false
 
 local input = (Script.vars[0] or ""):match("^%s*(.-)%s*$"):lower()
 
@@ -52,7 +59,7 @@ end
 
 local requested_gems = clearing and {} or new_gems
 
--- Get currently equipped gems
+-- Get currently equipped gems (capture all lines from first "Gemstone" match to prompt)
 local gem_list_text = quiet_command("gem list all", "Gemstone")
 local equipped_gem_ids = {}
 for _, line in ipairs(gem_list_text or {}) do
@@ -102,6 +109,7 @@ if #gems_to_unequip == 0 and #gems_to_equip == 0 then
         for _, n in ipairs(requested_gems) do table.insert(nums, tostring(n)) end
         echo("Nothing to do. Already set to " .. table.concat(nums, ", ") .. ".")
     end
+    SessionVars.gems_equipped = true
     return
 end
 
@@ -115,30 +123,21 @@ end
 
 local errors = {}
 
--- Unequip
+-- Unequip: use alternation regex so any possible response triggers start capture
 for _, index in ipairs(gems_to_unequip) do
     local res = quiet_command("gem unequip " .. index,
-        "Focusing briefly, you release your attunement",
-        "You don't currently have",
-        "That is not a valid Gemstone number",
-        "You cannot",
-        "You still haven't recovered"
-    )
+        "Focusing briefly|You don't currently|That is not a valid Gemstone|You cannot|You still haven't recovered")
     local joined = table.concat(res or {}, " ")
     if joined:find("You cannot") or joined:find("That is not a valid") or joined:find("You still haven't recovered") then
         table.insert(errors, "Could not unequip Gem #" .. index .. " - " .. joined:gsub("<[^>]+>", ""):match("^%s*(.-)%s*$"))
     end
 end
 
--- Equip
+-- Equip: same approach — any possible response triggers start capture
 if not clearing then
     for _, index in ipairs(gems_to_equip) do
         local res = quiet_command("gem equip " .. index,
-            "Focusing briefly, you prepare your",
-            "You cannot",
-            "That is not a valid Gemstone number",
-            "will apply the lesser binding to it"
-        )
+            "Focusing briefly|You cannot|That is not a valid Gemstone|will apply the lesser binding")
         local joined = table.concat(res or {}, " ")
         if joined:find("You cannot") or joined:find("That is not a valid") then
             table.insert(errors, "Could not equip Gem #" .. index .. " - " .. joined:gsub("<[^>]+>", ""):match("^%s*(.-)%s*$"))
@@ -154,3 +153,5 @@ for _, err in ipairs(errors) do
     echo(err)
 end
 echo("Done!")
+
+SessionVars.gems_equipped = (#errors == 0)

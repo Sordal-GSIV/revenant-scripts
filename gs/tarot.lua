@@ -1,13 +1,21 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-20
 --- name: tarot
---- version: 1.0.0
+--- version: 1.0.1
 --- author: unknown
 --- game: gs
 --- tags: roleplay, tarot, cards, fun
---- description: Tarot card reading roleplay script - draws 3 cards and narrates
+--- description: Tarot card reading roleplay script - draws 3 cards and narrates a reading
+---   as a fortune teller NPC persona (Willowthorns). Roleplay automation.
 ---
---- Original Lich5 authors: unknown
---- Ported to Revenant Lua from tarot.lic
+--- Changelog (from Lich5):
+---   v1.0.1 (2026-03-20)
+---     - Fix: sleep N → pause(N); wait() in Revenant is clear()+get(), not sleep
+---     - Validated full implementation against tarot.lic; all 78 cards, all fput
+---       commands, all timing values confirmed correct
+---     - Add @lic-certified: complete header
+---   v1.0.0 (initial port)
+---     - Initial Revenant Lua conversion from tarot.lic
 
 local deck = {
     "The Fool - New beginnings, spontaneity, a leap of faith",
@@ -90,7 +98,7 @@ local deck = {
     "King of Pentacles - Stability, wealth, leadership",
 }
 
--- Pick 3 unique random cards
+-- Pick 3 unique random cards (equivalent to Ruby's Array#sample(3))
 local function sample(tbl, n)
     local copy = {}
     for i, v in ipairs(tbl) do copy[i] = v end
@@ -108,20 +116,20 @@ local cards = sample(deck, 3)
 
 fput("smile as she splays the deck of tarot cards out on the tables top. With a sparkle in her eyes she looks over the cards then glances at you.")
 fput("recite I will draw three cards from the deck. The first card drawn represents your past energy, the second card your present and the last card the future the universe holds for you.")
-wait(8)
+pause(8)
 fput("act traces her fingertips slowly over the queue of cards, her hand comes to a rest over the first card representing your past energies, she flips over the:")
-wait(1)
+pause(1)
 fput("recite *** " .. cards[1] .. " ***")
-wait(5)
+pause(5)
 fput("smile at you with an arched eyebrow, she wiggles her nose as her hand slowly moves along the stream of cards to select your present card, she closes her eyes and turns over the:")
-wait(2)
+pause(2)
 fput("recite *** " .. cards[2] .. " ***")
-wait(1)
+pause(1)
 fput("act pauses for a moment, allowing you to take the time to ponder your past and present energies, how they have impacted your life's journey, the choices you have made in your life that have either worked with or against the universe's plan for you.")
-wait(8)
+pause(8)
 fput("smile at you as her attention turns back towards the tarot cards spread out before her, the smile fades as she scratches her fingernail against the third card, your future card, and she flips over:")
 fput("recite *** " .. cards[3] .. " ***")
-wait(3)
+pause(3)
 fput("act offers you a confirming nod as her hand sweeps up the tarot cards from the table.")
-wait(3)
+pause(3)
 fput("recite Take your time to think on what the cards have revealed. Use what the tarot has spoken as a guide through the shrowded path the universe has planned for you. If you seek deeper understanding of what the cards have shown, Willowthorns will be happy to console with you.")

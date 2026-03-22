@@ -19,14 +19,14 @@ M.BODY_PART_COSTS = {
     righteye = 5, lefteye = 5,
 }
 
--- Maps ecure body part names to Wounds/Scars table keys
+-- Maps ecure body part names to Wounds/Scars table keys (camelCase per Lich5 API)
 M.WOUND_KEY_MAP = {
     head = "head", nerves = "nsys", neck = "neck",
     chest = "chest", abdomen = "abdomen", back = "back",
-    rightarm = "right_arm", leftarm = "left_arm",
-    rightleg = "right_leg", leftleg = "left_leg",
-    righthand = "right_hand", lefthand = "left_hand",
-    righteye = "right_eye", lefteye = "left_eye",
+    rightarm = "rightArm", leftarm = "leftArm",
+    rightleg = "rightLeg", leftleg = "leftLeg",
+    righthand = "rightHand", lefthand = "leftHand",
+    righteye = "rightEye", lefteye = "leftEye",
 }
 
 M.CRITICAL_PARTS = { "head", "nerves" }
@@ -54,7 +54,7 @@ function M.load()
         mode = "heal",
         done_verb = "",
         use_signs = false,
-        use_trolls_blood = false,
+        use_trolls_blood = Spell.known_p(1125),
         alternative_behavior = false,
         head_nerve_priority = true,
         all_wounds_level = 0,

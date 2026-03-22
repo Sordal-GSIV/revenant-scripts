@@ -15,6 +15,9 @@
 --- Usage:
 ---   ;tdusk         -- start script outside arena entrance
 ---   ;tdusk help    -- show help and settings
+---   ;toggletdusk   -- toggle pause_me setting while script is running
+---
+--- @lic-certified: complete 2026-03-20
 
 --------------------------------------------------------------------------------
 -- Settings
@@ -55,16 +58,6 @@ local cfg = {
     reentry         = load_setting("tdusk_reentry", true),
 }
 
-local wave_number = 0
-local high_ds = false
-local start_time = 0
-local total_time = 0
-local kill_time = 0
-local avg_reg = 0
-local avg_champ = 0
-local group_size = 0
-local ARENA_ROOM = 24550
-
 -- Parse active scripts list
 local active_scripts_list = {}
 if type(cfg.active_scripts) == "string" then
@@ -73,6 +66,66 @@ if type(cfg.active_scripts) == "string" then
     end
 else
     active_scripts_list = { "stand" }
+end
+
+local wave_number = 0
+local start_time  = 0
+local total_time  = 0
+local prev_total  = 0
+local avg_reg     = 0
+local avg_champ   = 0
+local group_size  = 1
+local ARENA_ROOM  = 24550
+
+-- Champion wave set (waves 5,10,15,20,25 are bosses)
+local CHAMP = { [5]=true, [10]=true, [15]=true, [20]=true, [25]=true }
+
+--------------------------------------------------------------------------------
+-- PCRE patterns (require Regex.new for alternation, same as arenatimer.lua)
+--------------------------------------------------------------------------------
+
+local RE_INTRO  = Regex.new([=[^An announcer shouts, "Introducing (?:.*)"]=])
+local RE_FIGHT  = Regex.new([=[^An announcer shouts, "FIGHT!"  An iron portcullis is raised and .* (?:enter|enters) the arena!]=])
+local RE_PORTC  = Regex.new([=[^An announcer shouts, "(?:.*)"  An iron portcullis is raised and .* (?:enter|enters) the arena!]=])
+local RE_WIN    = Regex.new([=[^An announcer boasts, "(?:.*) defeating all those that opposed .* The overwhelming sound of applauding echoes throughout the stands!]=])
+local RE_ESCORT = Regex.new([=[^An arena guard escorts you from the dueling sands]=])
+
+--------------------------------------------------------------------------------
+-- Helpers
+--------------------------------------------------------------------------------
+
+-- Write to familiar window for stream-capable frontends; fall back to respond()
+-- Mirrors arenatimer.lua fam() helper
+local function fam(text)
+    if Frontend.supports_streams() then
+        put('<pushStream id="familiar" ifClosedStyle="watching"/>' .. text .. "\r\n<popStream/>\r\n")
+    else
+        respond(text)
+    end
+end
+
+-- Format seconds as MM:SS (matches Ruby Time.at(secs).strftime("%M:%S"))
+local function fmt_mmss(secs)
+    secs = math.max(0, math.floor(secs + 0.5))
+    return string.format("%02d:%02d", math.floor(secs / 60), secs % 60)
+end
+
+-- Which network chat script to broadcast through (0net takes priority over lnet)
+local function chat_script()
+    if running("0net") then return "0net" end
+    if running("lnet") then return "lnet" end
+    return nil
+end
+
+-- Retry enhancive off with dothistimeout (mirrors Lich5 loop)
+local function enhancive_off()
+    local pat = [=[You are no longer accepting|nothing seems to happen|already are not accepting]=]
+    while true do
+        local result = dothistimeout("inventory enhancive off", 3,
+            pat .. [=[|cannot turn off enhancives while in combat]=])
+        if result and Regex.test(result, pat) then break end
+        pause(5)
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -87,56 +140,77 @@ local function show_help()
     Uses READY LIST set weapons/shield settings to store/ready between runs.
 
     Settings are stored in CharSettings. Examples:
-      CharSettings["tdusk_waggle_me"] = "true"/"false"
-      CharSettings["tdusk_waggle_script"] = "ewaggle"
-      CharSettings["tdusk_pause_me"] = "true"/"false"
-      CharSettings["tdusk_enhancive_me"] = "true"/"false"
-      CharSettings["tdusk_bardnode"] = "true"/"false"
-      CharSettings["tdusk_node"] = "true"/"false"
-      CharSettings["tdusk_opener515"] = "true"/"false"
-      CharSettings["tdusk_opener909"] = "true"/"false"
-      CharSettings["tdusk_opener240"] = "true"/"false"
-      CharSettings["tdusk_attack_script"] = "true"/"false"
-      CharSettings["tdusk_girdstore"] = "true"/"false"
-      CharSettings["tdusk_lootpackage"] = "true"/"false"
-      CharSettings["tdusk_open_lootsack"] = "true"/"false"
-      CharSettings["tdusk_maxvitals"] = "true"/"false"
-      CharSettings["tdusk_experience"] = number or "false"
-      CharSettings["tdusk_reentry"] = "true"/"false"
-      CharSettings["tdusk_active_scripts"] = "stand,script1,script2"
+      CharSettings["tdusk_waggle_me"]       = "true"/"false"
+      CharSettings["tdusk_waggle_script"]   = "ewaggle"
+      CharSettings["tdusk_pause_me"]        = "true"/"false"
+      CharSettings["tdusk_enhancive_me"]    = "true"/"false"
+      CharSettings["tdusk_bardnode"]        = "true"/"false"
+      CharSettings["tdusk_node"]            = "true"/"false"
+      CharSettings["tdusk_opener515"]       = "true"/"false"
+      CharSettings["tdusk_opener909"]       = "true"/"false"
+      CharSettings["tdusk_opener240"]       = "true"/"false"
+      CharSettings["tdusk_attack_script"]   = "true"/"false"
+      CharSettings["tdusk_girdstore"]       = "true"/"false"
+      CharSettings["tdusk_lootpackage"]     = "true"/"false"
+      CharSettings["tdusk_open_lootsack"]   = "true"/"false"
+      CharSettings["tdusk_maxvitals"]       = "true"/"false"
+      CharSettings["tdusk_experience"]      = number or "false"
+      CharSettings["tdusk_reentry"]         = "true"/"false"
+      CharSettings["tdusk_active_scripts"]  = "stand,script1,script2"
+      CharSettings["tdusk_broadcast"]       = "true"/"false"
 
     Uses bigshot quick for default hunting logic if no custom attack script.
+      Hunting Tab  - quickhunt targets: (?:.*)
+      Commands Tab - quick hunting commands: fill with your attack sequence
+
+    Custom attack script: CharSettings["tdusk_attack_script"] = "true"
+      Create CHARNAME-duskattack.lua with your routine.
+      Sample routines: https://github.com/mrhoribu/GS4-Stuff/tree/main/Duskruin
+
+    ;toggletdusk — toggle pause_me on/off while script is running
+
+    Broadcasts run time to DUSKRUIN lnet/0net channel when done.
     ]])
 end
 
-if Script.args and Script.args[1] and Script.args[1]:lower() == "help" then
+if Script.vars and Script.vars[1] and Script.vars[1]:lower() == "help" then
     show_help()
     return
+end
+
+--------------------------------------------------------------------------------
+-- Validate custom attack script exists if configured
+--------------------------------------------------------------------------------
+
+if cfg.attack_script then
+    local script_name = GameState.name .. "-duskattack"
+    if not Script.exists(script_name) then
+        echo("You have attack_script turned on.")
+        echo("But no " .. script_name .. ".lua script was found.")
+        echo("Please create a " .. script_name .. ".lua script with your routine.")
+        echo('Or: CharSettings["tdusk_attack_script"] = "false"')
+        echo("Sample routines: https://github.com/mrhoribu/GS4-Stuff/tree/main/Duskruin")
+        return
+    end
 end
 
 --------------------------------------------------------------------------------
 -- Attack Logic
 --------------------------------------------------------------------------------
 
-local function is_champion_wave()
-    return wave_number == 5 or wave_number == 10 or wave_number == 15 or
-           wave_number == 20 or wave_number == 25
-end
-
 local function attack()
     if cfg.attack_script then
-        -- Use custom character-specific attack script
-        local script_name = GameState.char_name .. "-duskattack"
+        local script_name = GameState.name .. "-duskattack"
         if running(script_name) then
-            kill_script(script_name)
+            Script.kill(script_name)
             pause(0.1)
         end
-        run_script_background(script_name)
+        Script.run(script_name)
         return
     end
 
     -- Default: use bigshot quick
-    local targets = GameObj.targets or {}
+    local targets = GameObj.targets() or {}
     local alive = {}
     for _, npc in ipairs(targets) do
         if not npc.status or not Regex.test(npc.status, "dead|gone") then
@@ -146,10 +220,10 @@ local function attack()
 
     if #alive > 0 then
         if running("bigshot") then
-            kill_script("bigshot")
+            Script.kill("bigshot")
             pause(0.1)
         end
-        run_script_background("bigshot", { "quick" })
+        Script.run("bigshot", "quick")
     end
 end
 
@@ -162,69 +236,101 @@ local function loot_package(package_line)
     if cfg.girdstore then fput("store all") end
     pause(1)
 
-    -- Pick up package if on ground
-    if package_line and string.find(package_line, "at your feet") then
-        local attempts = 0
-        while not GameObj.right_hand or GameObj.right_hand.noun ~= "package" do
-            if GameObj.left_hand and GameObj.left_hand.noun == "package" then break end
+    -- Pick up package if on ground or handed to us
+    if package_line and Regex.test(package_line, "at your feet|hands an arena winnings package to you") then
+        local rh = GameObj.right_hand()
+        local lh = GameObj.left_hand()
+        while (not rh or rh.noun ~= "package") and (not lh or lh.noun ~= "package") do
             fput("get package")
             pause(1)
-            attempts = attempts + 1
-            if attempts > 5 then break end
+            rh = GameObj.right_hand()
+            lh = GameObj.left_hand()
         end
     end
 
-    local has_package = (GameObj.right_hand and GameObj.right_hand.noun == "package") or
-                        (GameObj.left_hand and GameObj.left_hand.noun == "package")
+    local rh = GameObj.right_hand()
+    local lh = GameObj.left_hand()
+    local has_package = (rh and rh.noun == "package") or (lh and lh.noun == "package")
 
     if cfg.lootpackage and has_package then
         fput("open my package")
         fput("look in my package")
         if cfg.open_lootsack then
-            fput("open my " .. (CharSettings["lootsack"] or "backpack"))
+            fput("open my " .. (Vars.lootsack or "backpack"))
         end
-        local line = fput("empty my package into my " .. (CharSettings["lootsack"] or "backpack"))
-        if line and (string.find(line, "everything falls in quite nicely") or string.find(line, "but nothing comes out")) then
-            -- Emptied fine
+        local line = dothistimeout(
+            "empty my package into my " .. (Vars.lootsack or "backpack"),
+            5,
+            [=[everything falls in quite nicely|but nothing comes out|leaving the rest|but nothing will fit]=]
+        )
+        if line and Regex.test(line, "everything falls in quite nicely|but nothing comes out") then
+            -- emptied fine
         else
+            echo("CONTAINER FULL, TIME TO EMPTY!")
+            echo("CONTAINER FULL, TIME TO EMPTY!")
             echo("CONTAINER FULL, TIME TO EMPTY!")
             echo("or something bad happened, you should check the package!")
             return false
         end
         pause(1)
         waitrt()
-        fput("drop my package")
-    elseif has_package then
-        fput("put my package into my " .. (CharSettings["lootsack"] or "backpack"))
-        pause(1)
-    end
 
-    -- Navigate out
-    if group_size == 1 then
-        run_script("go2", { "23780" })
-    else
-        pause(4)
-        run_script("go2", { "26387" })
-    end
-
-    -- Turn off enhancives
-    if cfg.enhancive_me then
-        local attempts = 0
-        while attempts < 5 do
-            local result = fput("inventory enhancive off")
-            if result and (string.find(result, "no longer accepting") or
-                          string.find(result, "nothing seems to happen") or
-                          string.find(result, "already are not accepting")) then
-                break
-            end
-            pause(5)
-            attempts = attempts + 1
+        -- Only drop package if it is truly empty
+        rh = GameObj.right_hand()
+        lh = GameObj.left_hand()
+        local holding_empty = false
+        if rh and rh.noun == "package" and (not rh.contents or #rh.contents == 0) then
+            holding_empty = true
+        elseif lh and lh.noun == "package" and (not lh.contents or #lh.contents == 0) then
+            holding_empty = true
         end
+
+        if holding_empty then
+            pause(0.5)
+            waitrt()
+            fput("drop my package")
+        else
+            respond("package not empty")
+            respond("package not empty")
+            respond("package not empty")
+            pause_script()
+        end
+
+    elseif has_package then
+        fput("put my package into my " .. (Vars.lootsack or "backpack"))
+        pause(1)
+        -- Check if still holding (container full)
+        rh = GameObj.right_hand()
+        lh = GameObj.left_hand()
+        if (rh and rh.noun == "package") or (lh and lh.noun == "package") then
+            echo("CONTAINER FULL, TIME TO EMPTY!")
+            echo("CONTAINER FULL, TIME TO EMPTY!")
+            echo("CONTAINER FULL, TIME TO EMPTY!")
+            echo("or something bad happened, you should check the package!")
+            return false
+        end
+    end
+
+    -- Navigate out (solo: go2 23780; grouped: wait then go2 26387 if no longer grouped)
+    if group_size == 1 then
+        Script.run("go2", "23780")
+        wait_while(function() return running("go2") end)
+    else
+        if not grouped() then
+            pause(4)
+            Script.run("go2", "26387")
+            wait_while(function() return running("go2") end)
+        end
+    end
+
+    -- Turn off enhancives with retry loop
+    if cfg.enhancive_me then
+        enhancive_off()
     end
 
     -- Run waggle script
     if cfg.waggle_me then
-        run_script(cfg.waggle_script)
+        Script.run(cfg.waggle_script)
     end
 
     -- Pause between runs
@@ -244,34 +350,34 @@ local function loot_package(package_line)
         end
     end
 
-    -- Wait for experience to drain
+    -- Wait for experience to drain below threshold
     if cfg.experience and type(cfg.experience) == "number" then
         while GameState.percentmind and GameState.percentmind > cfg.experience do
             pause(1)
         end
     end
 
-    -- Re-enter arena
+    -- Re-enter arena (only when not grouped, same as Lich5)
     pause(1)
-    if cfg.reentry then
-        local in_arena = false
-        while not in_arena do
-            local line = fput("go entrance")
-            if line and string.find(line, "Duskruin Arena, Dueling Sands") then
-                in_arena = true
-            else
+    if not grouped() then
+        pause(2)
+        if cfg.reentry then
+            while Room.id ~= ARENA_ROOM do
+                local result = dothistimeout("go entrance", 3,
+                    [=[\[Duskruin Arena, Dueling Sands\]]=])
+                if result and Regex.test(result, [=[\[Duskruin Arena, Dueling Sands\]]=]) then
+                    break
+                end
+                if Room.id == ARENA_ROOM then break end
                 pause(math.random(30, 60))
             end
-            if Room.current and Room.current.id == ARENA_ROOM then
-                in_arena = true
-            end
+        else
+            fput("go entrance")
         end
-    else
-        fput("go entrance")
     end
 
     -- Wait until in arena
-    while not Room.current or Room.current.id ~= ARENA_ROOM do
+    while Room.id ~= ARENA_ROOM do
         pause(1)
     end
 
@@ -279,13 +385,30 @@ local function loot_package(package_line)
 end
 
 --------------------------------------------------------------------------------
+-- UpstreamHook: ;toggletdusk  (toggles pause_me without restarting)
+--------------------------------------------------------------------------------
+
+local function tdusk_hook(client_string)
+    if Regex.test(client_string, [=[^(?:<c>)?;?toggletdusk$]=]) then
+        cfg.pause_me = not cfg.pause_me
+        save_setting("tdusk_pause_me", cfg.pause_me)
+        respond("[tdusk] pause_me = " .. tostring(cfg.pause_me))
+        return nil
+    end
+    return client_string
+end
+
+UpstreamHook.add("tdusk_hook", tdusk_hook)
+
+--------------------------------------------------------------------------------
 -- Cleanup
 --------------------------------------------------------------------------------
 
-on_exit(function()
+Script.at_exit(function()
+    UpstreamHook.remove("tdusk_hook")
     for _, script_name in ipairs(active_scripts_list) do
         if running(script_name) then
-            kill_script(script_name)
+            Script.kill(script_name)
         end
     end
 end)
@@ -294,33 +417,47 @@ end)
 -- Main Loop
 --------------------------------------------------------------------------------
 
--- Initial entry
+-- Initial entry (only if not grouped, mirrors Lich5)
 if cfg.girdstore then fput("store all") end
 pause(1)
-fput("go entrance")
+if not grouped() then
+    fput("go entrance")
+end
 
 -- Wait until in arena
-while not Room.current or Room.current.id ~= ARENA_ROOM do
+while Room.id ~= ARENA_ROOM do
     pause(1)
 end
 
 while true do
     local line = get()
 
-    -- Arena introduction - prepare for combat
-    if Regex.test(line, "^An announcer shouts, \"Introducing ") then
+    -- Arena introduction: prepare for combat
+    if RE_INTRO:test(line) then
         if cfg.girdstore then fput("gird") end
 
-        -- Start active scripts
+        -- Start or unpause active scripts
         for _, script_name in ipairs(active_scripts_list) do
-            if not running(script_name) then
-                run_script_background(script_name)
+            if Script.exists(script_name) then
+                if not running(script_name) then
+                    Script.run(script_name)
+                elseif Script.is_paused(script_name) then
+                    Script.unpause(script_name)
+                end
             end
         end
 
+        fam("DR-Starting Arena")
+
+        -- Reset run state
         wave_number = 0
-        group_size = 1
-        local pcs = GameObj.pcs
+        start_time  = 0
+        total_time  = 0
+        prev_total  = 0
+        avg_reg     = 0
+        avg_champ   = 0
+        group_size  = 1
+        local pcs = GameObj.pcs()
         if pcs then group_size = #pcs + 1 end
 
         -- Opener spells
@@ -351,85 +488,101 @@ while true do
             end
         end
 
-        if cfg.enhancive_me then
-            put("inventory enhancive on")
-        end
+        if cfg.enhancive_me then put("inventory enhancive on") end
         if group_size == 1 then put("shout") end
 
-    -- Wave fight
-    elseif Regex.test(line, "^An announcer shouts, \"FIGHT!\"") or
-           (Regex.test(line, "^An announcer shouts") and
-            string.find(line, "enter the arena") or string.find(line, "enters the arena")) then
+    -- Portcullis raise / wave start: track timing and attack
+    elseif RE_PORTC:test(line) then
+        -- Set start_time on FIGHT! or the first portcullis event
+        if RE_FIGHT:test(line) or start_time == 0 then
+            start_time = os.time()
+        end
 
-        if start_time == 0 then start_time = os.time() end
-
-        kill_time = total_time
+        prev_total = total_time
         total_time = os.time() - start_time
-        kill_time = total_time - (kill_time or 0)
+        local kill_delta = total_time - prev_total
 
-        if not is_champion_wave() then avg_reg = avg_reg + kill_time end
-        if is_champion_wave() then avg_champ = avg_champ + kill_time end
+        if not CHAMP[wave_number] then
+            avg_reg = avg_reg + kill_delta
+        else
+            avg_champ = avg_champ + kill_delta
+        end
+
+        fam(string.format("%dv%d DR-Kills: %d, Total Time %s, Kill Time: %s",
+            group_size, group_size, wave_number, fmt_mmss(total_time), fmt_mmss(kill_delta)))
 
         wave_number = wave_number + 1
-
-        respond(string.format("[tdusk] %dv%d Wave: %d, Total: %ds, Kill: %ds",
-            group_size, group_size, wave_number, total_time, kill_time))
-
         attack()
 
-    -- Also attack if targets are alive and we have no attack script running
-    elseif Room.current and Room.current.id == ARENA_ROOM and wave_number > 0 then
-        local targets = GameObj.targets or {}
+    -- Alive targets with no active attack logic running
+    elseif Room.id == ARENA_ROOM and wave_number > 0 and not cfg.attack_script then
+        local targets = GameObj.targets() or {}
         local alive_count = 0
         for _, npc in ipairs(targets) do
             if not npc.status or not Regex.test(npc.status, "dead|gone") then
                 alive_count = alive_count + 1
             end
         end
-        if alive_count > 0 and not cfg.attack_script and not running("bigshot") then
+        if alive_count > 0 and not running("bigshot") then
             attack()
         end
 
     -- Victory
-    elseif Regex.test(line, "^An announcer boasts.*defeating all those that opposed") then
-        kill_time = total_time
+    elseif RE_WIN:test(line) then
+        prev_total = total_time
         total_time = os.time() - start_time
-        kill_time = total_time - (kill_time or 0)
+        local kill_delta = total_time - prev_total
 
-        -- Kill custom attack script
-        local custom_script = GameState.char_name .. "-duskattack"
-        if running(custom_script) then kill_script(custom_script) end
+        -- Kill attack scripts
+        local custom_script = GameState.name .. "-duskattack"
+        if running(custom_script) then Script.kill(custom_script) end
         if Regex.test(Stats.prof, "Bard") then put("STOP 1018") end
 
-        if not is_champion_wave() then avg_reg = avg_reg + kill_time end
-        if is_champion_wave() then avg_champ = avg_champ + kill_time end
+        if not CHAMP[wave_number] then
+            avg_reg = avg_reg + kill_delta
+        else
+            avg_champ = avg_champ + kill_delta
+        end
 
-        local avg_r = avg_reg > 0 and avg_reg / 20 or 0
-        local avg_c = avg_champ > 0 and avg_champ / 5 or 0
+        local avg_r = avg_reg   > 0 and (avg_reg   / 20) or 0
+        local avg_c = avg_champ > 0 and (avg_champ / 5)  or 0
 
-        respond(string.format("[tdusk] %dv%d VICTORY! Total: %ds, Avg Reg: %.1fs, Avg Champ: %.1fs",
-            group_size, group_size, total_time, avg_r, avg_c))
+        fam(string.format("%dv%d DR-Kills: %d, Total Time %s, Kill Time: %s",
+            group_size, group_size, wave_number, fmt_mmss(total_time), fmt_mmss(kill_delta)))
+        fam(string.format("DR-Winning Time: %s", fmt_mmss(total_time)))
+        fam(string.format("DR-Avg Reg Kill: %s, Avg Champ Kill: %s",
+            fmt_mmss(avg_r), fmt_mmss(avg_c)))
 
-    -- Escorted out (looting)
-    elseif Regex.test(line, "^An arena guard escorts you from the dueling sands") then
-        local custom_script = GameState.char_name .. "-duskattack"
-        if running(custom_script) then kill_script(custom_script) end
+        if cfg.broadcast then
+            local net = chat_script()
+            if net then
+                send_to_script(net, string.format(
+                    "chat on DUSKRUIN %dv%d Finished: %s, Avg Reg Kill: %s, Avg Champ Kill: %s",
+                    group_size, group_size,
+                    fmt_mmss(total_time), fmt_mmss(avg_r), fmt_mmss(avg_c)))
+            end
+        end
+
+    -- Escorted out (looting phase begins)
+    elseif RE_ESCORT:test(line) then
+        local custom_script = GameState.name .. "-duskattack"
+        if running(custom_script) then Script.kill(custom_script) end
         if Regex.test(Stats.prof, "Bard") then put("STOP 1018") end
 
         for _, script_name in ipairs(active_scripts_list) do
-            if running(script_name) then
-                pause_script(script_name)
+            if running(script_name) and not Script.is_paused(script_name) then
+                Script.pause(script_name)
             end
         end
 
     -- Package / winnings
-    elseif string.find(line, "Here are your winnings") then
-        start_time = 0
-        total_time = 0
-        kill_time = 0
-        avg_reg = 0
-        avg_champ = 0
+    elseif string.find(line, "Here are your winnings, " .. GameState.name) then
         wave_number = 0
+        start_time  = 0
+        total_time  = 0
+        prev_total  = 0
+        avg_reg     = 0
+        avg_champ   = 0
 
         if not loot_package(line) then
             return
@@ -439,7 +592,7 @@ while true do
     elseif string.find(line, "drags you out of the arena") or GameState.dead then
         respond("[tdusk] DEAD!")
         if cfg.enhancive_me then
-            fput("inventory enhancive off")
+            enhancive_off()
         end
         return
     end

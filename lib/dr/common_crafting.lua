@@ -211,6 +211,25 @@ function M.recipe_lookup(recipes, item_name)
   return matches[1]
 end
 
+--- Find and study a recipe in a book (v2 — supports master crafting books).
+-- When master_book is provided, navigates to the book_type section first,
+-- then delegates to find_recipe. Without master_book, assumes the book is
+-- already in hand and proceeds directly.
+-- @param chapter number|string Chapter number
+-- @param recipe_name string Recipe name to search for
+-- @param master_book string|nil Master crafting book noun (nil = individual "book" in hand)
+-- @param book_type string|nil Section name for master books (e.g., "weaponsmithing")
+function M.find_recipe2(chapter, recipe_name, master_book, book_type)
+  local book = master_book or "book"
+  if master_book and book_type then
+    -- Navigate to the smithing-type section of the master book first
+    DRC.bput("turn my " .. master_book .. " to " .. book_type,
+      M.BOOK_CHAPTER_TURN_SUCCESS, M.BOOK_CHAPTER_ALREADY,
+      M.BOOK_CHAPTER_DISTRACTED, "I could not find", "Turn what")
+  end
+  M.find_recipe(chapter, recipe_name, book)
+end
+
 --- Find and study a recipe in a book.
 -- @param chapter number|string Chapter number
 -- @param match_string string Pattern to match in recipe listing
@@ -231,30 +250,48 @@ end
 -- Crafting room finders
 -------------------------------------------------------------------------------
 
---- Find an empty crucible room.
--- @param hometown string Hometown name
-function M.find_empty_crucible(hometown)
-  -- TODO: integrate with crafting data files
-  respond("[DRCC] find_empty_crucible: stub for " .. tostring(hometown))
-end
-
---- Check if the current anvil is clean.
--- @return boolean
+--- Check if the current anvil is clean, and clean it if not.
+-- Handles clutter on the anvil by dragging/removing items.
+-- @return boolean true if anvil is clean and ready
 function M.clean_anvil()
   local result = DRC.bput("look on anvil",
     M.LOOK_ANVIL_NOT_FOUND, M.LOOK_ANVIL_CLEAN, "anvil you see")
   if result:find("clean and ready") then return true end
   if result:find("could not find") then return false end
   -- Has stuff on it — try to clean
-  DRC.bput("clean anvil", "You drag the", "remove them yourself")
+  local clean_result = DRC.bput("clean anvil", "You drag the", "remove them yourself")
+  if clean_result:find("drag") then
+    fput("clean anvil")
+    if pause then pause() end
+    if waitrt then waitrt() end
+  else
+    -- Items belong to someone else or need manual removal
+    -- Try to get the last item noun and bucket it
+    local items_match = result:match("anvil you see (.+)%.")
+    if items_match then
+      local clutter = items_match:match("(%S+)$")
+      if clutter then
+        local get_result = DRC.bput("get " .. clutter .. " from anvil",
+          "You get", "is not yours")
+        if get_result:find("not yours") then
+          fput("clean anvil")
+          fput("clean anvil")
+        elseif get_result:find("You get") then
+          DRC.bput("put " .. clutter .. " in bucket", "You drop")
+        end
+      end
+    end
+  end
   return true
 end
 
---- Check if the crucible is empty.
--- @return boolean
+--- Check if the crucible is empty, and empty it if not.
+-- Handles molten metal (tilt) and clutter (get + dispose).
+-- @return boolean true if crucible is empty
 function M.empty_crucible()
   local result = DRC.bput("look in cruc",
-    M.LOOK_CRUCIBLE_NOT_FOUND, M.LOOK_CRUCIBLE_EMPTY, "crucible you see")
+    M.LOOK_CRUCIBLE_NOT_FOUND, M.LOOK_CRUCIBLE_EMPTY,
+    M.LOOK_CRUCIBLE_MOLTEN, "crucible you see")
   if result:find("nothing in there") then return true end
   if result:find("could not find") then return false end
   if result:find("molten") then
@@ -262,9 +299,215 @@ function M.empty_crucible()
     fput("tilt crucible")
     return M.empty_crucible()
   end
-  -- Has items — try to clean them out
-  -- TODO: parse items and dispose
+  -- Has items — parse and dispose
+  local items_match = result:match("crucible you see (.+)%.")
+  if items_match then
+    -- Split on ", " and " and " separators, extract noun from each
+    local parts = {}
+    for part in items_match:gsub(" and ", ", "):gmatch("[^,]+") do
+      part = part:match("^%s*(.-)%s*$") -- trim
+      if part ~= "" then
+        -- Strip article (some/a/an) and get the noun
+        local noun = part:match("^%a+%s+(.+)$") or part
+        noun = DRC and DRC.get_noun and DRC.get_noun(noun) or noun:match("(%S+)$")
+        if noun then
+          parts[#parts + 1] = noun
+        end
+      end
+    end
+    for _, junk in ipairs(parts) do
+      if DRCI and DRCI.get_item_unsafe then
+        DRCI.get_item_unsafe(junk, "crucible")
+      end
+      if DRCI and DRCI.dispose_trash then
+        DRCI.dispose_trash(junk)
+      end
+    end
+    return M.empty_crucible()
+  end
   return false
+end
+
+--- Find an empty crucible room.
+-- Checks current room first, then walks through town crucible rooms.
+-- Also cleans the anvil after finding a crucible.
+-- @param hometown string Hometown name
+function M.find_empty_crucible(hometown)
+  -- Check if there's already a crucible in this room
+  local tap_result = DRC.bput("tap crucible", "I could not", "You tap.*crucible")
+  if tap_result:find("You tap") then
+    local pcs_clear = true
+    if DRRoom and DRRoom.pcs and DRRoom.group_members then
+      local others = {}
+      for _, pc in ipairs(DRRoom.pcs()) do
+        local dominated = false
+        for _, gm in ipairs(DRRoom.group_members()) do
+          if pc == gm then dominated = true; break end
+        end
+        if not dominated then others[#others + 1] = pc end
+      end
+      pcs_clear = #others == 0
+    end
+    if pcs_clear and M.empty_crucible() then
+      M.clean_anvil()
+      return true
+    end
+  end
+
+  -- Walk to town crucible rooms
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local bs = data["blacksmithing"] and data["blacksmithing"][hometown]
+  if not bs then
+    respond("[DRCC] No blacksmithing data for " .. tostring(hometown))
+    return false
+  end
+
+  local crucibles = bs["crucibles"]
+  local idle_room = bs["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(crucibles, idle_room, function()
+      local pcs_clear = true
+      if DRRoom and DRRoom.pcs and DRRoom.group_members then
+        local others = {}
+        for _, pc in ipairs(DRRoom.pcs()) do
+          local dominated = false
+          for _, gm in ipairs(DRRoom.group_members()) do
+            if pc == gm then dominated = true; break end
+          end
+          if not dominated then others[#others + 1] = pc end
+        end
+        pcs_clear = #others == 0
+      end
+      return pcs_clear and M.empty_crucible()
+    end)
+  elseif crucibles and crucibles[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(crucibles[1])
+  end
+
+  M.clean_anvil()
+  return true
+end
+
+--- Find an anvil room.
+-- Checks current room first, then walks through town anvil rooms.
+-- Also empties the crucible after finding an anvil.
+-- @param hometown string Hometown name
+function M.find_anvil(hometown)
+  -- Check if there's already an anvil in this room
+  local tap_result = DRC.bput("tap anvil", "I could not", "You tap.*anvil")
+  if tap_result:find("You tap") then
+    local pcs_clear = true
+    if DRRoom and DRRoom.pcs and DRRoom.group_members then
+      local others = {}
+      for _, pc in ipairs(DRRoom.pcs()) do
+        local dominated = false
+        for _, gm in ipairs(DRRoom.group_members()) do
+          if pc == gm then dominated = true; break end
+        end
+        if not dominated then others[#others + 1] = pc end
+      end
+      pcs_clear = #others == 0
+    end
+    if pcs_clear and M.clean_anvil() then
+      M.empty_crucible()
+      return true
+    end
+  end
+
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local bs = data["blacksmithing"] and data["blacksmithing"][hometown]
+  if not bs then
+    respond("[DRCC] No blacksmithing data for " .. tostring(hometown))
+    return false
+  end
+
+  local anvils = bs["anvils"]
+  local idle_room = bs["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(anvils, idle_room, function()
+      local pcs_clear = true
+      if DRRoom and DRRoom.pcs and DRRoom.group_members then
+        local others = {}
+        for _, pc in ipairs(DRRoom.pcs()) do
+          local dominated = false
+          for _, gm in ipairs(DRRoom.group_members()) do
+            if pc == gm then dominated = true; break end
+          end
+          if not dominated then others[#others + 1] = pc end
+        end
+        pcs_clear = #others == 0
+      end
+      return pcs_clear and M.clean_anvil()
+    end)
+  elseif anvils and anvils[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(anvils[1])
+  end
+
+  M.empty_crucible()
+  return true
+end
+
+--- Find a grindstone room.
+-- Checks current room first, then walks through town grindstone rooms.
+-- @param hometown string Hometown name
+function M.find_grindstone(hometown)
+  -- Check if there's already a grindstone here
+  local tap_result = DRC.bput("tap grindstone", "I could not", "You tap.*grindstone")
+  if not tap_result:find("could not") then
+    return true
+  end
+
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local bs = data["blacksmithing"] and data["blacksmithing"][hometown]
+  if not bs then
+    respond("[DRCC] No blacksmithing data for " .. tostring(hometown))
+    return false
+  end
+
+  local grindstones = bs["grindstones"]
+  local idle_room = bs["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(grindstones, idle_room)
+  elseif grindstones and grindstones[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(grindstones[1])
+  end
+  return true
+end
+
+--- Find a spinning wheel room.
+-- @param hometown string Hometown name
+function M.find_wheel(hometown)
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local tl = data["tailoring"] and data["tailoring"][hometown]
+  if not tl then
+    respond("[DRCC] No tailoring data for " .. tostring(hometown))
+    return false
+  end
+
+  local wheels = tl["spinning-rooms"]
+  local idle_room = tl["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(wheels, idle_room)
+  elseif wheels and wheels[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(wheels[1])
+  end
+  return true
 end
 
 --- Find a sewing room.
@@ -272,11 +515,29 @@ end
 -- @param override number|nil Specific room to walk to
 function M.find_sewing_room(hometown, override)
   if override then
-    DRCT.walk_to(override)
-  else
-    -- TODO: integrate with crafting data files
-    respond("[DRCC] find_sewing_room: stub for " .. tostring(hometown))
+    if DRCT and DRCT.walk_to then DRCT.walk_to(override) end
+    return true
   end
+
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local tl = data["tailoring"] and data["tailoring"][hometown]
+  if not tl then
+    respond("[DRCC] No tailoring data for " .. tostring(hometown))
+    return false
+  end
+
+  local rooms = tl["sewing-rooms"]
+  local idle_room = tl["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(rooms, idle_room)
+  elseif rooms and rooms[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(rooms[1])
+  end
+  return true
 end
 
 --- Find a shaping room.
@@ -284,10 +545,29 @@ end
 -- @param override number|nil Specific room to walk to
 function M.find_shaping_room(hometown, override)
   if override then
-    DRCT.walk_to(override)
-  else
-    respond("[DRCC] find_shaping_room: stub for " .. tostring(hometown))
+    if DRCT and DRCT.walk_to then DRCT.walk_to(override) end
+    return true
   end
+
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local sh = data["shaping"] and data["shaping"][hometown]
+  if not sh then
+    respond("[DRCC] No shaping data for " .. tostring(hometown))
+    return false
+  end
+
+  local rooms = sh["shaping-rooms"]
+  local idle_room = sh["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(rooms, idle_room)
+  elseif rooms and rooms[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(rooms[1])
+  end
+  return true
 end
 
 --- Find a loom room.
@@ -295,39 +575,347 @@ end
 -- @param override number|nil Specific room to walk to
 function M.find_loom_room(hometown, override)
   if override then
-    DRCT.walk_to(override)
-  else
-    respond("[DRCC] find_loom_room: stub for " .. tostring(hometown))
+    if DRCT and DRCT.walk_to then DRCT.walk_to(override) end
+    return true
   end
-end
 
---- Find an anvil room.
--- @param hometown string Hometown name
-function M.find_anvil(hometown)
-  respond("[DRCC] find_anvil: stub for " .. tostring(hometown))
-end
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local tl = data["tailoring"] and data["tailoring"][hometown]
+  if not tl then
+    respond("[DRCC] No tailoring data for " .. tostring(hometown))
+    return false
+  end
 
---- Find a grindstone room.
--- @param hometown string Hometown name
-function M.find_grindstone(hometown)
-  respond("[DRCC] find_grindstone: stub for " .. tostring(hometown))
+  local rooms = tl["loom-rooms"]
+  local idle_room = tl["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(rooms, idle_room)
+  elseif rooms and rooms[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(rooms[1])
+  end
+  return true
 end
 
 --- Find an enchanting/brazier room.
+-- Checks current room first for an empty brazier, then walks through town rooms.
 -- @param hometown string Hometown name
--- @param override number|nil
+-- @param override number|nil Specific room to walk to
 function M.find_enchanting_room(hometown, override)
   if override then
-    DRCT.walk_to(override)
-  else
-    respond("[DRCC] find_enchanting_room: stub for " .. tostring(hometown))
+    if DRCT and DRCT.walk_to then DRCT.walk_to(override) end
+    return true
+  end
+
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local art = data["artificing"] and data["artificing"][hometown]
+  if not art then
+    respond("[DRCC] No artificing data for " .. tostring(hometown))
+    return false
+  end
+
+  local rooms = art["brazier-rooms"]
+  local idle_room = art["idle-room"]
+  if DRCT and DRCT.find_sorted_empty_room then
+    DRCT.find_sorted_empty_room(rooms, idle_room, function()
+      local pcs_clear = true
+      if DRRoom and DRRoom.pcs and DRRoom.group_members then
+        local others = {}
+        for _, pc in ipairs(DRRoom.pcs()) do
+          local dominated = false
+          for _, gm in ipairs(DRRoom.group_members()) do
+            if pc == gm then dominated = true; break end
+          end
+          if not dominated then others[#others + 1] = pc end
+        end
+        pcs_clear = #others == 0
+      end
+      return pcs_clear and M.clean_brazier()
+    end)
+  elseif rooms and rooms[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(rooms[1])
+  end
+  return true
+end
+
+--- Find a press/grinder room.
+-- @param hometown string Hometown name
+function M.find_press_grinder_room(hometown)
+  -- Check if there's already a grinder here
+  local tap_result = DRC.bput("tap grinder", "I could not", "You tap.*grinder")
+  if not tap_result:find("could not") then
+    return true
+  end
+
+  local data = get_data and get_data("crafting") or nil
+  if not data then
+    respond("[DRCC] No crafting data available")
+    return false
+  end
+  local rem = data["remedies"] and data["remedies"][hometown]
+  if not rem then
+    respond("[DRCC] No remedies data for " .. tostring(hometown))
+    return false
+  end
+
+  local rooms = rem["press-grinder-rooms"]
+  if rooms and rooms[1] and DRCT and DRCT.walk_to then
+    DRCT.walk_to(rooms[1])
+  end
+  return true
+end
+
+-------------------------------------------------------------------------------
+-- Enchanting workflow
+-------------------------------------------------------------------------------
+
+--- Order enchanting supplies (sigil-scrolls / founts).
+-- Walks to the stock room and orders the specified quantity.
+-- @param stock_room number Room ID of the enchanting supply shop
+-- @param stock_needed number How many to order
+-- @param stock_number number|string Order number at the shop
+-- @param bag string Crafting bag name
+-- @param belt table|nil Belt config
+function M.order_enchant(stock_room, stock_needed, stock_number, bag, belt)
+  for _ = 1, stock_needed do
+    if DRCT and DRCT.order_item then
+      DRCT.order_item(stock_room, stock_number)
+    end
+    if DRC and DRC.left_hand then
+      M.stow_crafting_item(DRC.left_hand(), bag, belt)
+    end
+    if DRC and DRC.right_hand then
+      M.stow_crafting_item(DRC.right_hand(), bag, belt)
+    end
+    -- If both hands still full after stowing, skip remaining orders
+    if DRC and DRC.left_hand and DRC.right_hand
+       and DRC.left_hand() and DRC.right_hand() then
+      -- hands full, continue to next iteration anyway (Ruby uses next unless)
+    end
   end
 end
 
---- Find a spinning wheel room.
--- @param hometown string
-function M.find_wheel(hometown)
-  respond("[DRCC] find_wheel: stub for " .. tostring(hometown))
+--- Check and refill a fount (enchanting liquid container).
+-- Taps to find the fount, analyzes remaining uses, and reorders if low.
+-- @param stock_room number Room ID of the supply shop
+-- @param stock_needed number How many founts to order if needed
+-- @param stock_number number|string Order number at the shop
+-- @param quantity number How many uses are needed
+-- @param bag string Crafting bag name
+-- @param bag_items table Bag item list
+-- @param belt table|nil Belt config
+function M.fount(stock_room, stock_needed, stock_number, quantity, bag, bag_items, belt)
+  local tap_result = DRC.bput("tap my fount",
+    "You tap .* inside your .*", "You tap .*your .*", "I could not find")
+
+  if tap_result:find("inside your") or (tap_result:find("You tap") and not tap_result:find("could not")) then
+    -- Fount is in bag or on person
+    local analyze_result = DRC.bput("analyze my fount",
+      "approximately (%d+) uses remaining")
+    local uses = tonumber(analyze_result:match("(%d+)")) or 0
+    if uses < (quantity + 1) then
+      M.get_crafting_item("fount", bag, bag_items, belt)
+      if DRCT and DRCT.dispose then DRCT.dispose("fount") end
+      if DRCI and DRCI.stow_hands then DRCI.stow_hands() end
+      M.order_enchant(stock_room, stock_needed, stock_number, bag, belt)
+    end
+  elseif tap_result:find("could not") then
+    -- Try tapping fount on brazier
+    local braz_result = DRC.bput("tap my fount on my brazier",
+      "You tap .* atop a .*brazier", "I could not find")
+    if braz_result:find("atop") then
+      local analyze_result = DRC.bput("analyze my fount on my brazier",
+        "approximately (%d+) uses remaining")
+      local uses = tonumber(analyze_result:match("(%d+)")) or 0
+      if uses < quantity then
+        if DRCI and DRCI.stow_hands then DRCI.stow_hands() end
+        M.order_enchant(stock_room, stock_needed, stock_number, bag, belt)
+      end
+    else
+      -- No fount found at all — order new
+      M.order_enchant(stock_room, stock_needed, stock_number, bag, belt)
+    end
+  end
+end
+
+--- Check if the enchanting brazier is clean, and clean it if not.
+-- @return boolean true if brazier is clean
+function M.clean_brazier()
+  local result = DRC.bput("look on brazier",
+    "There is nothing on there", "On the .*brazier you see")
+  if result:find("nothing on there") then return true end
+  if result:find("you see") then
+    local clean_result = DRC.bput("clean brazier",
+      "You prepare to clean off the brazier",
+      "There is nothing",
+      "The brazier is not currently lit")
+    if clean_result:find("prepare to clean") then
+      DRC.bput("clean brazier",
+        "a massive ball of flame jets forward")
+    end
+    M.empty_brazier()
+    return true
+  end
+  return false
+end
+
+--- Empty all items from the enchanting brazier.
+-- Gets each item and disposes of it.
+function M.empty_brazier()
+  local result = DRC.bput("look on brazier",
+    "On the .*brazier you see .*%.", "There is nothing")
+  if result:find("nothing") then return end
+
+  local items_str = result:match("brazier you see (.+)%.")
+  if not items_str then return end
+
+  -- Split on " and " to get individual items
+  local items = {}
+  for part in items_str:gsub(" and ", "\n"):gmatch("[^\n]+") do
+    part = part:match("^%s*(.-)%s*$") -- trim
+    if part ~= "" then
+      -- Get the last word (noun)
+      local noun = part:match("(%S+)$")
+      if noun then items[#items + 1] = noun end
+    end
+  end
+
+  for _, item in ipairs(items) do
+    DRC.bput("get " .. item .. " from brazier", "You get")
+    if DRCT and DRCT.dispose then
+      DRCT.dispose(item)
+    end
+  end
+end
+
+--- Check if enough sigil-scrolls of a type exist in the bag.
+-- Orders more if purchasable, warns if not.
+-- @param sigil string Sigil name (e.g., "abolition")
+-- @param stock_number number|string Order number for the sigil
+-- @param quantity number How many are needed
+-- @param bag string Crafting bag name
+-- @param belt table|nil Belt config
+-- @param info table Crafting info with 'stock-room' key
+-- @return boolean true if enough sigils are available
+function M.check_for_existing_sigil(sigil, stock_number, quantity, bag, belt, info)
+  local tmp_count = 0
+  if DRCI and DRCI.count_items_in_container then
+    tmp_count = DRCI.count_items_in_container(sigil .. " sigil-scroll", bag) or 0
+    tmp_count = tonumber(tmp_count) or 0
+  end
+
+  if tmp_count >= quantity then
+    return true
+  end
+
+  -- Check if this is a purchasable sigil (primary or secondary)
+  -- If globals for sigil patterns exist, use them
+  local is_purchasable = false
+  if PRIMARY_SIGILS_PATTERN and SECONDARY_SIGILS_PATTERN then
+    if Regex and Regex.test then
+      is_purchasable = Regex.test(PRIMARY_SIGILS_PATTERN, sigil .. " sigil")
+                    or Regex.test(SECONDARY_SIGILS_PATTERN, sigil .. " sigil")
+    end
+  else
+    -- Without pattern globals, assume purchasable if we have a stock number
+    is_purchasable = (stock_number ~= nil)
+  end
+
+  if is_purchasable then
+    local more = quantity - tmp_count
+    M.order_enchant(info["stock-room"], more, stock_number, bag, belt)
+    return true
+  else
+    respond("[DRCC] Not enough " .. sigil .. " sigil-scroll(s). You may need to harvest more.")
+    return false
+  end
+end
+
+-------------------------------------------------------------------------------
+-- Metal counting
+-------------------------------------------------------------------------------
+
+--- Volume mapping for rummage size descriptors.
+-- Maps the size words from rummage output to approximate volume units.
+M.VOL_MAP = {
+  tiny = 1, small = 2, medium = 5, large = 10, huge = 15,
+}
+
+--- Count raw metal ingots in a container by rummaging.
+-- @param container string Container name to rummage in
+-- @param metal_type string|nil Specific metal type to filter (nil = all)
+-- @return table|nil Table of { metal = { volume, count } } or nil on error
+function M.count_raw_metal(container, metal_type)
+  local result = DRC.bput("rummage /M " .. container,
+    "crafting materials but there is nothing in there like that",
+    "While it's closed",
+    "I don't know what you are referring to",
+    "You feel about",
+    "That would accomplish nothing",
+    "looking for crafting materials and see .*%.")
+
+  if result:find("nothing in there") then
+    respond("[DRCC] No materials found.")
+    return nil
+  elseif result:find("closed") then
+    if DRCI and DRCI.open_container then
+      if not DRCI.open_container(container) then return nil end
+    end
+    return M.count_raw_metal(container, metal_type)
+  elseif result:find("don't know") then
+    respond("[DRCC] Container not found.")
+    return nil
+  elseif result:find("feel about") then
+    respond("[DRCC] Try again when you're not invisible.")
+    return nil
+  elseif result:find("accomplish nothing") then
+    return nil
+  end
+
+  local materials_str = result:match("crafting materials and see (.+)%.")
+  if not materials_str then
+    respond("[DRCC] Unexpected rummage result.")
+    return nil
+  end
+
+  local h = {}
+  -- Split "X and Y" into "X, Y" then split on commas
+  local list_str = materials_str:gsub(" and ", ", ")
+  for entry in list_str:gmatch("[^,]+") do
+    entry = entry:match("^%s*(.-)%s*$") -- trim
+    -- Entries look like: "a small bronze ingot" or "a tiny steel ingot"
+    local words = {}
+    for w in entry:gmatch("%S+") do words[#words + 1] = w end
+    -- Typically: article(a/an) size_word metal_word noun(ingot)
+    if #words >= 3 then
+      local size_word = words[2]
+      local metal = words[3]
+      local volume = M.VOL_MAP[size_word] or 0
+      if h[metal] then
+        h[metal][1] = h[metal][1] + volume
+        h[metal][2] = h[metal][2] + 1
+      else
+        h[metal] = { volume, 1 }
+      end
+    end
+  end
+
+  -- Report findings
+  for k, v in pairs(h) do
+    respond("[DRCC] " .. k .. " - " .. v[1] .. " volume - " .. v[2] .. " pieces")
+  end
+
+  if metal_type then
+    return h[metal_type]
+  end
+  return h
 end
 
 -------------------------------------------------------------------------------
@@ -344,7 +932,7 @@ end
 -- @param min_count number Minimum uses required (default 3)
 function M.check_consumables(name, room, number, bag, bag_items, belt, min_count)
   min_count = min_count or 3
-  local current_room = Room and Room.current and Room.current.id
+  local current_room = Room and Room.id
 
   local result = DRC.bput("get my " .. name .. " from my " .. bag,
     M.CONSUMABLE_GET_SUCCESS, M.CONSUMABLE_GET_NOT_FOUND)

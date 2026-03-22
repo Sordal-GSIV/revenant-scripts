@@ -30,4 +30,17 @@ function M.mono(text)
     respond('<output class="mono">' .. M.xml_encode(text) .. '</output>')
 end
 
+-- Produces a clickable command link for GemStone frontends (StormFront / Wrayth).
+-- Generates <d cmd="COMMAND">TEXT</d> — clicking the text sends COMMAND to the game.
+function M.make_cmd_link(text, command)
+    return '<d cmd="' .. M.xml_encode(command) .. '">' .. M.xml_encode(text) .. '</d>'
+end
+
+-- Stream a message to a named game window (default: "familiar").
+-- Mirrors Lich::Messaging.stream_window(msg, window).
+function M.stream_window(msg, window)
+    window = window or "familiar"
+    _respond('<pushStream id="' .. window .. '" ifClosedStyle="watching"/>' .. msg .. '\r\n<popStream/>')
+end
+
 return M

@@ -249,24 +249,25 @@ function M.store_telescope(telescope_name, storage)
 end
 
 --- Center a telescope on a target.
+-- Returns the matched response line so callers can handle errors (no telescope,
+-- closed telescope, injuries, etc.).  Lich5 DRCMM.center_telescope also returns
+-- the raw result; callers are responsible for branching on it.
 -- @param target string Target to center on
+-- @return string Matched response line
 function M.center_telescope(target)
-  local result = DRC.bput("center telescope on " .. target, unpack(M.CENTER_TELESCOPE_MESSAGES))
-  if Regex.test("pain is too much|can't see the sky", result) then
-    respond("[DRCMM] Planet " .. target .. " not visible.")
-  elseif result:find("open it") then
-    fput("open my telescope")
-    fput("center telescope on " .. target)
-  end
+  return DRC.bput("center telescope on " .. target, unpack(M.CENTER_TELESCOPE_MESSAGES))
 end
 
 --- Peer through a telescope.
+-- Returns the matched response line so callers can detect injuries or closed telescope.
+-- @return string Matched response line
 function M.peer_telescope()
-  DRC.bput("peer my telescope",
+  local result = DRC.bput("peer my telescope",
     "The pain is too much", "You see nothing regarding the future",
     "You believe you've learned all", "open it",
     "Your vision is too fuzzy", "Roundtime")
   if waitrt then waitrt() end
+  return result
 end
 
 -------------------------------------------------------------------------------
@@ -366,15 +367,30 @@ end
 -------------------------------------------------------------------------------
 
 --- Get list of currently visible moons.
+-- Uses UserVars.moons data from moonwatch script (populated by check_moonwatch).
+-- A moon is "visible" if it appears in UserVars.moons.visible and its timer
+-- is above the MOON_VISIBILITY_TIMER_THRESHOLD (~4 min before setting).
 -- @return table Array of moon name strings
 function M.visible_moons()
-  -- TODO: integrate with moonwatch script / UserVars when available
-  -- For now, use observe heavens to check
-  local result = M.observe("heavens")
+  M.check_moonwatch()
   local moons = {}
-  if Regex.test("(?i)katamba", result) then moons[#moons + 1] = "katamba" end
-  if Regex.test("(?i)yavash", result) then moons[#moons + 1] = "yavash" end
-  if Regex.test("(?i)xibar", result) then moons[#moons + 1] = "xibar" end
+  if not UserVars or not UserVars.moons then return moons end
+
+  local visible = UserVars.moons.visible or {}
+  for moon_name, moon_data in pairs(UserVars.moons) do
+    if moon_name ~= "visible" and type(moon_data) == "table" then
+      -- Check moon is in visible list and has enough time remaining
+      local is_visible = false
+      if type(visible) == "table" then
+        for _, v in ipairs(visible) do
+          if v == moon_name then is_visible = true; break end
+        end
+      end
+      if is_visible and moon_data.timer and moon_data.timer >= M.MOON_VISIBILITY_TIMER_THRESHOLD then
+        moons[#moons + 1] = moon_name
+      end
+    end
+  end
   return moons
 end
 
@@ -395,19 +411,135 @@ function M.moon_visible(moon_name)
 end
 
 --- Check if a bright celestial object is visible (sun, xibar, yavash).
+-- Returns true if the sun is up or a bright moon (xibar/yavash) is visible
+-- and won't set for at least MOON_VISIBILITY_TIMER_THRESHOLD minutes.
 -- @return boolean
 function M.bright_celestial_object()
-  -- TODO: integrate with moonwatch for sun tracking
+  M.check_moonwatch()
+  if UserVars and UserVars.sun and UserVars.sun.day
+      and UserVars.sun.timer and UserVars.sun.timer >= M.MOON_VISIBILITY_TIMER_THRESHOLD then
+    return true
+  end
   return M.moon_visible("xibar") or M.moon_visible("yavash")
 end
 
---- Check if any celestial object is visible.
+--- Check if any celestial object is visible (sun or any moon).
 -- @return boolean
 function M.any_celestial_object()
+  M.check_moonwatch()
+  if UserVars and UserVars.sun and UserVars.sun.day
+      and UserVars.sun.timer and UserVars.sun.timer >= M.MOON_VISIBILITY_TIMER_THRESHOLD then
+    return true
+  end
   return M.moons_visible()
 end
 
+--- Parse telescope planet observation output to determine planet visibility.
+-- Called by update_astral_data for planet-targeted spells. Searches constellation
+-- data for planets matching the requested stats, then uses the telescope to
+-- check which planets are currently visible.
+-- @param data table Spell data with 'stats' key (list of stat names)
+-- @param settings table|nil Character settings (telescope_name, telescope_storage)
+-- @return table|nil Updated spell data with 'cast' field, or nil on failure
+function M.set_planet_data(data, settings)
+  if not data or not data.stats then return data end
+
+  local constellations = get_data and get_data("constellations")
+  if not constellations or not constellations.constellations then
+    respond("[DRCMM] Could not load constellation data for planet targeting.")
+    return nil
+  end
+
+  -- Find planets (constellations with stats)
+  local planets = {}
+  for _, planet in ipairs(constellations.constellations) do
+    if planet.stats then
+      planets[#planets + 1] = planet
+    end
+  end
+
+  -- Get names for telescope observation
+  local planet_names = {}
+  for _, planet in ipairs(planets) do
+    planet_names[#planet_names + 1] = planet.name
+  end
+
+  -- Find which planets are actually visible via telescope
+  local visible_planets = M.find_visible_planets(planet_names, settings)
+  if not visible_planets then return nil end
+
+  -- Match requested stats to a visible planet
+  for _, stat in ipairs(data.stats) do
+    for _, planet in ipairs(planets) do
+      -- Check if this planet provides the requested stat
+      local provides_stat = false
+      for _, planet_stat in ipairs(planet.stats) do
+        if planet_stat == stat then provides_stat = true; break end
+      end
+      -- Check if planet is visible
+      if provides_stat then
+        for _, vp in ipairs(visible_planets) do
+          if vp == planet.name then
+            data.cast = "cast " .. planet.name
+            return data
+          end
+        end
+      end
+    end
+  end
+
+  respond("[DRCMM] Could not set planet data. Cannot cast " .. tostring(data.abbrev or data.name) .. ".")
+  return nil
+end
+
+--- Find which planets are currently visible using a telescope.
+-- Gets the telescope, centers on each planet, tracks which ones are found,
+-- then stores the telescope again.
+-- @param planet_names table Array of planet name strings to check
+-- @param settings table Character settings (telescope_name, telescope_storage)
+-- @return table|nil Array of visible planet name strings, or nil on failure
+function M.find_visible_planets(planet_names, settings)
+  if not settings then return {} end
+
+  local telescope_name = settings.telescope_name or "telescope"
+  local telescope_storage = settings.telescope_storage or {}
+
+  if not M.get_telescope(telescope_name, telescope_storage) then
+    respond("[DRCMM] Could not get telescope to find visible planets.")
+    return nil
+  end
+
+  if Flags and Flags.add then
+    Flags.add("planet-not-visible", "turns up fruitless")
+  end
+
+  local observed = {}
+  local ok, err = pcall(function()
+    for _, planet in ipairs(planet_names) do
+      M.center_telescope(planet)
+      if not (Flags and Flags["planet-not-visible"]) then
+        observed[#observed + 1] = planet
+      end
+      if Flags and Flags.reset then
+        Flags.reset("planet-not-visible")
+      end
+    end
+  end)
+
+  if Flags and Flags.delete then
+    Flags.delete("planet-not-visible")
+  end
+
+  if not M.store_telescope(telescope_name, telescope_storage) then
+    respond("[DRCMM] Could not store telescope after finding visible planets.")
+  end
+
+  if not ok then error(err) end
+  return observed
+end
+
 --- Update astral data for a spell (set moon or planet target).
+-- Dispatches to set_moon_data for moon spells or set_planet_data for planet spells.
 -- @param data table Spell data with 'moon' or 'stats' key
 -- @param settings table|nil Character settings
 -- @return table Updated spell data (or nil if unavailable)
@@ -415,21 +547,57 @@ function M.update_astral_data(data, settings)
   if not data then return nil end
 
   if data.moon then
-    local moons = M.visible_moons()
-    if #moons > 0 then
-      data.cast = "cast " .. moons[1]
-    elseif data.name and data.name:lower() == "cage of light" then
-      data.cast = "cast ambient"
-    else
-      respond("[DRCMM] No moon available to cast " .. tostring(data.name or data.abbrev))
-      return nil
-    end
+    return M.set_moon_data(data)
+  elseif data.stats then
+    return M.set_planet_data(data, settings)
   end
 
-  -- Planet-based spells would need telescope observation
-  -- TODO: implement planet visibility checking via telescope
-
   return data
+end
+
+--- Set moon target for a moon-based spell.
+-- @param data table Spell data with 'moon' key
+-- @return table|nil Updated spell data or nil if no moon available
+function M.set_moon_data(data)
+  if not data or not data.moon then return data end
+
+  local moons = M.visible_moons()
+  if #moons > 0 then
+    data.cast = "cast " .. moons[1]
+  elseif data.name and data.name:lower() == "cage of light" then
+    data.cast = "cast ambient"
+  else
+    respond("[DRCMM] No moon available to cast " .. tostring(data.name or data.abbrev))
+    return nil
+  end
+  return data
+end
+
+--- Ensure the moonwatch script is running and UserVars.moons is populated.
+-- Mirrors Lich5's DRCMM.check_moonwatch. Starts moonwatch if not running,
+-- then polls until UserVars.moons is populated (up to 30 seconds).
+-- moonwatch tracks sun/moon positions and writes UserVars.moons and UserVars.sun.
+-- @return boolean true if moon data is available
+function M.check_moonwatch()
+  if Script and Script.running and not Script.running("moonwatch") then
+    respond("[DRCMM] moonwatch is not running. Starting it now.")
+    if UserVars then UserVars.moons = {} end
+    if Script.run then
+      Script.run("moonwatch")
+    end
+    respond("[DRCMM] Run autostart('moonwatch') to avoid this in the future.")
+  end
+
+  -- Poll until moon data is available (up to 30s)
+  local timeout = os.time() + 30
+  while os.time() < timeout do
+    if UserVars and UserVars.moons and next(UserVars.moons) then
+      return true
+    end
+    pause(1)
+  end
+  respond("[DRCMM] moonwatch timed out waiting for moon data.")
+  return false
 end
 
 return M

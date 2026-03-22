@@ -5,9 +5,14 @@
 --- game: gs
 --- tags: messages, thoughtnet, lnet, afk
 --- description: Record and review ThoughtNet/LNet messages received while AFK
+--- @lic-certified: complete 2026-03-20
 ---
 --- Original Lich5 authors: Peggyanne
 --- Ported to Revenant Lua from voicemail.lic v1.1.2
+---
+--- Changelog:
+---   2026-03-20: Fix UserVars.load/save → Vars module; fix put() → respond()
+---               in check_messages; fix Script.current.vars → Script.vars
 ---
 --- Usage:
 ---   ;voicemail help               - show help
@@ -15,6 +20,8 @@
 ---   ;voicemail check              - check saved messages
 ---   ;voicemail delete <number>    - delete a saved message
 ---   ;voicemail delete all         - delete all messages
+
+local Vars = require("lib/vars")
 
 local function show_help()
     respond("Voicemail Version: 1.1.2 (September 1, 2025)")
@@ -31,11 +38,10 @@ local function show_help()
     respond("   ~Peggyanne")
 end
 
-local settings = UserVars.load("voicemail") or {}
-settings.messages = settings.messages or {}
+local settings = Vars["voicemail"] or { messages = {} }
 
 local function save()
-    UserVars.save("voicemail", settings)
+    Vars["voicemail"] = settings
 end
 
 local function check_messages()
@@ -48,7 +54,7 @@ local function check_messages()
         respond("You Have The Following New Messages:")
         respond("")
         for i, msg in ipairs(settings.messages) do
-            put(i .. ". " .. msg)
+            respond(i .. ". " .. msg)
         end
         respond("")
     end
@@ -63,19 +69,22 @@ local function delete_message(idx)
     respond("Deleting Message Number " .. idx .. "...")
     table.remove(settings.messages, idx)
     save()
-    respond("Message Deleted!")
+    respond("Message Number " .. idx .. " Deleted!")
+    respond("")
     check_messages()
 end
 
 local function delete_all()
+    respond("")
     respond("Deleting All Saved Messages...")
     settings.messages = {}
     save()
     respond("All Messages Deleted!")
+    respond("")
     check_messages()
 end
 
--- Handle upstream commands
+-- Handle upstream commands (intercept ;voicemail sub-commands)
 UpstreamHook.add("voicemail_upstream", function(command)
     if command:match(";voicemail check") then
         check_messages()
@@ -100,20 +109,21 @@ before_dying(function()
     UpstreamHook.remove("voicemail_upstream")
 end)
 
-local arg1 = Script.current.vars[1]
+local arg1 = Script.vars[1]
 if arg1 == "help" or arg1 == "?" then
     show_help()
     return
 end
 
+-- Record ThoughtNet and LNet messages while AFK
 while true do
     local line = get()
     if line then
+        -- ThoughtNet whispers: [Focused] PersonName verb, "message"
         local person, message = line:match('^%[Focused%] (%S+) %S+, "(.+)"')
         if person then
             local ts = os.date("%c")
             local entry = ts .. ": " .. person .. ' thought, "' .. message .. '"'
-            -- Avoid duplicates
             local found = false
             for _, m in ipairs(settings.messages) do
                 if m == entry then found = true; break end
@@ -123,13 +133,15 @@ while true do
                 save()
             end
         else
-            -- Skip status/combat messages
+            -- LNet private channel: [Private]-GSIV:PersonName: "message"
+            -- Skip automated status broadcasts before pattern-matching
             if not line:match('^%[Private%].-Health:') and
                not line:match('^%[Private%].-Weekly') and
                not line:match('^%[Private%].-Ready For Combat') then
                 person, message = line:match('^%[Private%]%-GSIV:(.-):%s*"(.-)"')
                 if person and message then
-                    if not message:find("Task Complete") and not message:find("Reporting For Duty") then
+                    if not message:find("Task Complete") and
+                       not message:find("Reporting For Duty") then
                         local ts = os.date("%c")
                         local entry = ts .. ": " .. person .. ' chat, "' .. message .. '"'
                         local found = false

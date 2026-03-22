@@ -15,7 +15,7 @@ local invalid_room = nil
 
 while true do
     local line = get()
-    if DRStats.concentration == 100 and not hidden() and invalid_room ~= (Room.current and Room.current.id) then
+    if DRStats.concentration == 100 and not hidden() and invalid_room ~= Room.id then
         local response = ""
         if DRSkill.getxp("Arcana") <= 10 then
             response = DRC.bput("gaze sanowret crystal",
@@ -25,7 +25,7 @@ while true do
                 "understanding of Arcana", "lack the concentration", "not a good place", "give away your hiding")
         end
         if response and response:find("not a good place") then
-            invalid_room = Room.current and Room.current.id
+            invalid_room = Room.id
             pause(1)
         elseif response and (response:find("blossoms") or response:find("understanding")) then
             invalid_room = nil

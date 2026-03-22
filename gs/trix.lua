@@ -1,13 +1,15 @@
 --- @revenant-script
 --- name: trix
---- version: 1.0.2
+--- version: 1.0.3
 --- author: elanthia-online
 --- contributors: Scribs, Claude
+--- @lic-certified: complete 2026-03-19
 --- game: gs
 --- description: Magic item container scanner and activator with menu interface
 --- tags: utility,containers,magic items,spells,miu
 ---
 --- Changelog (from Lich5):
+---   v1.0.3 (2026-03-19): Lua conversion certified — charge tracking, column alignment
 ---   v1.0.2 (2025-10-29): Reformatted menu, added options for concise display
 ---   v1.0.1 (2025-09-10): Refactored into module architecture
 ---   v1.0.0 (2025-09-09): Initial release
@@ -37,11 +39,6 @@ local EXCLUDED_ITEMS = {
 local function pad_right(s, w)
     if #s >= w then return s end
     return s .. string.rep(" ", w - #s)
-end
-
-local function pad_left(s, w)
-    if #s >= w then return s end
-    return string.rep(" ", w - #s) .. s
 end
 
 local function str_lower(s) return s and string.lower(s) or "" end
@@ -93,12 +90,14 @@ local function get_spell_info(spell_name)
         { "block", "% block" }, { "unarmed_af", "UAF" }, { "asg", "AsG" },
     }
 
-    for _, chk in ipairs(checks) do
-        local val = spell[chk[1]]
-        if val and tonumber(val) and tonumber(val) ~= 0 then
-            table.insert(bonuses, tostring(val) .. " " .. chk[2])
+    local ok, _ = pcall(function()
+        for _, chk in ipairs(checks) do
+            local val = spell[chk[1]]
+            if val and tonumber(val) and tonumber(val) ~= 0 then
+                table.insert(bonuses, tostring(val) .. " " .. chk[2])
+            end
         end
-    end
+    end)
 
     return { num = num, bonuses = bonuses }
 end
@@ -128,7 +127,7 @@ local function scan_container(container_name, show_bonuses, show_names)
     if not container_items or #container_items == 0 then
         echo("The " .. container_obj.name .. " appears to be empty or closed, attempting to open...")
         local result = dothistimeout("open #" .. container_obj.id, 2, "You open|already open|can't be opened|What were you")
-        if result and Regex.test(result, "You open|already open") then
+        if result and Regex.test("You open|already open", result) then
             echo("Successfully opened " .. container_obj.name .. ", checking contents again...")
             dothistimeout("look in #" .. container_obj.id, 2, "In the .* you see|There is nothing|The .* is empty")
             pause(0.5)
@@ -136,9 +135,11 @@ local function scan_container(container_name, show_bonuses, show_names)
             if not container_items or #container_items == 0 then
                 echo("The " .. container_obj.name .. " is empty")
                 return
+            else
+                echo("Found items in " .. container_obj.name .. " after opening")
             end
         else
-            echo("Could not open " .. container_obj.name)
+            echo("Could not open " .. container_obj.name .. " - it may not be openable or you may not have access")
             return
         end
     end
@@ -224,8 +225,8 @@ local function scan_container(container_name, show_bonuses, show_names)
             else activation = string.upper(verb) end
         end
         if not activation then
-            m = string.match(loresong_data, "(WAVE|INVOKE|RUB|RAISE|TOUCH|TURN|TAP)")
-            if m then activation = string.upper(m) end
+            local re_match = Regex.match("WAVE|INVOKE|RUB|RAISE|TOUCH|TURN|TAP", loresong_data)
+            if re_match then activation = string.upper(re_match) end
         end
 
         m = string.match(loresong_data, "(%d+) charges?")
@@ -284,27 +285,68 @@ function display_menu(detailed_items, starting_number, show_bonuses, show_names)
         return na < nb
     end)
 
-    -- Build header
-    respond("")
-    local header = "| # | "
-    if show_names then header = header .. "Item | " end
-    header = header .. "Spell | Activation | Charges | Empowered |"
-    respond(header)
-    respond(string.rep("-", #header))
+    -- Pre-calculate column widths for alignment
+    local max_num_width = math.max(#tostring(starting_number + #detailed_items - 1), 2)
+    local max_name_width = 4
+    if show_names then
+        for _, d in ipairs(detailed_items) do
+            if #d.name > max_name_width then max_name_width = #d.name end
+        end
+    end
+    local max_spell_width = 5
+    for _, d in ipairs(detailed_items) do
+        local si = get_spell_info(d.spell)
+        local spell_display = si.num and ("[" .. si.num .. "] " .. d.spell) or d.spell
+        if #spell_display > max_spell_width then max_spell_width = #spell_display end
+    end
+    local max_activation_width = 10
+    for _, d in ipairs(detailed_items) do
+        if #tostring(d.activation) > max_activation_width then max_activation_width = #tostring(d.activation) end
+    end
+    local max_charges_width = 7
+    for _, d in ipairs(detailed_items) do
+        if #tostring(d.charges) > max_charges_width then max_charges_width = #tostring(d.charges) end
+    end
+    local max_empowered_width = 9
+    for _, d in ipairs(detailed_items) do
+        if #tostring(d.empowered_charges) > max_empowered_width then max_empowered_width = #tostring(d.empowered_charges) end
+    end
+
+    -- Header
+    if show_names then
+        echo("| " .. pad_right("#", max_num_width) .. " | " .. pad_right("Item", max_name_width) .. " | " .. pad_right("Spell", max_spell_width) .. " | " .. pad_right("Activation", max_activation_width) .. " | " .. pad_right("Charges", max_charges_width) .. " | " .. pad_right("Empowered", max_empowered_width) .. " |")
+        echo("|-" .. string.rep("-", max_num_width) .. "-|-" .. string.rep("-", max_name_width) .. "-|-" .. string.rep("-", max_spell_width) .. "-|-" .. string.rep("-", max_activation_width) .. "-|-" .. string.rep("-", max_charges_width) .. "-|-" .. string.rep("-", max_empowered_width) .. "-|")
+    else
+        echo("| " .. pad_right("#", max_num_width) .. " | " .. pad_right("Spell", max_spell_width) .. " | " .. pad_right("Activation", max_activation_width) .. " | " .. pad_right("Charges", max_charges_width) .. " | " .. pad_right("Empowered", max_empowered_width) .. " |")
+        echo("|-" .. string.rep("-", max_num_width) .. "-|-" .. string.rep("-", max_spell_width) .. "-|-" .. string.rep("-", max_activation_width) .. "-|-" .. string.rep("-", max_charges_width) .. "-|-" .. string.rep("-", max_empowered_width) .. "-|")
+    end
 
     for i, details in ipairs(detailed_items) do
         local si = get_spell_info(details.spell)
         local spell_display = si.num and ("[" .. si.num .. "] " .. details.spell) or details.spell
-        local line = "| " .. tostring(starting_number + i - 1) .. " | "
-        if show_names then line = line .. details.name .. " | " end
-        line = line .. spell_display .. " | "
-        line = line .. tostring(details.activation) .. " | "
-        line = line .. tostring(details.charges) .. " | "
-        line = line .. tostring(details.empowered_charges) .. " |"
-        respond(line)
+
+        local num_part = pad_right(tostring(starting_number + i - 1), max_num_width)
+        local spell_part = pad_right(spell_display, max_spell_width)
+        local activation_part = pad_right(tostring(details.activation), max_activation_width)
+        local charges_part = pad_right(tostring(details.charges), max_charges_width)
+        local empowered_part = pad_right(tostring(details.empowered_charges), max_empowered_width)
+
+        if show_names then
+            local name_part = pad_right(details.name, max_name_width)
+            echo("| " .. num_part .. " | " .. name_part .. " | " .. spell_part .. " | " .. activation_part .. " | " .. charges_part .. " | " .. empowered_part .. " |")
+        else
+            echo("| " .. num_part .. " | " .. spell_part .. " | " .. activation_part .. " | " .. charges_part .. " | " .. empowered_part .. " |")
+        end
 
         if show_bonuses and si.bonuses and #si.bonuses > 0 then
-            respond("|   | Bonuses: " .. table.concat(si.bonuses, ", ") .. " |")
+            local bonus_text = "Bonuses: " .. table.concat(si.bonuses, ", ")
+            local content_width
+            if show_names then
+                content_width = max_name_width + max_spell_width + max_activation_width + max_charges_width + max_empowered_width + 12
+            else
+                content_width = max_spell_width + max_activation_width + max_charges_width + max_empowered_width + 9
+            end
+            echo("| " .. string.rep(" ", max_num_width) .. " | " .. pad_right(bonus_text, content_width) .. " |")
         end
     end
 end
@@ -344,6 +386,10 @@ local function display_saved_items(show_bonuses, show_names)
     local found_any = false
     local item_counter = 1
 
+    echo("Saved Magic & Jewelry Items:")
+    echo("============================")
+    echo("")
+
     for _, key in ipairs(keys) do
         if string.match(key, "^trix_.*_items$") then
             local container_name = string.gsub(
@@ -371,9 +417,14 @@ end
 
 local function clear_all_saved_data()
     local cleared = 0
+    local deleted_containers = {}
     local keys = CharSettings.keys and CharSettings.keys() or {}
     for _, key in ipairs(keys) do
         if string.match(key, "^trix_.*_items$") then
+            local container_name = string.gsub(
+                string.gsub(string.gsub(key, "^trix_", ""), "_items$", ""),
+                "_", " ")
+            table.insert(deleted_containers, container_name)
             CharSettings[key] = nil
             cleared = cleared + 1
         end
@@ -381,7 +432,8 @@ local function clear_all_saved_data()
     if cleared == 0 then
         echo("No trix data found to clear.")
     else
-        echo("Cleared trix data for " .. cleared .. " container(s).")
+        echo("Cleared trix data for containers: " .. table.concat(deleted_containers, ", "))
+        echo("Total containers cleared: " .. cleared)
     end
 end
 
@@ -414,23 +466,54 @@ local function activate_item(menu_number, force)
     echo("Activating " .. selected.name .. " with " .. verb .. "...")
     fput("get #" .. item_id .. " from #" .. container_id)
 
+    local pre_rt, post_rt
     if verb == "tap" or verb == "rub" then
         fput("wear #" .. item_id)
-        local pre_rt = checkcastrt()
+        pre_rt = checkcastrt()
         dothistimeout(verb .. " #" .. item_id, 3, ".")
-        local post_rt = checkcastrt()
+        post_rt = checkcastrt()
         fput("remove #" .. item_id)
     elseif verb == "raise" or verb == "wave" then
-        local pre_rt = checkcastrt()
+        pre_rt = checkcastrt()
         dothistimeout(verb .. " #" .. item_id, 3, ".")
-        local post_rt = checkcastrt()
+        post_rt = checkcastrt()
     else
         echo("Error: invalid activation type")
         fput("put #" .. item_id .. " in #" .. container_id)
         return
     end
 
+    local activation_successful = post_rt > pre_rt
     fput("put #" .. item_id .. " in #" .. container_id)
+
+    -- Update charge count in saved data if activation was successful
+    if activation_successful and type(selected.charges) == "number" then
+        local new_charge_count = selected.charges - 1
+        local keys = CharSettings.keys and CharSettings.keys() or {}
+        for _, key in ipairs(keys) do
+            if string.match(key, "^trix_.*_items$") then
+                local raw = CharSettings[key]
+                if raw then
+                    local ok, items = pcall(Json.decode, raw)
+                    if ok and type(items) == "table" then
+                        local updated = false
+                        for idx, item in ipairs(items) do
+                            if item.id == selected.id then
+                                items[idx].charges = new_charge_count
+                                updated = true
+                                break
+                            end
+                        end
+                        if updated then
+                            CharSettings[key] = Json.encode(items)
+                            echo("Updated charges for " .. selected.name .. " to " .. new_charge_count)
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
 end
 
 --------------------------------------------------------------------------------
@@ -465,11 +548,22 @@ elseif str_lower(nf[1]) == "scan" then
     end
 else
     respond("Usage:")
-    respond("  ;trix                     - Display saved magic items")
-    respond("  ;trix -bonus              - Display with spell bonuses")
-    respond("  ;trix -name               - Display with item names")
-    respond("  ;trix scan <container>    - Scan container for magic items")
-    respond("  ;trix <number>            - Activate item by menu number")
-    respond("  ;trix <number> -f         - Force activate even with 1 charge")
-    respond("  ;trix clear               - Delete all saved trix data")
+    respond("  ;trix                          - Display saved magic items")
+    respond("  ;trix -bonus                   - Display saved magic items with bonuses")
+    respond("  ;trix -name                    - Display saved magic items with item names")
+    respond("  ;trix -bonus -name             - Display with both bonuses and names")
+    respond("  ;trix scan <container>         - Scan container for magic items")
+    respond("  ;trix scan <container> -bonus  - Scan container and display bonuses")
+    respond("  ;trix scan <container> -name   - Scan container and display item names")
+    respond("  ;trix <number>                 - Activate item by menu number")
+    respond("  ;trix <number> -f              - Force activate even with 1 charge")
+    respond("  ;trix clear                    - Delete all saved trix magic item data")
+    respond("")
+    respond("Examples:")
+    respond("  ;trix scan backpack")
+    respond("  ;trix scan backpack -bonus -name")
+    respond("  ;trix -bonus -name")
+    respond("  ;trix 1")
+    respond("  ;trix 1 -f")
+    respond("  ;trix clear")
 end

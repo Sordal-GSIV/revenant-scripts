@@ -4,6 +4,7 @@
 --- author: Hailye
 --- game: gs
 --- description: Infuse 1625 with spell 110 -- gird, prep, infuse, beseech conserve, store all.
+--- @lic-certified: complete 2026-03-19
 
 wait_until(function() return checkmana(30) end)
 

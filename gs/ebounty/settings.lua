@@ -35,6 +35,11 @@ local DEFAULTS = {
     escort_post_commands = "", escort_post_scripts = "",
     wander_wait = 0.5,
     default_profile = "", bandits_profile = "", kill_bandits = false,
+    profile_name_bandits = "", default_name = "",
+    icemule_resting = "", teras_resting = "", kf_resting = "",
+    fwi_resting = "", rr_resting = "", solhaven_resting = "",
+    illy_resting = "", vaalor_resting = "", landing_resting = "",
+    zul_resting = "", hw_resting = "", contempt_resting = "",
 }
 
 -- Initialize location/bad_room/profile slots
@@ -52,6 +57,7 @@ DEFAULTS.bad_room3 = "12532,12533,14729,3548,3762,3763"
 for _, letter in ipairs({"a","b","c","d","e","f","g","h","i","j"}) do
     DEFAULTS["names_" .. letter] = ""
     DEFAULTS["profile_" .. letter] = ""
+    DEFAULTS["profile_name_" .. letter] = ""
     DEFAULTS["kill_" .. letter] = false
 end
 
@@ -118,6 +124,27 @@ function M.build_reject_list(st)
         end
     end
     return reject
+end
+
+function M.build_resting_spots(st)
+    local town_key = {
+        ["u4042150"] = "icemule", ["u3001025"] = "teras",
+        ["u7118221"] = "kf", ["u3201029"] = "fwi",
+        ["u2101008"] = "rr", ["u4209030"] = "solhaven",
+        ["u13100042"] = "illy", ["u14100047"] = "vaalor",
+        ["u7120"] = "landing", ["u13006016"] = "zul",
+        ["u7503205"] = "hw", ["u7150608"] = "contempt",
+    }
+    local spots = {}
+    for uid, prefix in pairs(town_key) do
+        local val = st[prefix .. "_resting"] or ""
+        local rooms = {}
+        if val ~= "" then
+            for r in val:gmatch("[^,%s]+") do rooms[#rooms + 1] = r end
+        end
+        spots[uid] = rooms
+    end
+    return spots
 end
 
 function M.build_bad_rooms(st)

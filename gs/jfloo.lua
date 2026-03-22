@@ -28,7 +28,7 @@ end
 
 Script.run("go2", "chronomage")
 
-local room_id = Room.current.id
+local room_id = Room.id
 local my_town, portal_room
 
 if room_id == 8634 then my_town = "Landing"; portal_room = 8635

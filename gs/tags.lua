@@ -23,6 +23,7 @@
 ---   ;tags --crawl <location>             crawl an area using survival sense
 ---   ;tags + [tag]                        add a single tag
 ---   ;tags - [tag]                        remove a single tag
+--- @lic-certified: complete 2026-03-18
 
 local Tags = {}
 
@@ -55,7 +56,7 @@ local ranger_sense_only = false
 local outside_only      = false
 local check_splashy     = false
 local verbose           = true
-local last_time_of_day  = nil
+local last_time_of_day     = nil
 local last_time_of_day_tag = nil
 
 -- Massive herb list for forage sense comparison
@@ -212,17 +213,28 @@ local day_only = {
     "spotted heart mushroom","striped heart mushroom","sunburst blossom",
 }
 
+-- GS4 "interesting" location tags (not forageables) for diff filtering
+local gs_interesting_tags = {
+    "advguard","advguard2","advguild","advpickup","alchemist","armorshop","bakery","bank",
+    "bardguild","boutique","chronomage","clericguild","clericshop","collectibles",
+    "consignment","empathguild","exchange","fletcher","forge","furrier","gemshop",
+    "general store","herbalist","inn","locksmith pool","locksmith","mail","movers",
+    "npccleric","npchealer","pawnshop","postoffice","rangerguild","smokeshop",
+    "sorcererguild","sunfist","town","voln","warriorguild","weaponshop","wizardguild",
+}
+local gs_other_tags = { "urchin-access","node","supernode","locksmithpool" }
+
 local ignore_tags = {
-    "closed", "duplicate", "gone", "meta:latched", "meta:che", "meta:event",
-    "meta:fest", "meta:game:GSPlat", "meta:game:GSF", "meta:game:GST",
-    "meta:game:GSIV", "meta:locker", "meta:locker annex", "meta:jail cell",
-    "meta:map:virtual room", "meta:mentor", "meta:mho", "meta:mobile",
-    "meta:private home", "meta:private property", "meta:pay-to-play",
-    "meta:quest", "meta:society:Council of Light", "meta:society:Order of Voln",
-    "meta:society:Guardians of Sunfist", "meta:storyline", "meta:taskroom",
-    "meta:transport", "meta:transition", "meta:trap", "meta:underwater",
-    "meta:workroom", "missing", "no forageables", "no-auto-map",
-    "private property", "rewritten", "urchin-hideout",
+    "closed","duplicate","gone","meta:latched","meta:che","meta:event",
+    "meta:fest","meta:game:GSPlat","meta:game:GSF","meta:game:GST",
+    "meta:game:GSIV","meta:locker","meta:locker annex","meta:jail cell",
+    "meta:map:virtual room","meta:mentor","meta:mho","meta:mobile",
+    "meta:private home","meta:private property","meta:pay-to-play",
+    "meta:quest","meta:society:Council of Light","meta:society:Order of Voln",
+    "meta:society:Guardians of Sunfist","meta:storyline","meta:taskroom",
+    "meta:transport","meta:transition","meta:trap","meta:underwater",
+    "meta:workroom","missing","no forageables","no-auto-map",
+    "private property","rewritten","urchin-hideout",
 }
 
 -- Helper: check if table contains value
@@ -274,12 +286,93 @@ local function table_union(a, b)
     return result
 end
 
--- Remove current game from ignore list
-local current_game_tag = "meta:game:" .. GameState.game
-for i = #ignore_tags, 1, -1 do
-    if ignore_tags[i] == current_game_tag then
-        table.remove(ignore_tags, i)
+-- Helper: deduplicate a table in-place (returns new table)
+local function table_uniq(t)
+    local seen = {}
+    local result = {}
+    for _, v in ipairs(t) do
+        if not seen[v] then
+            table.insert(result, v)
+            seen[v] = true
+        end
     end
+    return result
+end
+
+-- Merge dynamic ignore tags from all map tags matching meta:fest/mho/che/prof/gld/gender/event/quest
+local all_map_tags = Map.all_tags and Map.all_tags() or {}
+if type(all_map_tags) == "table" then
+    for _, tag in ipairs(all_map_tags) do
+        if tag:find("^meta:fest") or tag:find("^meta:mho") or tag:find("^meta:che")
+           or tag:find("^meta:prof") or tag:find("^meta:gld") or tag:find("^meta:gender")
+           or tag:find("^meta:locker annex") or tag:find("^meta:event") or tag:find("^meta:quest") then
+            if not table_contains(ignore_tags, tag) then
+                table.insert(ignore_tags, tag)
+            end
+        end
+    end
+end
+ignore_tags = table_uniq(ignore_tags)
+table.sort(ignore_tags)
+
+-- Build crawl_if_current_tags: tags that should be removed from the ignore list when we're IN that room
+local crawl_if_current_tags = {"meta:private property", "private property"}
+if type(all_map_tags) == "table" then
+    for _, tag in ipairs(all_map_tags) do
+        if tag:find("^meta:fest") or tag:find("^meta:mho") or tag:find("^meta:che")
+           or tag:find("^meta:prof") or tag:find("^meta:gld") or tag:find("^meta:storyline")
+           or tag:find("^meta:mentor") or tag:find("^meta:society") or tag:find("^meta:quest")
+           or tag:find("^meta:trap") then
+            if not table_contains(crawl_if_current_tags, tag) then
+                table.insert(crawl_if_current_tags, tag)
+            end
+        end
+    end
+end
+
+-- Remove current game/profession/race/gender/society tags from ignore list
+local function remove_ignore_tag(tag)
+    for i = #ignore_tags, 1, -1 do
+        if ignore_tags[i] == tag then
+            table.remove(ignore_tags, i)
+        end
+    end
+end
+
+-- Remove current game tag (GS3=GST, GS1=GSPlat, GS4=GSIV)
+if GameState and GameState.game then
+    remove_ignore_tag("meta:game:" .. GameState.game)
+    if GameState.game == "GST" then
+        remove_ignore_tag("meta:game:GSIV")
+    end
+end
+if Stats.prof and Stats.prof ~= "" then
+    remove_ignore_tag("meta:prof:" .. Stats.prof:lower())
+end
+if Stats.gender and Stats.gender ~= "" then
+    remove_ignore_tag("meta:gender:" .. Stats.gender:lower())
+end
+if Stats.race and Stats.race ~= "" then
+    remove_ignore_tag("meta:race:" .. Stats.race:lower())
+end
+-- Remove character-specific tags (che, mho, gld, society)
+if Char then
+    if Char.che and Char.che ~= "" then
+        remove_ignore_tag("meta:che:" .. tostring(Char.che))
+    end
+    if Char.mho then
+        if type(Char.mho) == "table" then
+            for _, m in ipairs(Char.mho) do
+                remove_ignore_tag("meta:mho:" .. tostring(m))
+            end
+        end
+    end
+    if Char.gld and Char.gld ~= "" then
+        remove_ignore_tag("meta:gld:" .. tostring(Char.gld):lower())
+    end
+end
+if Society and Society.status and Society.status ~= "" then
+    remove_ignore_tag("meta:society:" .. Society.status)
 end
 
 -- Logging
@@ -296,6 +389,13 @@ local function log(message, bold)
     else
         respond(tostring(message))
     end
+end
+
+-- Get current map room object (nil if unknown)
+local function current_room()
+    local id = Room.id
+    if not id then return nil end
+    return Map.find_room(id)
 end
 
 -- Time of day detection
@@ -327,71 +427,122 @@ local function time_of_day_tag()
     return last_time_of_day_tag
 end
 
--- Tag operations
+-- Tag operations — mutate in-memory map via engine API
 function Tags.list()
-    local room = Room.current()
-    if room and room.tags then
-        log("tags: " .. table.concat(room.tags, ", "))
+    local room = current_room()
+    if room then
+        local tags = table_uniq(room.tags or {})
+        log("tags: " .. table.concat(tags, ", "))
     else
         log("tags: (none)")
     end
 end
 
 function Tags.add(tags_to_add)
-    local room = Room.current()
-    if not room then
-        log("No current room.")
-        return
-    end
-    local current_tags = room.tags or {}
+    local room_id = Room.id
+    if not room_id then log("No current room."); return end
+    local room = Map.find_room(room_id)
+    local current_tags = room and room.tags or {}
     local new_tags = table_diff(tags_to_add, current_tags)
     if #new_tags == 0 then
         log(Script.name .. ": no tags added.")
     else
         for _, tag in ipairs(new_tags) do
-            table.insert(room.tags, tag)
+            Map.add_tag(room_id, tag)
         end
-        log(Script.name .. ": tags added to " .. tostring(room.id) .. ": " .. table.concat(new_tags, ", "))
+        log(Script.name .. ": tags added to " .. tostring(room_id) .. ": " .. table.concat(new_tags, ", "))
     end
 end
 
 function Tags.remove(tags_to_remove)
-    local room = Room.current()
-    if not room then return end
-    local removed = table_intersect(tags_to_remove, room.tags or {})
+    local room_id = Room.id
+    if not room_id then return end
+    local room = Map.find_room(room_id)
+    local removed = table_intersect(tags_to_remove, room and room.tags or {})
     if #removed > 0 then
-        room.tags = table_diff(room.tags, removed)
-        log(Script.name .. ": tags removed from " .. tostring(room.id) .. ": " .. table.concat(removed, ", "))
+        for _, tag in ipairs(removed) do
+            Map.remove_tag(room_id, tag)
+        end
+        log(Script.name .. ": tags removed from " .. tostring(room_id) .. ": " .. table.concat(removed, ", "))
     end
 end
 
--- Forage sense
+-- Remove duplicate tags from current room
+function Tags.uniq()
+    local room_id = Room.id
+    if not room_id then return end
+    local room = Map.find_room(room_id)
+    if not room or not room.tags then return end
+    local seen = {}
+    local dupes = {}
+    for _, tag in ipairs(room.tags) do
+        if seen[tag] then
+            table.insert(dupes, tag)
+        else
+            seen[tag] = true
+        end
+    end
+    for _, tag in ipairs(dupes) do
+        Map.remove_tag(room_id, tag)
+    end
+end
+
+-- Add missing XML UID to the map room's uid list
+local function add_missing_uid()
+    local room_id = Room.id
+    if not room_id then return end
+    -- In GS4, GameState.room_id == map room ID, but the server may also provide
+    -- a separate XML room UID via the uid field. Use Room.id as the server uid.
+    local room = Map.find_room(room_id)
+    if not room then return end
+    -- Check if this room_id is already recorded in the uid list
+    local uid_field = room.uid
+    local already_present = false
+    if type(uid_field) == "number" then
+        already_present = (uid_field == room_id)
+    elseif type(uid_field) == "string" then
+        already_present = (tonumber(uid_field) == room_id)
+    elseif type(uid_field) == "table" then
+        for _, v in ipairs(uid_field) do
+            if tonumber(v) == room_id then
+                already_present = true
+                break
+            end
+        end
+    end
+    if not already_present then
+        Map.add_uid(room_id, room_id)
+        log("adding uid " .. tostring(room_id) .. " to room " .. tostring(room_id))
+    end
+end
+
+-- Forage sense: send 'forage sense', parse herb results
 local function forage_sense()
     if Skills.survival < 25 then
         echo("You do not have enough survival for this.")
         return {}
     end
     fput("forage sense")
-    local line = waitforre("Glancing about|You do not spot any forag|You can't really do that while underwater|You are a ghost")
+    local line = waitforre("Glancing about|You do not spot any forag|you doubt that anything|You can't really do that while underwater|You are too distracted|You are a ghost")
     if not line then return {} end
 
     local sense_tags = {}
     if line:find("Glancing about, you notice") then
-        -- Parse herbs from the sense result
+        -- Parse herb list from sense output
         local herb_str = line:gsub("Glancing about, you notice the immediate area should support specimens of ", "")
         herb_str = herb_str:gsub(", and ", ", ")
         herb_str = herb_str:gsub("%.$", "")
         for herb in herb_str:gmatch("[^,]+") do
-            herb = herb:match("^%s*(.-)%s*$") -- trim
+            herb = herb:match("^%s*(.-)%s*$")
             if herb ~= "" then
                 table.insert(sense_tags, herb)
             end
         end
         table.insert(sense_tags, "meta:forage-sensed")
         table.insert(sense_tags, time_of_day_tag())
-    elseif line:find("You do not spot any forag") or line:find("you doubt that anything") then
+    elseif line:find("you doubt that anything") or line:find("You do not spot any forag") then
         table.insert(sense_tags, "no forageables")
-    elseif line:find("underwater") then
+    elseif line:find("underwater") or line:find("You are too distracted") then
         table.insert(sense_tags, "meta:underwater")
         table.insert(sense_tags, "no forageables")
     elseif line:find("You are a ghost") then
@@ -399,52 +550,87 @@ local function forage_sense()
         return nil
     else
         table.insert(sense_tags, "no forageables")
-        echo("forage_sense: unknown sense result")
+        echo(Script.name .. ": forage_sense: unknown sense result")
     end
     return sense_tags
 end
 
--- Ranger climate/terrain sense
+-- Ranger climate/terrain sense — stores data in map via Map.set_climate/set_terrain
 local function ranger_sense()
     if Stats.prof ~= "Ranger" then return end
+    local room_id = Room.id
+    if not room_id then return end
+    local room = Map.find_room(room_id)
+
+    -- Skip if already have climate+terrain and skip_sensed is on
+    if skip_sensed and room and room.climate and room.terrain then return end
+
     fput("sense")
     local line = waitforre("indications of the|You carefully assess|You can't do that")
     if not line then return end
 
     if line:find("You carefully assess") then
-        log("No new climate/terrain insight.")
+        -- No new insight — mark as 'none' if nil so we know we tried
+        if room then
+            if not room.climate then Map.set_climate(room_id, "none") end
+            if not room.terrain then Map.set_terrain(room_id, "none") end
+        end
+        -- Refresh after mutations
+        room = Map.find_room(room_id)
+        log("climate: " .. tostring(room and room.climate) .. "; terrain: " .. tostring(room and room.terrain))
     elseif line:find("indications of the") then
         local climate = line:match("the (.-) climate") or ""
-        local terrain = line:match("the (.-) terrain") or line:match("the (.-) environment") or line:match("the (.-) forest") or ""
+        local terrain = line:match("the (.-) terrain")
+                     or line:match("the (.-) environment")
+                     or line:match("the (.-) forest")
+                     or ""
         climate = climate:match("^%s*(.-)%s*$") or ""
         terrain = terrain:match("^%s*(.-)%s*$") or ""
-        log("climate: " .. climate .. "; terrain: " .. terrain)
+
+        if room then
+            if not room.climate and climate ~= "" then
+                Map.set_climate(room_id, climate)
+            elseif room.climate and room.climate ~= climate and verbose then
+                log("sensed climate: " .. climate .. " does not match stored: " .. tostring(room.climate))
+            end
+            if not room.terrain and terrain ~= "" then
+                Map.set_terrain(room_id, terrain)
+            elseif room.terrain and room.terrain ~= terrain and verbose then
+                log("sensed terrain: " .. terrain .. " does not match stored: " .. tostring(room.terrain))
+            end
+            room = Map.find_room(room_id)
+        end
+        if terrain == "" then log("room bug: room does not have terrain") end
+        if climate == "" then log("room bug: room does not have climate") end
+        log("climate: " .. tostring(room and room.climate) .. "; terrain: " .. tostring(room and room.terrain))
+    else
+        log("ranger_sense failed")
     end
 end
 
--- Splashy sense
+-- Splashy sense: check if SPLASH verb works in this room → meta:splashy tag
 local function splashy_sense()
-    local room = Room.current()
-    if not room then return end
+    local room_id = Room.id
+    if not room_id then return end
     fput("splash")
     local line = waitforre("You just splashed yourself|How do you plan to do that here")
     if not line then return end
+    local room = Map.find_room(room_id)
+    local has_tag = room and table_contains(room.tags or {}, "meta:splashy")
     if line:find("You just splashed yourself") then
-        if not table_contains(room.tags, "meta:splashy") then
-            table.insert(room.tags, "meta:splashy")
+        if not has_tag then
+            Map.add_tag(room_id, "meta:splashy")
             if verbose then log("Added meta:splashy tag") end
         end
     elseif line:find("How do you plan to do that here") then
-        for i = #room.tags, 1, -1 do
-            if room.tags[i] == "meta:splashy" then
-                table.remove(room.tags, i)
-                if verbose then log("Removed meta:splashy tag") end
-            end
+        if has_tag then
+            Map.remove_tag(room_id, "meta:splashy")
+            if verbose then log("Removed meta:splashy tag") end
         end
     end
 end
 
--- Herbs not present (should be removed)
+-- Find herbs in room tags that are NOT in sense_tags (should be removed)
 local function herbs_not_present(sense_tags)
     local filtered_herbs
     if last_time_of_day == "night" then
@@ -454,23 +640,41 @@ local function herbs_not_present(sense_tags)
     else
         filtered_herbs = table_diff(table_diff(herb_list, night_only), day_only)
     end
-    local room = Room.current()
+    local room = current_room()
     if not room or not room.tags then return {} end
     local current_herbs = table_intersect(room.tags, filtered_herbs)
     return table_diff(current_herbs, sense_tags)
 end
 
--- Full sense operation
+-- Find stale forage-sensed meta tags (same time-of-day, different month)
+local function old_meta()
+    if not last_time_of_day_tag then time_of_day_tag() end
+    local room = current_room()
+    if not room or not room.tags then return {} end
+    local old = {}
+    local prefix = "meta:forage-sensed:" .. (last_time_of_day or "???")
+    for _, tag in ipairs(room.tags) do
+        if tag:find("^" .. prefix) and tag ~= last_time_of_day_tag then
+            table.insert(old, tag)
+        end
+    end
+    return old
+end
+
+-- Full sense operation for current room
 function Tags.sense()
     if not ranger_sense_only then
         local sense_tags = forage_sense()
         if sense_tags == nil then return end -- ghost/dead
+
         Tags.add(sense_tags)
 
-        -- Remove old meta tags and herbs not present
-        local tags_to_remove = herbs_not_present(sense_tags)
-        -- Remove "no forageables" if herbs were found
-        local room = Room.current()
+        -- Remove stale meta tags, herbs no longer present, and stale "no forageables"
+        local tags_to_remove = {}
+        for _, t in ipairs(old_meta()) do table.insert(tags_to_remove, t) end
+        for _, t in ipairs(herbs_not_present(sense_tags)) do table.insert(tags_to_remove, t) end
+
+        local room = current_room()
         if room and room.tags then
             local found_herbs = table_intersect(herb_list, sense_tags)
             if #found_herbs > 0 and table_contains(room.tags, "no forageables") then
@@ -480,81 +684,358 @@ function Tags.sense()
         if #tags_to_remove > 0 then
             Tags.remove(tags_to_remove)
         end
+
+        Tags.uniq()
     end
 
+    add_missing_uid()
     ranger_sense()
     if check_splashy then
         splashy_sense()
     end
 end
 
--- Crawl an area
+-- Get location for the current room (resolving "current" keyword)
+local function resolve_location(location)
+    if not location or location == "" or location == "current" then
+        local room = current_room()
+        return room and room.location or ""
+    end
+    return location
+end
+
+-- Get crawl room lists (rooms to crawl, ignored rooms, skipped rooms)
+local function crawl_rooms(location)
+    local skip_list = {}
+    local ignore_room_ids = {}
+
+    location = resolve_location(location)
+
+    -- Find actual location string: try exact match then fuzzy
+    local all_ids = Map.list()
+    local found_exact = false
+    for _, id in ipairs(all_ids) do
+        local r = Map.find_room(id)
+        if r and r.location == location then
+            found_exact = true
+            break
+        end
+    end
+    if not found_exact then
+        for _, id in ipairs(all_ids) do
+            local r = Map.find_room(id)
+            if r and r.location and r.location:lower():find(location:lower(), 1, true) then
+                log("Exact match for " .. tostring(location) .. " not found, using " .. tostring(r.location) .. " instead.")
+                location = r.location
+                break
+            end
+        end
+    end
+
+    -- Collect all rooms in this location, apply ranger/outside filters
+    local room_ids = {}
+    for _, id in ipairs(all_ids) do
+        local r = Map.find_room(id)
+        if r and r.location == location then
+            local passes_outside = not outside_only
+                or (r.paths and r.paths[1] and r.paths[1]:find("Obvious paths"))
+            local passes_ranger = not ranger_rooms_only
+                or (not r.climate or not r.terrain)
+            if passes_outside and passes_ranger then
+                table.insert(room_ids, id)
+            end
+        end
+    end
+
+    -- Build skip list: rooms already sensed this month/time-of-day
+    if #room_ids > 0 and skip_sensed then
+        local skip_tag = time_of_day_tag()
+        for _, id in ipairs(room_ids) do
+            local r = Map.find_room(id)
+            if r then
+                local skip = table_contains(r.tags or {}, skip_tag)
+                -- For ranger-sense-only mode: also skip rooms with both climate+terrain set
+                if not skip and ranger_sense_only and r.climate and r.terrain then
+                    skip = true
+                end
+                if skip then
+                    table.insert(skip_list, id)
+                end
+            end
+        end
+        room_ids = table_diff(room_ids, skip_list)
+    end
+
+    -- Filter out ignored rooms (tagged with ignore_tags or named " Table]")
+    for _, id in ipairs(room_ids) do
+        local r = Map.find_room(id)
+        if r then
+            local dominated = false
+            for _, tag in ipairs(r.tags or {}) do
+                if table_contains(ignore_tags, tag) then
+                    dominated = true
+                    break
+                end
+            end
+            if not dominated and r.title and r.title:find(" Table%]$") then
+                dominated = true
+            end
+            if dominated then
+                table.insert(ignore_room_ids, id)
+            end
+        end
+    end
+
+    room_ids = table_diff(room_ids, ignore_room_ids)
+    return room_ids, ignore_room_ids, skip_list, location
+end
+
+-- List rooms for a location (--list command)
+function Tags.list_rooms(location)
+    location = resolve_location(location)
+    local room_ids, ignore_room_ids, skip_list, actual_location = crawl_rooms(location)
+
+    if #room_ids + #ignore_room_ids + #skip_list == 0 then
+        log("No rooms found for location: " .. tostring(actual_location))
+        return
+    end
+
+    log("Skipping " .. #skip_list .. " room(s) because they are already tagged as being sensed for this month and this time of day.")
+    for _, id in ipairs(skip_list) do
+        local r = Map.find_room(id)
+        if r then
+            local uid_str = ""
+            if type(r.uid) == "string" then uid_str = "u" .. r.uid
+            elseif type(r.uid) == "table" and r.uid[1] then uid_str = "u" .. tostring(r.uid[1]) end
+            respond(string.format("  %-5d  %-9s | %s", id, uid_str, r.title or "(unknown)"))
+        end
+    end
+
+    log("Ignoring " .. #ignore_room_ids .. " room(s) because they are tagged with at least one of the following: " .. table.concat(ignore_tags, ", "))
+    for _, id in ipairs(ignore_room_ids) do
+        local r = Map.find_room(id)
+        if r then
+            local uid_str = ""
+            if type(r.uid) == "string" then uid_str = "u" .. r.uid
+            elseif type(r.uid) == "table" and r.uid[1] then uid_str = "u" .. tostring(r.uid[1]) end
+            local matched = table_intersect(r.tags or {}, ignore_tags)
+            local note = #matched > 0 and table.concat(matched, ", ") or "Table"
+            respond(string.format("  %-5d  %-9s | %-44s | %s", id, uid_str, r.title or "(unknown)", note))
+        end
+    end
+
+    log("Remaining " .. #room_ids .. " rooms in " .. tostring(actual_location) .. ":")
+    for _, id in ipairs(room_ids) do
+        local r = Map.find_room(id)
+        if r then
+            local uid_str = ""
+            if type(r.uid) == "string" then uid_str = "u" .. r.uid
+            elseif type(r.uid) == "table" and r.uid[1] then uid_str = "u" .. tostring(r.uid[1]) end
+            respond(string.format("  %-5d  %-9s | %s", id, uid_str, r.title or "(unknown)"))
+        end
+    end
+end
+
+-- Crawl an area: navigate to each room and run sense
 function Tags.crawl(location)
     if Skills.survival < 25 then
         echo("You do not have enough survival for this.")
         return
     end
 
-    if not location or location == "" then
-        local room = Room.current()
-        if room then
-            location = room.location or "current"
-        else
-            echo("Cannot determine current location.")
-            return
-        end
+    location = resolve_location(location)
+
+    -- Handle 'confirm' and 'all' keywords embedded in location string
+    if location:find("confirm") then
+        disable_confirm = true
+        location = location:gsub("%s*confirm%s*", " "):match("^%s*(.-)%s*$")
+    end
+    if location:match("%s*all%s*$") then
+        skip_sensed = false
+        location = location:gsub("%s*all%s*$", ""):match("^%s*(.-)%s*$")
+        log("Will include rooms already marked as forage sensed for this month and time of day.")
     end
 
-    -- Find rooms matching location
-    local all_rooms = Map.list()
-    local room_ids = {}
-    for _, room in ipairs(all_rooms) do
-        if room.location == location then
-            if not outside_only or (room.paths and room.paths[1] and room.paths[1]:find("Obvious paths")) then
-                if not ranger_rooms_only or (not room.climate or not room.terrain) then
-                    table.insert(room_ids, room.id)
-                end
-            end
-        end
-    end
+    local room_ids, ignore_room_ids, skip_list, actual_location = crawl_rooms(location)
 
-    -- Filter out ignored rooms
-    local filtered_ids = {}
-    for _, id in ipairs(room_ids) do
-        local room = Map.find_room(id)
-        if room then
-            local dominated = false
-            for _, tag in ipairs(room.tags or {}) do
-                if table_contains(ignore_tags, tag) then
-                    dominated = true
-                    break
-                end
-            end
-            if not dominated then
-                table.insert(filtered_ids, id)
-            end
-        end
-    end
-
-    if #filtered_ids == 0 then
-        log("No rooms found for " .. tostring(location) .. ".")
+    if #room_ids == 0 and #skip_list == 0 then
+        log("No rooms found for " .. tostring(actual_location) .. ".")
+        return
+    elseif #room_ids == 0 then
+        log("No rooms left to crawl for " .. tostring(actual_location) .. ".")
         return
     end
 
-    log("Going to crawl " .. #filtered_ids .. " rooms in " .. tostring(location) .. " starting in 2 seconds.")
+    if #skip_list > 0 then
+        log("Skipping " .. #skip_list .. " room(s) because they are already tagged as being sensed for this month and this time of day.")
+    end
+    if #ignore_room_ids > 0 then
+        log("Ignoring " .. #ignore_room_ids .. " room(s) tagged with an ignore tag.")
+    end
+
+    log("\nGoing to crawl " .. #room_ids .. " rooms in " .. tostring(actual_location) .. " starting in 2 seconds.")
     pause(2)
 
-    local current = Room.current()
-    for _, target_id in ipairs(filtered_ids) do
-        Map.go2(tostring(target_id))
-        wait_while(function() return running("go2") end)
-        local now = Room.current()
-        if now and now.id == target_id then
-            Tags.sense()
+    while #room_ids > 0 do
+        local from_id = Room.id
+
+        -- Try to escape un-mapped position before navigating
+        if not from_id then
+            fput("out")
+            pause(2)
+            from_id = Room.id
+            if not from_id then
+                log("Cannot determine current location — aborting crawl.")
+                break
+            end
+        end
+
+        -- Find nearest remaining room using Dijkstra
+        local nearest = Map.find_nearest_room(from_id, room_ids)
+        if not nearest then
+            log("None of the remaining rooms seem to have a path from here to there.")
+            for _, id in ipairs(room_ids) do
+                local r = Map.find_room(id)
+                if r then
+                    respond(string.format("  %-5d  %s", id, r.title or "(unknown)"))
+                end
+            end
+            break
+        end
+
+        local closest = nearest.id
+
+        -- Remove closest from remaining list
+        for i = #room_ids, 1, -1 do
+            if room_ids[i] == closest then
+                table.remove(room_ids, i)
+                break
+            end
+        end
+
+        -- Path distance check: pause when more than 100 steps away
+        if not disable_confirm then
+            local path = Map.find_path(from_id, closest)
+            if path and #path > 100 then
+                local target_room = Map.find_room(closest)
+                local title = target_room and target_room.title or tostring(closest)
+                log("There are approximately " .. #path .. " rooms between you and " .. tostring(closest) .. ": " .. title)
+                log("\nTo continue, unpause the script.  To abort, kill the script.")
+                pause_script()
+            end
+        end
+
+        -- Navigate to room (Map.go2 is blocking: waits for each step's prompt)
+        local ok = Map.go2(closest)
+        if not ok then
+            log("unable to navigate to " .. tostring(closest))
         else
-            log("unable to reach " .. tostring(target_id))
+            local now = Room.id
+            if now == closest then
+                Tags.sense()
+            else
+                log("unable to reach " .. tostring(closest) .. " (ended up at " .. tostring(now) .. ")")
+            end
         end
     end
+end
+
+-- BFS over location graph via wayto adjacency — returns neighboring location strings
+local function location_neighbors(location_from)
+    local neighbors = {}
+    local seen = {}
+    local all_ids = Map.list()
+    for _, id in ipairs(all_ids) do
+        local r = Map.find_room(id)
+        if r and r.location == location_from and r.wayto then
+            for dest_id_str, _ in pairs(r.wayto) do
+                local dest_id = tonumber(dest_id_str)
+                if dest_id then
+                    local dest = Map.find_room(dest_id)
+                    if dest and dest.location and dest.location ~= location_from and not seen[dest.location] then
+                        table.insert(neighbors, dest.location)
+                        seen[dest.location] = true
+                    end
+                end
+            end
+        end
+    end
+    return neighbors
+end
+
+-- Planewalker: BFS over the location graph, crawling each location
+function Tags.planewalker()
+    verbose = false
+    local start_room = current_room()
+    if not start_room or not start_room.location then
+        echo("Cannot determine current location.")
+        return
+    end
+    local queue   = { start_room.location }
+    local visited = {}
+    while #queue > 0 do
+        local location = table.remove(queue, 1)
+        visited[location] = true
+        Tags.crawl(location)
+        for _, neighbor in ipairs(location_neighbors(location)) do
+            if not visited[neighbor] and neighbor ~= "the grasslands" then
+                -- Avoid duplicates in queue
+                local in_queue = false
+                for _, q in ipairs(queue) do
+                    if q == neighbor then in_queue = true; break end
+                end
+                if not in_queue then
+                    table.insert(queue, neighbor)
+                end
+            end
+        end
+    end
+end
+
+-- Diff: compare live forage sense against stored tags, show gaps
+function Tags.diff()
+    local sense_tags = forage_sense()
+    if not sense_tags then return end
+
+    -- Strip meta tags from sense results
+    local sense_herbs = {}
+    for _, t in ipairs(sense_tags) do
+        if not t:match("^meta") then table.insert(sense_herbs, t) end
+    end
+
+    local room = current_room()
+    local room_tags = room and room.tags or {}
+
+    -- Strip meta/map/urchin tags and known interesting/other tags from room tags
+    local filtered_tags = {}
+    for _, t in ipairs(room_tags) do
+        if not t:match("^meta") and not t:match("^map") and not t:match("^urchin")
+           and not table_contains(gs_interesting_tags, t) and not table_contains(gs_other_tags, t)
+           and not table_contains(ignore_tags, t) or t == "no forageables" then
+            table.insert(filtered_tags, t)
+        end
+    end
+
+    -- Build "some X" variants for comparison (sense sometimes returns "some X")
+    local spoof_some = {}
+    for _, s in ipairs(sense_herbs) do
+        table.insert(spoof_some, "some " .. s)
+    end
+
+    local same = table_intersect(filtered_tags, sense_herbs)
+    local not_in_sense = table_diff(table_diff(filtered_tags, sense_herbs), spoof_some)
+    local not_in_tags  = table_diff(sense_herbs, filtered_tags)
+
+    table.sort(sense_herbs)
+    table.sort(not_in_sense)
+    table.sort(not_in_tags)
+
+    local ignored = table_diff(room_tags, filtered_tags)
+    respond("\nIgnoring these tags: " .. table.concat(ignored, ", "))
+    respond("\nForage sense(" .. #sense_herbs .. "): " .. table.concat(sense_herbs, ", "))
+    respond("\nIn tags and forage sense (" .. #same .. "): " .. table.concat(same, ", "))
+    respond("\nNot in forage sense (" .. #not_in_sense .. "): " .. table.concat(not_in_sense, ", "))
+    respond("\nNot in tags (" .. #not_in_tags .. "): " .. table.concat(not_in_tags, ", "))
 end
 
 -- Help text
@@ -566,8 +1047,10 @@ local function show_help()
     ;tags --sense                        attempt to use your survival skill to add missing herbs to a room
     ;tags --ls                           shows all current tags for the room
     ;tags --crawl current                crawl the current area using survival sense
-    ;tags --crawl <location>             crawl an area using survival sense
-    ;tags --list <location>              list rooms for a location
+    ;tags --crawl <location>             crawl an area using survival sense, pauses before moving more than 100 rooms
+    ;tags --crawl <location> confirm     crawl an area and don't pause when moving more than 100 rooms away
+    ;tags --crawl <location> all         crawl an area and don't skip recently sensed rooms
+    ;tags --list <location>              list rooms for a location, whether to skip or crawl
 
   crawl options (can be mixed and matched)
     ;tags --crawl ranger                  # only does rooms that need climate/terrain
@@ -579,6 +1062,10 @@ local function show_help()
   single tag operations:
     ;tags + [tag]                        add a single tag
     ;tags - [tag]                        remove a single tag
+
+  for --add/--rm operations with spaces in the name, use quotes:
+    ;tags --add "small tomato" "onion skin"
+    ;tags --rm "small tomato" "onion skin"
     ]])
 end
 
@@ -598,41 +1085,53 @@ elseif cmd_type == REMOVE_ONE then
     Tags.list()
 elseif cmd_type == SENSE then
     ranger_sense_only = table_contains(cmd_tags, "climate")
-    check_splashy = table_contains(cmd_tags, "splashy")
+    check_splashy     = table_contains(cmd_tags, "splashy")
     if table_contains(cmd_tags, "noskip") then skip_sensed = false end
     Tags.sense()
 elseif cmd_type == CRAWL then
-    local anchor = Room.current() and Room.current().id
-    outside_only = table_contains(cmd_tags, "outside")
+    local anchor = Room.id
+    -- If current room has crawl_if_current_tags, remove them from ignore list
+    local cur = current_room()
+    if cur and cur.tags then
+        for _, tag in ipairs(cur.tags) do
+            if table_contains(crawl_if_current_tags, tag) then
+                remove_ignore_tag(tag)
+            end
+        end
+    end
+    outside_only      = table_contains(cmd_tags, "outside")
     ranger_sense_only = table_contains(cmd_tags, "climate")
     ranger_rooms_only = table_contains(cmd_tags, "ranger")
-    check_splashy = table_contains(cmd_tags, "splashy")
+    check_splashy     = table_contains(cmd_tags, "splashy")
     if table_contains(cmd_tags, "noskip") then skip_sensed = false end
-    -- Remove option keywords from tags to get location
+    if table_contains(cmd_tags, "confirm") then disable_confirm = true end
+    -- Remove option keywords to get location
+    local option_words = {outside=true, climate=true, ranger=true, splashy=true, noskip=true, confirm=true, all=true}
     local location_parts = {}
-    local option_words = {outside=true, climate=true, ranger=true, splashy=true, noskip=true}
     for _, tag in ipairs(cmd_tags) do
         if not option_words[tag] then
             table.insert(location_parts, tag)
         end
     end
     Tags.crawl(table.concat(location_parts, " "))
-    local now = Room.current()
-    if anchor and now and now.id ~= anchor then
-        Script.run("go2", tostring(anchor))
+    -- Return to start room after crawl
+    local now = Room.id
+    if anchor and now and now ~= anchor then
+        Map.go2(anchor)
     end
+elseif cmd_type == PLANEWALKER then
+    outside_only      = table_contains(cmd_tags, "outside")
+    ranger_sense_only = table_contains(cmd_tags, "climate")
+    ranger_rooms_only = table_contains(cmd_tags, "ranger")
+    check_splashy     = table_contains(cmd_tags, "splashy")
+    if table_contains(cmd_tags, "noskip") then skip_sensed = false end
+    Tags.planewalker()
+elseif cmd_type == LIST_ROOMS then
+    Tags.list_rooms(table.concat(cmd_tags, " "))
 elseif cmd_type == TIME_OF_DAY then
     log(time_of_day())
 elseif cmd_type == DIFF then
-    -- Simplified diff: show current tags vs forage sense
-    local sense = forage_sense()
-    if sense then
-        local room = Room.current()
-        respond("Forage sense: " .. table.concat(sense, ", "))
-        if room and room.tags then
-            respond("Room tags: " .. table.concat(room.tags, ", "))
-        end
-    end
+    Tags.diff()
 else
     show_help()
 end

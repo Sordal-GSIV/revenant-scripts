@@ -59,9 +59,13 @@ while true do
         if checkmana() > 350 then
             touch()
             check_sprite()
-        elseif checkmana() + 0.9 * stored > 350 and not Room.current.tags_include("node") then
-            getmana()
-            check_sprite()
+        elseif checkmana() + 0.9 * stored > 350 then
+            local cur = Room.current()
+            local at_node = cur and cur.tags_include and cur.tags_include("node")
+            if not at_node then
+                getmana()
+                check_sprite()
+            end
         end
     end
 

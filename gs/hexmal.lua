@@ -1,10 +1,11 @@
 --- @revenant-script
 --- name: hexmal
---- version: 1.0.0
+--- version: 1.1.0
 --- author: unknown
 --- game: gs
 --- description: Calculate Maximum Animatable Level (MAL) for Sorcerers
 --- tags: sorcerer, animate, mal, utility
+--- @lic-certified: complete 2026-03-19
 
 -- MAL = (700s ranks, capped at level) - 10
 --     + (700s ranks over level / 10, max of 5)
@@ -13,7 +14,7 @@
 
 local ok, err = pcall(function()
     local level = Stats.level
-    local wisdom = Stats.wisdom[2]  -- enhanced bonus
+    local wisdom = Stats.wisdom.enhanced.bonus  -- enhanced bonus
     local sorcspells = Spells.sorcerer
     local necro_ranks = Skills.slnecromancy
 

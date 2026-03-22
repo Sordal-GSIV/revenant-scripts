@@ -8,13 +8,14 @@
 ---
 --- Usage: ;freddie_mercury (with item in right hand)
 
-if not GameObj.right_hand or GameObj.right_hand.name:match("empty") then
+local rh = GameObj.right_hand()
+if not rh or rh.name:match("empty") then
     echo("Hold an item in your right hand first!")
     exit()
 end
 
 local item_name = checkright() or "unknown"
-local item_id = GameObj.right_hand.id
+local item_id = rh.id
 
 echo("Loresinging: " .. item_name)
 

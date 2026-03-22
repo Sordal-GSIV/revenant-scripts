@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-19
 --- name: wps
 --- version: 1.4
 --- author: Kragdruk
@@ -7,9 +8,19 @@
 --- tags: util,ccf,duskruin,festival,merchant,wps,smithy
 ---
 --- Usage:
----   ;wps <count> <crit|damage|sighting>
+---   ;wps <count> <crit, damage, or sighting>
 ---
 --- Pauses for confirmation before requesting services.
+---
+--- changelog:
+---   1.4 (2025-11-02)
+---     Blacksmith changed pronouns again so updated to accept whatever
+---   1.3 (2021-12-27)
+---     Blacksmith changed pronouns again so updated to accept whatever
+---   1.2 (2021-08-28)
+---     Updated blacksmith response recognition for new messaging
+---   1.1 (2020-09-01)
+---     Fix request response regex for sighting
 
 local SERVICE_TYPES = { "critical", "damage", "sighting" }
 
@@ -44,9 +55,9 @@ end
 
 local function estimate_regex(service_type)
     if service_type:match("sight") then
-        return "Modified Weighting Type: Sighted"
+        return "(?i)Modified Weighting Type: Sighted"
     else
-        return "Modified .* Type: " .. service_type
+        return "(?i)Modified \\w+ Type: " .. service_type
     end
 end
 
@@ -62,7 +73,7 @@ end
 
 local function perform_service_confirmation(blacksmith)
     local result = dothistimeout("ask #" .. blacksmith.id .. " about confirm", 5,
-        "quickly returns.*hands it back to you")
+        "(?i)quickly returns, idly polishing it with a dirty rag as (?:he|she|it) hands it back to you")
     if not result then
         echo("Failed to confirm service.")
         return false

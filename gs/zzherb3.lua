@@ -35,7 +35,7 @@ end
 local righthand = checkright() == nil
 local herb_count = 0
 local start_time = os.time()
-local room = Room.current.id
+local room = Room.id
 
 echo("Number to find: " .. qty .. "  Item: " .. herb)
 if location then echo("Location: " .. location) end
@@ -54,7 +54,7 @@ if #target_list == 0 then
 end
 
 -- Sort by distance
-local _, distances = Map.dijkstra(Room.current.id)
+local _, distances = Map.dijkstra(Room.id)
 table.sort(target_list, function(a, b)
     return (distances[a] or 9999) < (distances[b] or 9999)
 end)

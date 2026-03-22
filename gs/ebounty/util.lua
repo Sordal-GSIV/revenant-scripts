@@ -1,8 +1,8 @@
 local data = require("data")
+local settings_mod = require("settings")
 
 local M = {}
 
--- state reference, set by init.lua
 M.state = nil
 
 function M.msg(msg_type, text)
@@ -56,6 +56,21 @@ function M.go2_rest()
             if r == current_room then in_list = true; break end
         end
         where_to = in_list and current_room or rooms[math.random(#rooms)]
+    elseif st.rest_random then
+        local resting_spots = settings_mod.build_resting_spots(st)
+        local town_rooms = nil
+        for _, uid_rooms in pairs(resting_spots) do
+            if #uid_rooms > 0 then
+                for _, r in ipairs(uid_rooms) do
+                    if r == current_room then town_rooms = uid_rooms; break end
+                end
+            end
+        end
+        if town_rooms and #town_rooms > 0 then
+            where_to = town_rooms[math.random(#town_rooms)]
+        else
+            where_to = "town"
+        end
     elseif st.table_rest then
         where_to = "table"
     elseif st.use_script and st.use_script_name ~= "" then
@@ -104,14 +119,14 @@ end
 
 function M.check_health()
     if M.state.settings.skip_healing then return end
-    local dominated = {
+    local body_parts = {
         "head","neck","chest","abdomen","back",
         "leftArm","rightArm","leftHand","rightHand",
         "leftLeg","rightLeg","leftFoot","rightFoot",
         "leftEye","rightEye","nsys",
     }
     local need_heal = false
-    for _, part in ipairs(dominated) do
+    for _, part in ipairs(body_parts) do
         if Wounds[part] > 0 or Scars[part] > 1 then need_heal = true; break end
     end
     if not need_heal and Char.percent_health >= 95 then return end
@@ -119,36 +134,97 @@ function M.check_health()
     Script.run(healing)
 end
 
+function M.mana_pulse(spell_id)
+    if not Spell[spell_id].known then return end
+    if Spell[spell_id]:affordable() then return end
+    fput("mana pulse")
+    M.wait_rt()
+end
+
+function M.check_exp()
+    return GameState.mind or "clear"
+end
+
 function M.fog()
     local st = M.state.settings
     if not st or st.basic then return end
     M.wait_rt()
 
-    -- Spirit Guide (130)
-    if Spell[130].known and Spell[130].affordable then
-        put("incant 130"); M.wait_rt(); return
+    local current_id = Map.current_room()
+    if Spell[130].known and Spell[130]:affordable() then
+        put("incant 130")
+        M.wait_rt()
+        if current_id == 2635 then
+            put("incant 130")
+            M.wait_rt()
+        end
+        return
     end
-    -- Symbol of Return (9825)
     if Spell[9825].known then
-        fput("symbol of return"); pause(0.5); return
+        fput("symbol of return")
+        pause(0.5)
+        if not Spell[130].known then return end
+        if Map.current_room() == current_id then
+            M.mana_pulse(130)
+            if Spell[130]:affordable() then
+                put("incant 130")
+                M.wait_rt()
+            end
+        end
+        return
     end
-    -- Traveler's Song (1020)
-    if Spell[1020].known and Spell[1020].affordable then
+    if Spell[1020].known and Spell[1020]:affordable() then
         put("incant 1020"); M.wait_rt(); return
     end
-    -- Sigil of Escape (9720)
-    if Spell[9720].known and Spell[9720].affordable then
+    if Spell[9720].known and Spell[9720]:affordable() then
         put("incant 9720"); M.wait_rt(); return
     end
-    -- Familiar Gate (930)
-    if Spell[930].known and Spell[930].affordable then
+    if Spell[930].known and Spell[930]:affordable() then
         put("incant 930"); fput("go portal"); M.wait_rt(); return
     end
+end
+
+function M.open_container(container)
+    if not container or container == "" then return end
+    fput("open my " .. container)
+    fput("look in my " .. container)
+    M.state.close_containers[#M.state.close_containers + 1] = container
+end
+
+function M.silver_check()
+    fput("info")
+    pause(0.5)
+    return GameState.silver or 0
 end
 
 function M.silver_deposit()
     M.go2("bank")
     fput("deposit all")
+end
+
+function M.uid_match(room_str)
+    if not room_str then return nil end
+    room_str = tostring(room_str)
+    if room_str:sub(1, 1) == "u" then
+        local rooms = Map.tags(room_str) or {}
+        if #rooms > 0 then return rooms[1] end
+    end
+    return tonumber(room_str)
+end
+
+function M.regroup()
+    if not M.state.settings.return_to_group then return end
+    local leader = M.state.leader or ""
+    if leader == "" then return end
+    fput("join " .. leader)
+end
+
+function M.get_command(command, patterns)
+    put(command)
+    M.wait_rt()
+    local result = matchtimeout(5, table.unpack(patterns))
+    M.wait_rt()
+    return result
 end
 
 function M.bounty_change(original)
@@ -170,6 +246,10 @@ function M.duration(elapsed)
     if mins > 0 then parts[#parts + 1] = mins .. " Minutes" end
     if secs > 0 then parts[#parts + 1] = secs .. " Seconds" end
     return table.concat(parts, " ")
+end
+
+function M.elapsed()
+    return M.duration(os.time() - M.state.start_time)
 end
 
 return M

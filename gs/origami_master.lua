@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-20
 --- name: origami_master
 --- version: 1.3.0
 --- author: Wolenthor
@@ -14,7 +15,7 @@
 ---   ;origami_master <shape> <origami kit name> nosleep
 ---   ;origami_master help
 
-local params = Script.current.vars
+local params = Script.vars
 
 local function bold(msg)
     respond("<pushBold/>" .. msg .. "<popBold/>")
@@ -33,7 +34,8 @@ local function show_help()
     respond("Review available patterns - ASK MASTER ABOUT PATTERN SKILL ADEPT")
     respond("Review specific pattern - ASK MASTER ABOUT PATTERN NAME BANANA")
     respond("Learn pattern at master - ASK MASTER ABOUT BUY PATTERN BANANA")
-    respond("Buy instructions parchment - ASK MASTER ABOUT BUY INSTRUCTIONS TEACHER")
+    respond("Buy instructions parchment to learn at later date - ASK MASTER ABOUT BUY INSTRUCTIONS TEACHER")
+    respond("Buy instructions to learn pattern at later date - ASK MASTER ABOUT BUY PATTERN BANANA")
 end
 
 if not params[1] or params[1]:lower() == "help" then
@@ -60,15 +62,15 @@ while true do
         tally = tally + 1
         bold("Shapes created this run: " .. tally)
         bold("Waiting " .. sleep_time .. "s")
-        wait(sleep_time)
+        pause(sleep_time)
     elseif Regex.test(line, "You gently unfold") or Regex.test(line, "You put a") then
         fput("origami fold " .. pattern)
         bold("Waiting " .. sleep_time .. "s")
-        wait(sleep_time)
+        pause(sleep_time)
     elseif Regex.test(line, "You surreptitiously smooth out the paper") then
         fput("origami fold " .. pattern)
         bold("Waiting " .. sleep_time .. "s")
-        wait(sleep_time)
+        pause(sleep_time)
     elseif Regex.test(line, "You can TOSS it or throw it away") then
         fput("toss my paper")
         fput("toss my paper")

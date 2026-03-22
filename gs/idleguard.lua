@@ -1,10 +1,14 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-19
 --- name: idleguard
 --- version: 1.0.0
 --- author: Witfog
 --- game: gs
 --- description: Keeps session alive by issuing periodic TIME commands with suppressed output
 --- tags: disconnect, protect, idle, keepalive, timeout
+---
+--- Original: lich_repo_mirror/lib/idleguard.lic (Witfog, v1.0.0, 2025-11-10)
+--- Changelog: v1.0.0 - initial public release
 ---
 --- Usage:
 ---   ;idleguard

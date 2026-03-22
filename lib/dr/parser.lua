@@ -12,8 +12,97 @@ local M = {}
 
 local parsing_state = nil  -- nil, "spells", "abilities", etc.
 
+-------------------------------------------------------------------------------
+-- Room object XML parsers
+-- Parses <component id='room objs'>...</component> lines from the game stream.
+-- Populates DRRoom.npcs, DRRoom.dead_npcs, and DRRoom.room_objs.
+-------------------------------------------------------------------------------
+
+-- Gelapod constant: in DR, the domesticated gelapod trash bin is tagged as an
+-- NPC (bold) but should be treated as a room object.
+local GELAPOD_BOLD = "<pushBold/>a domesticated gelapod<popBold/>"
+local GELAPOD_PLAIN = "domesticated gelapod"
+
+local function room_extract_npcs(content)
+    local c = content:gsub(GELAPOD_BOLD, GELAPOD_PLAIN)
+    local npcs = {}
+    for raw in c:gmatch("<pushBold/>(.-)<popBold/>") do
+        if not (raw:find("which appears dead", 1, true) or raw:find("(dead)", 1, true)) then
+            local name = raw
+                :gsub(" with a .+ sitting astride its back", "")
+                :gsub(" who .+", "")
+                :gsub("^the ", ""):gsub("^a ", "")
+                :match("^%s*(.-)%s*$")
+            if name and name ~= "" then
+                table.insert(npcs, name)
+            end
+        end
+    end
+    return npcs
+end
+
+local function room_extract_dead_npcs(content)
+    local dead = {}
+    for raw in content:gmatch("<pushBold/>(.-)<popBold/>") do
+        if raw:find("which appears dead", 1, true) or raw:find("(dead)", 1, true) then
+            local name = raw
+                :gsub(" which appears dead", ""):gsub(" %(dead%)", "")
+                :gsub("^the ", ""):gsub("^a ", "")
+                :match("^%s*(.-)%s*$")
+            if name and name ~= "" then
+                table.insert(dead, name)
+            end
+        end
+    end
+    return dead
+end
+
+local function room_extract_objects(content)
+    -- Promote gelapod from NPC to plain object before stripping bold sections
+    local c = content:gsub(GELAPOD_BOLD, GELAPOD_PLAIN)
+    -- Remove remaining NPC entries (bold-tagged)
+    c = c:gsub("<pushBold/>.-<popBold/>", "")
+    -- Remove all remaining XML tags
+    c = c:gsub("<[^>]+>", "")
+    -- Strip "You also see" prefix variants
+    c = c:gsub("^You also see%s*,?%s*", "")
+    -- Normalize " and " to comma for uniform splitting
+    c = c:gsub("%s+and%s+", ",")
+    local objs = {}
+    for part in c:gmatch("[^,]+") do
+        part = part:match("^%s*(.-)%s*$")
+        part = part:gsub("%.$", ""):match("^%s*(.-)%s*$")
+        -- Strip mount description
+        part = part:gsub(" with a .+ sitting astride its back", "")
+        -- Strip leading articles
+        part = part:gsub("^[Aa]n? ", ""):gsub("^[Ss]ome ", ""):gsub("^[Tt]he ", "")
+        part = part:match("^%s*(.-)%s*$")
+        if part ~= "" then
+            table.insert(objs, part)
+        end
+    end
+    return objs
+end
+
 --- Main dispatch function. Called for every downstream line.
 function M.process(line)
+    -- <component id='room objs'>: room NPCs and objects from XML game stream
+    if line:find("component id='room objs'", 1, true) then
+        if DRRoom then
+            local content = line:match("<component id='room objs'>(.+)</component>")
+            if content then
+                DRRoom.npcs      = room_extract_npcs(content)
+                DRRoom.dead_npcs = room_extract_dead_npcs(content)
+                DRRoom.room_objs = room_extract_objects(content)
+            else
+                DRRoom.npcs      = {}
+                DRRoom.dead_npcs = {}
+                DRRoom.room_objs = {}
+            end
+        end
+        return line
+    end
+
     -- Multi-line spell/ability parsing (active state)
     if parsing_state then
         -- End on prompt or blank line

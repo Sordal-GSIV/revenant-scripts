@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "packages": {
+    "any": ["pkg", "alias", "go2", "map", "version", "vars", "autostart"],
+    "GS3": [],
+    "GS4": [],
+    "GST": [],
+    "DR":  ["hunting-buddy", "combat-trainer"],
+    "DRT": [],
+    "DRF": []
+  }
+}

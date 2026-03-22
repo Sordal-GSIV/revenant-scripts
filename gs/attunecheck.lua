@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-audit: validated 2026-03-17
 --- name: attunecheck
 --- version: 1.0.0
 --- author: elanthia-online

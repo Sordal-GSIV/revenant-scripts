@@ -31,18 +31,19 @@ local MAX = CharSettings["fist_max_targets"]
 fput("target random")
 
 local function check_target()
-    if not GameObj.target or not GameObj.target.id then
+    local tgt = GameObj.target()
+    if not tgt or not tgt.id then
         fput("stance defensive")
         exit()
     end
-    if GameObj.target.status and GameObj.target.status:match("dead|gone") then exit() end
-    if GameObj.targets and #GameObj.targets > MAX then
+    if tgt.status and tgt.status:match("dead|gone") then exit() end
+    if GameObj.targets and #GameObj.targets() > MAX then
         echo("Too many targets!"); fput("stance defensive"); exit()
     end
 end
 
 local function adjust_stance()
-    local count = GameObj.targets and #GameObj.targets or 1
+    local count = GameObj.targets and #GameObj.targets() or 1
     local stance = "offensive"
     if count == 2 then stance = "advance"
     elseif count >= 3 then stance = "forward" end
@@ -59,22 +60,25 @@ while true do
     adjust_stance()
 
     -- Try Weapon Fury
+    local tgt = GameObj.target()
     if Weapon and Weapon.available and Weapon.available("Fury") and checkstamina() > 50 then
         safe_wait()
-        fput("weapon fury #" .. GameObj.target.id)
+        fput("weapon fury #" .. tgt.id)
         safe_wait()
     end
 
     -- Primary attack
     safe_wait()
-    fput("jab #" .. GameObj.target.id)
+    tgt = GameObj.target()
+    fput("jab #" .. tgt.id)
     safe_wait()
 
     -- Followup kick
     check_target()
     for _, target in ipairs(CharSettings["fist_kick_targets"]) do
         safe_wait()
-        fput("kick #" .. GameObj.target.id .. " " .. target)
+        tgt = GameObj.target()
+        fput("kick #" .. tgt.id .. " " .. target)
         safe_wait()
         check_target()
     end

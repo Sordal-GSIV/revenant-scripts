@@ -33,7 +33,7 @@ echo("Watching for invasions in safe rooms...")
 
 while true do
     pause(1)
-    local room_id = Room.current and Room.current.id
+    local room_id = Room.id
     local in_safe = false
     for _, sr in ipairs(safe_rooms) do
         if room_id == sr then in_safe = true; break end

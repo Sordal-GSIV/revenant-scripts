@@ -1,14 +1,17 @@
 {
   "registry": "revenant-official",
   "url": "https://raw.githubusercontent.com/Sordal-GSIV/revenant-scripts",
-  "generated": "2026-03-17T23:50:14Z",
+  "generated": "2026-03-22T19:57:42Z",
   "manifest_version": 1,
   "scripts": [
     {
       "name": "alias",
       "author": "Sordal",
       "description": "Pattern-based command aliases with GUI, per-character and global scopes",
-      "tags": [],
+      "tags": [
+        "core",
+        "alias"
+      ],
       "channels": {
         "dev": {
           "version": "0.1.0",
@@ -17,8 +20,8 @@
           "depends": []
         },
         "stable": {
-          "version": "1.0.0",
-          "sha256": "8b0ebc2b1c010a182c4245fac9477446ed1c1528f1382225e3a65c021be665f9",
+          "version": "1.0.5",
+          "sha256": "47b228ecfd6b92a58a294d6df7db0f4992e10ce4d72b5abb1ef7e080b661c55e",
           "path": "alias/",
           "depends": [],
           "files": [
@@ -32,11 +35,11 @@
             },
             {
               "name": "init.lua",
-              "sha256": "370705056eb71f0ce64775216ed977a2c1a75cbf2cfe63c0fa3ce71d5678101c"
+              "sha256": "5c55d9e561a6dc905691e5d7d0c4f99f7e1031f5b5d554aad3628e7197899b6a"
             },
             {
               "name": "manifest.lua",
-              "sha256": "61d6b7b9ccb67ec0a099b496eae2d6a60162acd6eb4664f21d196c525b1812df"
+              "sha256": "c7ab738d9517fd9d35d92461e504da2184fa77b626dda99de615b819db752d7d"
             }
           ]
         }
@@ -44,9 +47,11 @@
     },
     {
       "name": "autostart",
-      "author": "unknown",
+      "author": "Tillmen (tillmen@lichproject.org)",
       "description": "Launch scripts automatically on character connect",
-      "tags": [],
+      "tags": [
+        "core"
+      ],
       "channels": {
         "dev": {
           "version": "0.1.0",
@@ -55,8 +60,8 @@
           "depends": []
         },
         "stable": {
-          "version": "0.2.0",
-          "sha256": "ad689de694dd96babf2575153396be3fc905091cd40217ae21062d490d8ecbc5",
+          "version": "0.3.0",
+          "sha256": "22f52170abc637e424715d2144f913800c88f62870d757b4627fe6e5e2e88dc0",
           "path": "autostart.lua",
           "depends": []
         }
@@ -248,8 +253,8 @@
       ],
       "channels": {
         "stable": {
-          "version": "1.0.0",
-          "sha256": "2ab62f13d0fcae829addb74ab7fa8e6698415c355787d8d2a6b93724f9fc94b5",
+          "version": "2.0.0",
+          "sha256": "7969aade7ece3deaa014e74bcff860f6a1ac5ecfbb76f598959837feff0a127c",
           "path": "efamgo2.lua",
           "depends": []
         }
@@ -390,6 +395,43 @@
       }
     },
     {
+      "name": "foreach",
+      "author": "Elanthia-Online",
+      "description": "Iterate commands over container items or targets with flexible filtering",
+      "tags": [
+        "utility",
+        "inventory"
+      ],
+      "channels": {
+        "stable": {
+          "version": "2.1.0",
+          "sha256": "d7a4e343eef612c34d45c8ade836eb07daf7a8b9fcd85729b60d8e85465e44ee",
+          "path": "foreach.lua",
+          "depends": []
+        }
+      }
+    },
+    {
+      "name": "ghoul",
+      "author": "Alastir",
+      "description": "Auto-daub bingo numbers for Ghoul game (Caligos/Naidem)",
+      "tags": [
+        "ghoul",
+        "bingo",
+        "daub",
+        "caligos",
+        "naidem"
+      ],
+      "channels": {
+        "stable": {
+          "version": "2.0.0",
+          "sha256": "82bf7e450ab36a6cacea834ad9dc3ae8f0ca73d74c30d5306ced266b8fcbc545",
+          "path": "ghoul.lua",
+          "depends": []
+        }
+      }
+    },
+    {
       "name": "go",
       "author": "unknown",
       "description": "Alias for go2 (forwards all arguments)",
@@ -405,9 +447,12 @@
     },
     {
       "name": "go2",
-      "author": "Sordal",
-      "description": "Room-to-room navigation with pathfinding",
-      "tags": [],
+      "author": "Tillmen (tillmen@lichproject.org)",
+      "description": "Shortest-path navigation between any two rooms using the map database. ",
+      "tags": [
+        "core",
+        "movement"
+      ],
       "channels": {
         "dev": {
           "version": "0.1.0",
@@ -416,38 +461,40 @@
           "depends": []
         },
         "stable": {
-          "version": "1.0.0",
-          "sha256": "103b4f08cee82dd78b79344ec3c75dd30f9de481580fe0ebe851f665bb7a8fa7",
+          "version": "2.2.13",
+          "sha256": "81ebd4c599acf538c9bba1f11195dbbc592030845da68099c8edee560a11d3d4",
           "path": "go2/",
-          "depends": [],
+          "depends": [
+            "lib/stringproc"
+          ],
           "files": [
             {
               "name": "gui_settings.lua",
-              "sha256": "cf53cb66b402854003d63a7c5569f6a022c41d00e3149fa9a81a534d570cd364"
+              "sha256": "7d7543b00fafa4d1b5ff9890ea254ffe0b1e1c28cacbe8d767f5b7df85e2fc0b"
             },
             {
               "name": "init.lua",
-              "sha256": "36cc23e3b2fe8e7f981caccf0a953ee1c7c5cfa9ef5125ccdb68543fba7831fa"
+              "sha256": "b1e7695f0d896a04d5db10c5b0bc82a1506e8d57bcafe1f7fb8bc1ab7d70b456"
             },
             {
               "name": "manifest.lua",
-              "sha256": "a119fa969b3571fd78a3bbfbfbe90d837cd76b0b7fc8301b7f484a67e7448eb9"
+              "sha256": "7c48c91baa9d2472f4a32769cafe6288df2b3b44295a45c011ab6151144815bc"
             },
             {
               "name": "movement.lua",
-              "sha256": "4a9ce3a4fe67f7cdcf709c98e6e23fb78b1e46c118ff443e32ca548705bf0eed"
+              "sha256": "51c39b3117a448f2446289a8c1f0ed3e09e853fb472b798670f41ee34bad75e9"
             },
             {
               "name": "pathfinder.lua",
-              "sha256": "17775d1841e8b2a53bc8e62b4c3c26b849e3a2957483bd21c52c8ce90e8badc1"
+              "sha256": "c0bce5ecd72a7acbd05256eff2c7eba88af52843be10614ee49dcf887bd34b20"
             },
             {
               "name": "resolver.lua",
-              "sha256": "4795778f57a880d5f0eaa07102a3d20e065730ffca31ab8b25f81dcdc522ca09"
+              "sha256": "6d167c4c91fd7a7feb54a7ade1211dab4e569c67487fda4a26196b952eda27fe"
             },
             {
               "name": "settings.lua",
-              "sha256": "ba4a4551840a6630eda981f50375b7136a3881ec16f51158e8642d5ef4ec64d0"
+              "sha256": "eb85ce8cd8d1ec22bf1e7d29e5c23cec83ca7a7e3f0d6196b93cb5e9dbbc8fc3"
             }
           ]
         }
@@ -482,7 +529,7 @@
       "channels": {
         "stable": {
           "version": "1.14.0",
-          "sha256": "67bd4970cac074541e4720ca844968b836cf34a797bb514572c6e8f118bd2df0",
+          "sha256": "7c07f96ed53a83e4580bbc58c0a3025cf2121e043257de9dee739f1adfad9b1e",
           "path": "lnet.lua",
           "depends": []
         }
@@ -490,13 +537,13 @@
     },
     {
       "name": "map",
-      "author": "Sordal",
+      "author": "elanthia-online (LostRanger: original narost author)",
       "description": "Interactive map viewer with room tracking and click-to-navigate",
       "tags": [],
       "channels": {
         "stable": {
-          "version": "1.0.0",
-          "sha256": "32df84f58c9b0283c7b73a4067db165b6e51e1bfe3b05250c9c7b8855013e209",
+          "version": "2.1.0",
+          "sha256": "1e21610afa9ba1142fa149aaa2c8f2a1bebf5ae5f6c955623a7254ae34fac858",
           "path": "map/",
           "depends": [
             "go2 >= 1.0"
@@ -504,23 +551,23 @@
           "files": [
             {
               "name": "init.lua",
-              "sha256": "4bd94f9754ab142c272d4c9470124a37a39f3567420fd46c049f6ea86e86c3a6"
+              "sha256": "4ab98390d57be2343c9c85b0b2769dee2412a5040c0d31c018aa4ac98c8eecc4"
             },
             {
               "name": "manifest.lua",
-              "sha256": "1b29c2932a955c94dcf1daa38390e581f9301ab95d6cd5afe5683fb066878840"
+              "sha256": "e0b5eaf1689feabb1b5877aaf498aee874b1f27b8319f61fb1808c700a245236"
             },
             {
               "name": "map_data.lua",
-              "sha256": "91139dca052dd4e6738017746eada6a19d399d0ea2fe743ab9da1b66c702642e"
+              "sha256": "91cc71af54880c78043728192266007f03ccf0fdbb85533a35b14a9b7ff74aaf"
             },
             {
               "name": "map_links.lua",
-              "sha256": "66fb5b898bd256aea74dab4e7e346bc3e973916701b754a2332fd53a490d8a45"
+              "sha256": "8c7e416635fdd46e551b3fb9cb0eb51357f12b73c2c60d3d82037ce95e72064e"
             },
             {
               "name": "map_window.lua",
-              "sha256": "340eb3172b2445fd58dfef7f6e8932ebdc8b2273b7b325eeec05bf864b51ffef"
+              "sha256": "68d6af3c66e0a98b5778108bd7aaf7f787915adbac4f6ccb96cf5935651851f0"
             },
             {
               "name": "notes.lua",
@@ -528,7 +575,7 @@
             },
             {
               "name": "settings.lua",
-              "sha256": "9fcfa0c58f43caf08ca68c9c3260c6398412858ca9c97440e770397d76b987cc"
+              "sha256": "6f1851c4e8b4144ab64a4e601f5729bb8327fc3822a7a78c848895d0ae58451b"
             }
           ]
         }
@@ -536,13 +583,13 @@
     },
     {
       "name": "move2",
-      "author": "Sordal",
-      "description": "One-step map-aware movement with path caching and retry",
+      "author": "unknown",
+      "description": "",
       "tags": [],
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "6fc6e5895a181bc3cc5fb8577b0a28ad127a58002b748b8bf70760bf0d26ae3e",
+          "sha256": "ecea47729054323eb66d2dea0f14b40db1895a7ec2f677a5873bb36933b73ef9",
           "path": "move2.lua",
           "depends": []
         }
@@ -587,10 +634,30 @@
       }
     },
     {
+      "name": "startup-manager",
+      "author": "Ondreian",
+      "description": "GitHub Actions-style script dependency management with topological sort",
+      "tags": [
+        "startup",
+        "dependencies",
+        "management"
+      ],
+      "channels": {
+        "stable": {
+          "version": "1.0.0",
+          "sha256": "ee6be5599fe305a2c61628f2eebafb78c03e6941394044b72e50d6a763cf6c38",
+          "path": "startup-manager.lua",
+          "depends": []
+        }
+      }
+    },
+    {
       "name": "vars",
       "author": "Sordal",
       "description": "User variable editor with GUI",
-      "tags": [],
+      "tags": [
+        "core"
+      ],
       "channels": {
         "dev": {
           "version": "0.1.0",
@@ -599,8 +666,8 @@
           "depends": []
         },
         "stable": {
-          "version": "1.0.0",
-          "sha256": "e5ba4c2aea077bae7bf51e8b59a6f01b16d5df632bd6e63ac81faf464c4078ba",
+          "version": "1.2.1",
+          "sha256": "fdf52e87971bebe758124919926f7866f04e2a640a9d805657c299121eac5177",
           "path": "vars/",
           "depends": [],
           "files": [
@@ -610,11 +677,11 @@
             },
             {
               "name": "init.lua",
-              "sha256": "6a9a61ecf549c702d723ca5dee4450664995187deef77ce1c5d6c68c8885a866"
+              "sha256": "d8aac96db9917b12e6efa3c87109b7ff9c9922568a3db0c65f7df9d4b81e6e22"
             },
             {
               "name": "manifest.lua",
-              "sha256": "bcac3ff4ed2ad29641e8ee23d19008a7082d27b3844506c9fca63ecc0f2a2bc6"
+              "sha256": "747250783ba282fac8a252a19f996708ab2b344b67754f37585d18c853a7a98b"
             }
           ]
         }
@@ -623,10 +690,12 @@
     {
       "name": "version",
       "author": "Sordal",
-      "description": "Check/update the Revenant engine and show system diagnostics",
+      "description": "Diagnostic reporter and engine update manager",
       "tags": [
         "system",
-        "diagnostics"
+        "diagnostics",
+        "utility",
+        "version"
       ],
       "channels": {
         "dev": {
@@ -636,8 +705,8 @@
           "depends": []
         },
         "stable": {
-          "version": "0.2.0",
-          "sha256": "8a43408d6e61a4a4df03e9b59c7f5f357caceaca49a2b9ae2561725f6d08007a",
+          "version": "1.1.0",
+          "sha256": "ed4ca79d555abef162977869e6693928560ecfa3acacf17fa876b62bbf12b855",
           "path": "version.lua",
           "depends": []
         }
@@ -645,13 +714,18 @@
     },
     {
       "name": "webhooks",
-      "author": "unknown",
-      "description": "Webhook notification management (Discord, Slack, Telegram, raw HTTP)",
-      "tags": [],
+      "author": "Sordal",
+      "description": "Webhook endpoint management \u2014 add, remove, enable, disable, test, and send to Discord/Slack/Telegram/raw HTTP endpoints",
+      "tags": [
+        "utility",
+        "notifications",
+        "webhooks",
+        "discord"
+      ],
       "channels": {
         "stable": {
           "version": "1.0.0",
-          "sha256": "e065e943bffc764b173bbbe1be6daae73848e3e59ce4beb198013d32cc452741",
+          "sha256": "0b565df4a8160fff2f534cca595e066a9e08e7604119dd96a481a058d4993045",
           "path": "webhooks.lua",
           "depends": []
         }
@@ -660,7 +734,7 @@
     {
       "name": "zeronet",
       "author": "Ondreian",
-      "description": "Extended LNet chat client with custom callbacks (0net)",
+      "description": "Extended LNet chat client with custom callbacks (0net port)",
       "tags": [
         "core",
         "chat"
@@ -668,7 +742,7 @@
       "channels": {
         "stable": {
           "version": "0.0.10",
-          "sha256": "2450eba7e1beebecc152fe1e7abfede3746d5c42d84109ec2605ac6bf639438c",
+          "sha256": "27386c083d9c337fd55851382a5bcf712c5c837f631cda4110dd2252d07e94b8",
           "path": "zeronet.lua",
           "depends": []
         }

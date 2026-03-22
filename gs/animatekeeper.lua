@@ -49,7 +49,7 @@ echo("Current essence: " .. cached_essence .. "/" .. ESSENCE_MAX)
 while true do
     -- Check for animate and refresh if needed
     local animate_present = false
-    for _, npc in ipairs(GameObj.npcs or {}) do
+    for _, npc in ipairs(GameObj.npcs() or {}) do
         if npc.name and npc.name:lower():match("animate") then
             animate_present = true
             break
@@ -58,7 +58,7 @@ while true do
 
     -- Stock essence from stunned creatures
     if cached_essence < ESSENCE_MAX then
-        for _, npc in ipairs(GameObj.npcs or {}) do
+        for _, npc in ipairs(GameObj.npcs() or {}) do
             if npc.status and npc.status:match("stunned") and not npc.name:lower():match("animate") then
                 fput("sacrifice #" .. npc.id)
                 pause(3)

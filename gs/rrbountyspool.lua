@@ -18,7 +18,7 @@ local bandits = false
 
 local boost = script.vars[0] and script.vars[0]:lower() == "spool"
 local return_origin = not (script.vars[0] and script.vars[0]:lower() == "stay")
-local start_spot = Room.current.id
+local start_spot = Room.id
 
 Script.run("go2", "advguild")
 

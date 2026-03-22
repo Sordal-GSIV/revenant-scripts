@@ -5,12 +5,13 @@ local M = {}
 
 -- Internal state
 local state = {
-  npcs         = {},
-  dead_npcs    = {},
-  pcs          = {},
-  pcs_prone    = {},
-  pcs_sitting  = {},
-  room_objs    = {},
+  npcs          = {},
+  dead_npcs     = {},
+  pcs           = {},
+  pcs_prone     = {},
+  pcs_sitting   = {},
+  room_objs     = {},
+  group_members = {},
 }
 
 --- Parse an "Also here:" line into player/NPC lists.

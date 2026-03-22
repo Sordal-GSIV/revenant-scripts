@@ -18,7 +18,8 @@ put("<closeDialog id='Birdwatching'/><openDialog type='dynamic' id='Birdwatching
 -- This is a structural port; the data source would need adaptation.
 
 local function push_bird_room_data_to_window()
-    local uid = tostring(Room.current.uid or ""):gsub("[%[%]]", "")
+    local cur = Room.current()
+    local uid = tostring(cur and cur.uid or ""):gsub("[%[%]]", "")
     if uid == "" then return end
 
     local y = 0
@@ -37,7 +38,8 @@ end
 local last_uid = nil
 
 while true do
-    local current_uid = tostring(Room.current.uid or ""):gsub("[%[%]]", "")
+    local cur = Room.current()
+    local current_uid = tostring(cur and cur.uid or ""):gsub("[%[%]]", "")
     if current_uid ~= "" and current_uid ~= last_uid then
         last_uid = current_uid
         push_bird_room_data_to_window()

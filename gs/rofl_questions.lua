@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-18
 --- name: rofl_questions
 --- version: 1.5
 --- author: Kragdruk
@@ -38,6 +39,7 @@ local qa = {
     { [[This crystal is a primary ingredient in a minor health potion%.]],  "ayanad" },
     { [[What is the Aelotian word for day%?]],  "ayd" },
     { [[What is the name of the proprietor of Pinefar Trading Post%?]],  "belle" },
+    { [[What is the name of the proprietor in charge of the Pinefar Trading Post]],  "Belle" },
     { [[Who is the proprietor of the Bare Essentals store in Icemule Trace%?]],  "berrytoe" },
     { [[What is the first name of the founder of House Ashrim%?]],  "Bhoreas" },
     { [[This black metal is a rare variant of its base metal%.  It is said that this metal holds a magical curse and can come in a pure or impure variety%.]],  "black ora" },

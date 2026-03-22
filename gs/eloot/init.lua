@@ -1,239 +1,434 @@
 --- @revenant-script
 --- name: eloot
---- version: 1.0.0
+--- version: 2.7.0
 --- author: elanthia-online
---- original_author: SpiffyJr (sloot)
 --- contributors: SpiffyJr, Athias, Demandred, Tysong, Deysh, Ondreian, Lieo, Lobe, Etheirys
---- depends: go2 >= 1.0
---- description: Full loot/sell/hoard pipeline
 --- game: gs
+--- description: Loot/sell pipeline — skin, search, box, sell, pool, hoard, bounty integration
+--- tags: loot, sell, skin, boxes, pool, hoard, bounty
+--- @lic-certified: complete 2026-03-18
 ---
---- Changelog (from Lich5):
----   v2.7.0 (2026-01-19)
----     - added ground looting of boxes
----     - added support for group disks when looting boxes
----     - added selling of ingots if too heavy to store
----     - updated find_trash to fully use trash verb
----     - general inventory code cleanup
----     - bugfix for depositing extra silver in pool method
----     - bugfix in go2_locker to stop withdrawing silver when using house locker
----   v2.6.7 (2026-01-18)
----     - bugfix in silver breakdown
----   v2.6.6 (2026-01-17)
----     - bugfix for bank withdraw
----     - disable f2p locksmith pool
----   v2.6.5 (2026-01-16)
----     - update for new loot commands in locksmith pool
----   v2.6.4 (2026-01-12)
----     - increase upper limit of appraisal amount from 1,000,000 to 10,000,000
----   v2.6.3 (2025-12-02)
----     - bugfix trying to skin/loot failed bounty children npcs
----     - update debug messaging
----     - bugfix in blood band/bracer settings
----   v2.6.2 (2025-11-21)
----     - force looting of bounty heirloom items if found
----   v2.6.1 (2025-11-11)
----     - bugfix in open_loot_containers
----     - bugfix in get_weapon_inv
----   v2.6.0 (2025-10-26)
----     - add bloodband support
----     - bugfix for save_trash_box method
----     - bugfix box tipping default missing on first run
----     - bugfix for open_single_container when using a string
----     - moved tooltips out of UI xml
----   v2.5.7 (2025-10-19)
----     - bugfix for debt when entering locker
----   v2.5.6 (2025-10-08)
----     - bugfix for store/ready ranged_weapon to ranged
----   v2.5.5 (2025-10-05)
----     - bugfix for non-standard ready/stow list items
----   v2.5.4 (2025-10-04)
----     - bugfix for nil items
----     - bugfix in logic for return_hands
----   v2.5.3 (2025-10-03)
----     - bugfix for return_hands
----     - toggle righthand and lefthand off at initialization
----     - minimum lich version to 5.12.9
----   v2.5.2 (2025-10-02)
----     - bugfix for incorrect method call typo
----   v2.5.1 (2025-09-30)
----     - bugfix for store/ready secondary_weapon to 2weapon
----   v2.5.0 (2025-09-19)
----     - switch to using Lich methods ReadyList and StowList
----     - removed change log in script before 2.4.0
----     - fix for SG trash can
----   v2.4.11 (2025-09-12)
----     - add option to always use the locksmith when a gem bounty is active
----   v2.4.10 (2025-09-06)
----     - rework box contents check to store box instead of pausing
----     - bugfix for looting coins on the ground
----   v2.4.9 (2025-09-05)
----     - bugfix in regex for use_coin_hand method
----   v2.4.8 (2025-08-30)
----     - bugfix for setting ELoot.data.coin_bag_full to false when empty
----   v2.4.7 (2025-08-15)
----     - if debug to file enabled, allow for when started with a parameter
----   v2.4.6 (2025-08-12)
----     - fix encumbered after box opening by depositing silvers in process_boxes
----   v2.4.5 (2025-07-22)
----     - bugfix for default locksmith_withdrawl_amount
----   v2.4.4 (2025-07-16)
----     - allow customizable locksmith tip amount withdrawal
----     - typo correction in bulk sell gem method
----     - force clean overflow containers from sell_container list
----     - utilize File.join for save/load
----     - bugfix in pool_return to allow up to 2 seconds for GameObj
----     - remove Unicode characters in formula explanation
----   v2.4.3 (2025-07-15)
----     - bugfix for town locksmith regex to open box after return being too generic
----   v2.4.2 (2025-07-09)
----     - bugfix for silver withdrawals failing on f2p accounts
----   v2.4.1 (2025-06-05)
----     - bugfix for unable to lighten load during pool return
----     - bugfix for box loot to deposit coins if too many
----     - change class checks to is_a? checks
----   Full prior changelog: https://gswiki.play.net/Lich:Script_Eloot
+--- Changelog (recent):
+---   v2.7.0  (2026-01-19) ground looting, group disk box support, ingot selling, trash verb
+---   v2.6.7  (2026-01-18) silver breakdown bugfix
+---   v2.6.6  (2026-01-17) bank withdraw bugfix, disable f2p locksmith pool
+---   v2.6.5  (2026-01-16) new loot commands in locksmith pool
+---   v2.6.4  (2026-01-12) upper limit of appraisal from 1M to 10M
+---   v2.6.3  (2025-12-02) failed bounty children NPC fix, debug update, blood band fix
+---   v2.6.2  (2025-11-21) force looting of bounty heirloom items
+---   v2.6.1  (2025-11-11) open_loot_containers and get_weapon_inv fixes
+---   v2.6.0  (2025-10-26) bloodband support, save_trash_box fix, tip default fix
+---   v2.5.7  (2025-10-19) debt bugfix for locker entry
+---   v2.5.6  (2025-10-08) ranged weapon store/ready fix
+---   v2.5.5  (2025-10-05) non-standard ready/stow list items fix
+---   v2.5.4  (2025-10-04) nil items fix, return_hands logic fix
+---   v2.5.3  (2025-10-03) return_hands bugfix, toggle righthand/lefthand off
+---   v2.5.2  (2025-10-02) incorrect method call typo fix
+---   v2.5.1  (2025-09-30) store/ready secondary_weapon to 2weapon fix
+---   v2.5.0  (2025-09-19) ReadyList/StowList migration, SG trash fix
+---   v2.4.11 (2025-09-12) always use locksmith on gem bounty option
+---   v2.4.10 (2025-09-06) rework box contents check, coins on ground fix
+---   v2.4.9  (2025-09-05) regex fix in use_coin_hand
+---   v2.4.8  (2025-08-30) coin_bag_full false when empty fix
+---   v2.4.7  (2025-08-15) debug file with parameter start support
+---   v2.4.6  (2025-08-12) encumbered after box opening — deposit silvers fix
+---   v2.4.5  (2025-07-22) default locksmith_withdrawal_amount fix
+---   v2.4.4  (2025-07-16) custom tip withdrawal, bulk sell typo, overflow clean
+---   v2.4.3  (2025-07-15) town locksmith regex fix
+---   v2.4.2  (2025-07-09) f2p silver withdrawal fix
+---   v2.4.1  (2025-06-05) lighten load in pool return, box loot coin deposit fix
 
-local args_lib = require("lib/args")
-local settings = require("settings")
-local data = require("data")
-local loot = require("loot")
-local sell = require("sell")
-local boxes = require("boxes")
-local hoard = require("hoard")
-local disk = require("disk")
+-- ---------------------------------------------------------------------------
+-- Submodule requires
+-- ---------------------------------------------------------------------------
 
-local state = settings.load()
-disk.install_monitor()
-before_dying(function() disk.remove_monitor() end)
+local Data        = require("gs.eloot.data")
+local Settings    = require("gs.eloot.settings")
+local Util        = require("gs.eloot.util")
+local Inventory   = require("gs.eloot.inventory")
+local Loot        = require("gs.eloot.loot")
+local Sell        = require("gs.eloot.sell")
+local Pool        = require("gs.eloot.pool")
+local Hoard       = require("gs.eloot.hoard")
+local Region      = require("gs.eloot.region")
+local GuiSettings = require("gs.eloot.gui_settings")
 
-local input = Script.vars[0] or ""
-local parsed = args_lib.parse(input)
-local cmd = parsed.args[1]
+-- ---------------------------------------------------------------------------
+-- Constants
+-- ---------------------------------------------------------------------------
 
+local VERSION = "2.7.0"
+
+-- ---------------------------------------------------------------------------
+-- Helpers
+-- ---------------------------------------------------------------------------
+
+--- Display help text.
 local function show_help()
-    respond("Usage: ;eloot [command]")
+    local name = Script.name or "eloot"
     respond("")
-    respond("Commands:")
-    respond("  (no args)        Loot: skin + search + room")
-    respond("  sell             Full sell cycle (gems, skins, scrolls, deposit)")
-    respond("  deposit          Deposit silver at bank")
-    respond("  box              Loot box in hand")
-    respond("  ground           Loot all boxes on the ground")
-    respond("  pool             Locksmith pool: deposit + return boxes")
-    respond("  pool deposit     Deposit boxes to locksmith pool")
-    respond("  pool return      Retrieve and loot boxes from locksmith pool")
-    respond("  hoard [gem|alchemy]  Hoard items to locker (default: gem)")
-    respond("  raid <gem|alchemy> <item> [count]  Take items from hoard locker")
-    respond("  skin             Skin only")
-    respond("  setup            Open settings GUI")
-    respond("  settings <k> <v> Update a setting")
-    respond("  list             Show current settings")
-    respond("  help             Show this help")
+    respond("  *** Mark ANYTHING you don't want to lose. Eloot is not perfect! ***")
+    respond("  " .. string.rep("-", 60))
+    respond(string.format("  %-45s %s", "Command", "Description"))
+    respond("  " .. string.rep("-", 60))
+    respond(string.format("  %-45s %s", ";" .. name .. " setup", "Settings window"))
+    respond("")
+    respond(string.format("  %-45s %s", ";" .. name, "Loots items/creatures"))
+    respond(string.format("  %-45s %s", ";" .. name .. " ground", "Loots open boxes on the ground"))
+    respond(string.format("  %-45s %s", ";" .. name .. " sell", "Sells loot based on settings"))
+    respond(string.format("  %-45s %s", ";" .. name .. " sell alchemy_mode", "Sell without reagents"))
+    respond(string.format("  %-45s %s", ";" .. name .. " deposit", "Deposits coins and notes"))
+    respond("")
+    respond(string.format("  %-45s %s", ";" .. name .. " pool", "Locksmith pool"))
+    respond(string.format("  %-45s %s", ";" .. name .. " pool deposit", "Only deposit boxes"))
+    respond(string.format("  %-45s %s", ";" .. name .. " pool return", "Only return boxes"))
+    respond("  " .. string.rep("-", 60))
+    respond("  Command Line Options")
+    respond("  " .. string.rep("-", 60))
+    respond(string.format("  %-45s %s", ";" .. name .. " --sellable <categories>", "GameObj sellable categories"))
+    respond(string.format("  %-45s %s", ";" .. name .. " --type <things>", "GameObj types"))
+    respond(string.format("  %-45s %s", ";" .. name .. " --sell <items>", "Specific items"))
+    respond("  " .. string.rep("-", 60))
+    respond("  Hoarding")
+    respond("  " .. string.rep("-", 60))
+    respond(string.format("  %-45s %s", ";" .. name .. " list <gem/reagent>", "List hoarded inventory"))
+    respond(string.format("  %-45s %s", ";" .. name .. " reset <gem/reagent>", "Reset hoarded inventory"))
+    respond(string.format("  %-45s %s", ";" .. name .. " deposit <gem/reagent>", "Deposit into hoard"))
+    respond(string.format("  %-45s %s", ";" .. name .. " raid <type> <item> x<N>", "Raid hoard"))
+    respond(string.format("  %-45s %s", ";" .. name .. " bounty", "Raid hoard for bounty gems"))
+    respond("  " .. string.rep("-", 60))
+    respond("  Troubleshooting")
+    respond("  " .. string.rep("-", 60))
+    respond(string.format("  %-45s %s", ";" .. name .. " debug", "Toggle debug mode"))
+    respond(string.format("  %-45s %s", ";" .. name .. " debug file", "Toggle debug to file"))
+    respond(string.format("  %-45s %s", ";" .. name .. " list", "List script settings"))
+    respond("  " .. string.rep("-", 60))
+    respond("  *** Mark ANYTHING you don't want to lose. Eloot is not perfect! ***")
+    respond("")
 end
 
-if cmd == "help" then
-    show_help()
-    return
-
-elseif cmd == "setup" then
-    local gui = require("gui_settings")
-    gui.open(state)
-    return
-
-elseif cmd == "list" then
-    respond("[eloot] Current settings:")
-    for k, v in pairs(state) do
-        if type(v) == "table" then
-            respond("  " .. k .. " = " .. table.concat(v, ", "))
-        else
-            respond("  " .. k .. " = " .. tostring(v))
-        end
+--- Manage sorter script (kill and schedule restart).
+local function manage_sorter(data)
+    if running and running("sorter") then
+        kill_script("sorter")
+        before_dying(function()
+            Script.run("sorter")
+        end)
     end
-    return
+end
 
-elseif cmd == "settings" then
-    local key = parsed.args[2]
-    local val = parsed.args[3]
-    if not key or not val then
-        respond("Usage: ;eloot settings <key> <value>")
-        return
+-- ---------------------------------------------------------------------------
+-- Main entry point
+-- ---------------------------------------------------------------------------
+
+local args = Script.vars or {}
+local cmd = args[1]
+
+-- Version check
+if cmd and cmd:lower():find("^ver") then
+    respond("   Eloot Version: " .. VERSION)
+    return
+end
+
+-- Dead check
+if dead and dead() then
+    Util.msg({ type = "yellow", text = " You appear to be dead, please rerun ELoot when you're not!", space = true })
+    return
+end
+
+-- Berserk check
+if Spell and Spell[1015] and Spell[1015].active then
+    Util.msg({ type = "info", text = " Berserk is active, preventing you from looting.", space = true })
+    return
+end
+
+-- Startup delay for autostart
+if cmd and cmd:lower() == "start" then
+    pause(2)
+end
+
+-- Initialize / Load settings
+local data = Data.init()
+
+local settings = Settings.load()
+data.settings = settings
+data.version = VERSION
+
+-- Set inventory containers
+Inventory.set_inventory(data)
+
+-- Disk usage
+Util.disk_usage(data)
+
+-- Exit early for load command
+if args[0] and args[0]:lower():find("load") then
+    return
+end
+
+-- Track full sacks
+if not data.settings.track_full_sacks then
+    data.sacks_full = {}
+    Util.reset_disk_full(data)
+end
+
+-- Group module check
+if Group and Group.checked then
+    if not Group.checked() then
+        local lines = Util.get_command("group",
+            { "^You are (?:grouped|leading|not currently)" }, nil, data)
     end
-    if val == "on" or val == "true" then val = true
-    elseif val == "off" or val == "false" then val = false
+end
+
+-- Sync up group disk variables
+Util.reset_disk_full(data, false)
+
+-- Sorter management
+manage_sorter(data)
+
+-- before_dying cleanup
+before_dying(function()
+    DownstreamHook.remove("eloot_diskintegration")
+end)
+
+-- ---------------------------------------------------------------------------
+-- Command dispatch
+-- ---------------------------------------------------------------------------
+
+local full_cmd = args[0] or ""
+
+if not cmd then
+    -- Default: loot (skin + search + room)
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
     end
-    state[key] = val
-    settings.save(state)
-    respond("[eloot] Set " .. key .. " = " .. tostring(val))
+
+    Util.disk_usage(data)
+    Loot.loot(data)
+
+    if data.settings.keep_closed then
+        Inventory.close_sell_containers(data)
+    end
+
+    return
+end
+
+-- Need a mapped room for everything below
+if not Room.current() or not Room.current().id then
+    Util.msg({ type = "yellow", text = " Please start " .. (Script.name or "eloot") .. " in a mapped room", space = true }, data)
+    return
+end
+
+data.start_room = Room.current().id
+_G.sell_ignore = _G.sell_ignore or {}
+data.silver_breakdown = {}
+
+-- Match command patterns
+local cmd_lower = full_cmd:lower()
+
+if cmd_lower:find("^debug") then
+    -- Toggle debug mode
+    local parts = {}
+    for word in cmd_lower:gmatch("%S+") do parts[#parts + 1] = word end
+    if parts[#parts] == "file" then
+        data.settings.debug_file = not data.settings.debug_file
+        Settings.save(data)
+    else
+        data.settings.debug = not data.settings.debug
+        Settings.save(data)
+    end
+
+elseif cmd_lower == "start" then
+    -- Already handled above
     return
 
-elseif cmd == "skin" then
-    respond("[eloot] Skinning...")
-    loot.skin(state)
-    respond("[eloot] Done.")
-    return
+elseif cmd_lower == "list" and not args[2] then
+    -- List all settings
+    Settings.list(data)
 
-elseif cmd == "sell" then
-    sell.sell_cycle(state)
-    return
+elseif cmd_lower:find("^box") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
 
-elseif cmd == "deposit" then
-    sell.deposit(state)
-    return
-
-elseif cmd == "box" then
+    local box = nil
     local rh = GameObj.right_hand()
-    if rh and rh:type_p("box") then
-        boxes.loot_box(rh, state)
-    else
-        respond("[eloot] No box in hand")
-    end
-    return
+    local lh = GameObj.left_hand()
 
-elseif cmd == "ground" then
-    local loot_items = GameObj.loot()
-    for _, item in ipairs(loot_items) do
-        if item:type_p("box") then
-            fput("get #" .. item.id)
-            local rh = GameObj.right_hand()
-            if rh then boxes.loot_box(rh, state) end
+    if rh and rh.type and rh.type:find("box") then
+        box = rh
+        Inventory.free_hands({ left = true }, data)
+    elseif lh and lh.type and lh.type:find("box") then
+        box = lh
+        Inventory.free_hands({ right = true }, data)
+    elseif args[2] and args[2]:match("^%d+$") then
+        local target_id = tonumber(args[2])
+        local loot = GameObj.loot() or {}
+        for _, l in ipairs(loot) do
+            if tonumber(l.id) == target_id then
+                box = l
+                break
+            end
         end
     end
-    return
 
-elseif cmd == "pool" then
-    local subcmd = parsed.args[2]
-    if subcmd == "deposit" then
-        boxes.locksmith_pool_deposit(state)
-    elseif subcmd == "return" then
-        boxes.locksmith_pool_return(state)
-    else
-        boxes.locksmith_pool(state)
+    if box then
+        Loot.box_loot(box, data)
     end
-    return
+    Util.go2(data.start_room, data)
 
-elseif cmd == "hoard" then
-    local htype = parsed.args[2] or "gem"
-    hoard.hoard_items(htype, state)
-    return
-
-elseif cmd == "raid" then
-    local htype = parsed.args[2] or "gem"
-    local item_name = parsed.args[3]
-    local count = tonumber(parsed.args[4]) or 1
-    if item_name then
-        hoard.raid(htype, item_name, count, state)
-    else
-        respond("Usage: ;eloot raid gem|alchemy <item> [count]")
+elseif cmd_lower:find("^sell") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
     end
-    return
+    waitrt()
 
-elseif cmd and cmd ~= "" then
+    -- Reset sack status
+    data.sacks_full = {}
+
+    if args[2] and args[2]:lower() == "alchemy_mode" then
+        data.alchemy_mode = true
+    end
+
+    Util.disk_usage(data)
+    Sell.sell(data)
+
+    -- Reset bags after selling
+    data.sacks_full = {}
+
+    Util.go2(data.start_room, data)
+    Sell.breakdown(data)
+    data.alchemy_mode = false
+
+elseif cmd_lower:find("^pool") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
+
+    local arg2 = args[2]
+    local check = true
+    local deposit_flag = true
+
+    if arg2 then
+        check = arg2:lower():find("check") or arg2:lower():find("return") or arg2:lower():find("loot")
+        deposit_flag = arg2:lower():find("depo") ~= nil
+    end
+
+    Util.disk_usage(data)
+    Pool.pool({ deposit = deposit_flag, check = check }, data)
+
+    Sell.breakdown(data)
+
+elseif full_cmd:find("%-%-sell") or full_cmd:find("%-%-sellable") or full_cmd:find("%-%-type") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
+
+    local match_type, things = full_cmd:match("%-%-(%w+)%s*=?%s*(.+)")
+    if match_type and things then
+        if match_type == "sellable" then
+            Sell.custom_sellable(things, data)
+        elseif match_type == "type" then
+            Sell.custom_type(things, data)
+        elseif match_type == "sell" then
+            Sell.custom_list(things, data)
+        end
+    end
+
+    Util.go2(data.start_room, data)
+    Sell.breakdown(data)
+
+elseif cmd_lower:find("^settings") or cmd_lower:find("^setup") then
+    if args[2] then
+        -- CLI settings update
+        local setting_args = {}
+        for i = 2, #args do
+            setting_args[#setting_args + 1] = args[i]
+        end
+        Util.update_setting(setting_args, data)
+    else
+        -- GUI settings
+        GuiSettings.open(data, function(new_settings)
+            data.settings = new_settings
+            Settings.save(data)
+            Util.msg({ text = " Settings saved.", space = true }, data)
+        end)
+    end
+
+elseif cmd_lower:find("^options") then
+    -- List all setting names
+    local keys = {}
+    for k, _ in pairs(data.settings) do
+        keys[#keys + 1] = k
+    end
+    table.sort(keys)
+    Util.msg({ type = "default", text = table.concat(keys, "\n") }, data)
+
+elseif cmd_lower:find("^raid") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
+    Hoard.raid_cache(args, data)
+    Util.go2(data.start_room, data)
+
+elseif cmd_lower:find("^(list)%s") or cmd_lower:find("^(deposit)%s") or cmd_lower:find("^(reset)%s") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
+
+    local do_what = args[1]:lower()
+    local item = args[2] and args[2]:lower() or ""
+
+    local hoard_type
+    if item:find("reagent") or item:find("alchemy") then
+        hoard_type = "alchemy"
+    elseif item:find("gem") then
+        hoard_type = "gem"
+    end
+
+    if hoard_type then
+        if do_what:find("list") then
+            Hoard.list_inventory(hoard_type, data)
+        elseif do_what:find("deposit") then
+            Hoard.hoard_items(hoard_type, true, data)
+        elseif do_what:find("reset") then
+            Hoard.reset_inventory(hoard_type, data)
+            Hoard.list_inventory(hoard_type, data)
+        end
+    end
+
+    Util.go2(data.start_room, data)
+
+elseif cmd_lower:find("^bounty") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
+    Hoard.get_gem_bounty(data)
+
+elseif cmd_lower:find("^load") then
+    waitrt()
+    data = Data.init()
+    data.settings = Settings.load()
+    Inventory.set_inventory(data)
+
+elseif cmd_lower:find("^deposit") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
+    Util.silver_deposit(true, data)
+    Util.go2(data.start_room, data)
+
+elseif cmd_lower:find("^skin") then
+    if data.settings.debug_file then
+        data.debug_logger = Util.debug_logger_new(data)
+    end
+    Loot.skin(data)
+
+elseif cmd_lower:find("^ground") then
+    Loot.box_loot_ground(data)
+
+elseif cmd_lower:find("^help") then
     show_help()
-    return
-end
 
--- Default: full loot cycle
-respond("[eloot] Looting...")
-local count = loot.loot_cycle(state)
-respond("[eloot] Done. Looted " .. count .. " items.")
+else
+    show_help()
+end

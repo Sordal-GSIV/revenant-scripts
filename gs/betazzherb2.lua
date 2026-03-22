@@ -276,7 +276,7 @@ if not herb_found then
     return
 end
 
-local start_room = Room.current.id
+local start_room = Room.id
 local start_time = os.time()
 
 if location then

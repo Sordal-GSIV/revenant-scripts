@@ -256,6 +256,168 @@ function SpellMethods:incant(opts)
     return result
 end
 
+--- Force-cast: prepare then cast at target with optional extra args.
+--- Skips affordability check (the "force" in force_cast).
+--- Matches Lich5: Spell[num].force_cast(target, extra)
+function SpellMethods:force_cast(target, extra)
+    acquire_cast_lock()
+    local ok, result = pcall(function()
+        waitrt()
+        waitcastrt()
+
+        -- Prepare the spell
+        fput("prepare " .. self.num)
+        for _ = 1, 50 do
+            local line = get()
+            if match_any(line, PREPARE_PATTERNS) then break end
+        end
+
+        -- Build cast command
+        local cmd = "cast"
+        if target and target ~= "" then
+            cmd = cmd .. " " .. target
+        end
+        if extra and extra ~= "" then
+            cmd = cmd .. " " .. extra
+        end
+        fput(cmd)
+
+        -- Wait for cast result
+        local cast_result = nil
+        for _ = 1, 50 do
+            local line = get()
+            if match_any(line, CAST_PATTERNS) then
+                cast_result = line
+                break
+            end
+        end
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
+        end
+        return cast_result
+    end)
+    release_cast_lock()
+    if not ok then error(result) end
+    return result
+end
+
+--- Force-incant: send incant command with optional extra args (verb, count, etc.).
+--- Skips affordability check. Extra can be "channel 3", "evoke", "3", etc.
+--- Matches Lich5: Spell[num].force_incant(extra)
+function SpellMethods:force_incant(extra)
+    acquire_cast_lock()
+    local ok, result = pcall(function()
+        waitrt()
+        waitcastrt()
+
+        -- Build incant command
+        local cmd = "incant " .. self.num
+        if extra and extra ~= "" then
+            cmd = cmd .. " " .. extra
+        end
+        fput(cmd)
+
+        -- Wait for cast result
+        local cast_result = nil
+        for _ = 1, 50 do
+            local line = get()
+            if match_any(line, CAST_PATTERNS) then
+                cast_result = line
+                break
+            end
+        end
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
+        end
+        return cast_result
+    end)
+    release_cast_lock()
+    if not ok then error(result) end
+    return result
+end
+
+--- Force-channel: prepare then channel at target with optional extra args.
+--- Matches Lich5: Spell[num].force_channel(target, extra)
+function SpellMethods:force_channel(target, extra)
+    acquire_cast_lock()
+    local ok, result = pcall(function()
+        waitrt()
+        waitcastrt()
+
+        fput("prepare " .. self.num)
+        for _ = 1, 50 do
+            local line = get()
+            if match_any(line, PREPARE_PATTERNS) then break end
+        end
+
+        local cmd = "channel"
+        if target and target ~= "" then
+            cmd = cmd .. " " .. target
+        end
+        if extra and extra ~= "" then
+            cmd = cmd .. " " .. extra
+        end
+        fput(cmd)
+
+        local cast_result = nil
+        for _ = 1, 50 do
+            local line = get()
+            if match_any(line, CAST_PATTERNS) then
+                cast_result = line
+                break
+            end
+        end
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
+        end
+        return cast_result
+    end)
+    release_cast_lock()
+    if not ok then error(result) end
+    return result
+end
+
+--- Force-evoke: prepare then evoke at target with optional extra args.
+--- Matches Lich5: Spell[num].force_evoke(target, extra)
+function SpellMethods:force_evoke(target, extra)
+    acquire_cast_lock()
+    local ok, result = pcall(function()
+        waitrt()
+        waitcastrt()
+
+        fput("prepare " .. self.num)
+        for _ = 1, 50 do
+            local line = get()
+            if match_any(line, PREPARE_PATTERNS) then break end
+        end
+
+        local cmd = "evoke"
+        if target and target ~= "" then
+            cmd = cmd .. " " .. target
+        end
+        if extra and extra ~= "" then
+            cmd = cmd .. " " .. extra
+        end
+        fput(cmd)
+
+        local cast_result = nil
+        for _ = 1, 50 do
+            local line = get()
+            if match_any(line, CAST_PATTERNS) then
+                cast_result = line
+                break
+            end
+        end
+        if cast_result then
+            _spell_last_cast[self.num] = os.time()
+        end
+        return cast_result
+    end)
+    release_cast_lock()
+    if not ok then error(result) end
+    return result
+end
+
 function SpellMethods:putup(opts)
     local dur = self:time_per(opts)
     _spell_overrides[self.num] = {

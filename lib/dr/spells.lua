@@ -75,6 +75,20 @@ function M.active_spells_list()
   return copy
 end
 
+--- Get active spells as a hash (name → duration_minutes).
+-- Compatible with Lich5 DRSpells.active_spells hash access pattern.
+-- Used by DRCA.cast_spells, DRCA.spell_active, and buff.lua strict mode.
+-- @return table {[name]=duration_minutes} for all active spells
+function M.active_spells()
+  local hash = {}
+  for _, entry in ipairs(active_spells) do
+    if entry.name and entry.duration ~= nil then
+      hash[entry.name] = entry.duration
+    end
+  end
+  return hash
+end
+
 --- Check if a spell is known.
 -- @param spell_name string Spell name to check
 -- @return boolean True if the spell is in the known list

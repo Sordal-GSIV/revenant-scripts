@@ -14,7 +14,7 @@
 local use_boosts = true
 
 local function nearest_manifest_town()
-    local room_id = Room.current.id
+    local room_id = Room.id
     local town_room = Room.find_nearest_by_tag(room_id, "town")
     if not town_room then return "Landing" end
     local location = Room[town_room].location or "Landing"

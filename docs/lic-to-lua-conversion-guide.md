@@ -11,7 +11,7 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | Hooks | Procs that return modified string (or nil to squelch) | Lua functions registered by name |
 | Settings | `Settings[]`, `CharSettings[]`, `Vars[]`, `UserVars[]` | `Settings.key`, `CharSettings.key`, `UserVars.key` (metatable-based) |
 | Error model | Exceptions (begin/rescue/ensure) | pcall/xpcall |
-| Regex | Ruby Regexp (`=~`, `.match`, `Regexp.new`) | Lua patterns (`string.find`, `string.match`) or PCRE via future lib |
+| Regex | Ruby Regexp (`=~`, `.match`, `Regexp.new`) | Lua patterns for simple matches; `Regex.new(pattern)` for full PCRE/regex |
 | Nil semantics | `nil` is falsy; `false` is also falsy | `nil` is falsy; `false` is also falsy (same) |
 | String interpolation | `"hello #{name}"` | `"hello " .. name` or `string.format("hello %s", name)` |
 
@@ -56,6 +56,7 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | `matchfind "pat1", "pat2"` | `matchfind("pat1", "pat2")` | Search last 100 lines for patterns |
 | `matchwait "pat1", "pat2"` | `matchwait("pat1", "pat2")` | Block until any pattern matches |
 | `matchtimeout secs, "p1", "p2"` | `matchtimeout(secs, "p1", "p2")` | matchwait with timeout |
+| `dothistimeout cmd, secs, "p1"` | `dothistimeout(cmd, secs, "p1", "p2", ...)` | Send cmd, return first matching line within timeout; accepts multiple patterns as varargs OR a single table |
 
 ### Roundtime
 
@@ -76,15 +77,17 @@ This document is for AI/LLM ingestion when converting Lich5 Ruby scripts (.lic) 
 | `ne` / `se` / `sw` / `nw` | `ne()` / `se()` / `sw()` / `nw()` | Diagonal shortcuts |
 | `u` / `d` / `out` | `u()` / `d()` / `out()` | Up/down/out |
 | `multimove("n","e","n")` | Sequential `move()` calls | Not a built-in; use a loop |
+| `walk` (random exit) | `walk()` | Takes a random available exit; uses `GameState.room_exits`; returns true on success |
 
 ### Flow Control
 
 | Lich5 Ruby | Revenant Lua | Notes |
 |-----------|-------------|-------|
 | `pause secs` | `pause(secs)` | Async sleep (pause-aware) |
-| `pause_script "name"` | `Script.pause("name")` | Pause a running script |
-| `unpause_script "name"` | `Script.unpause("name")` | Unpause a script |
+| `pause_script "name"` | `Script.pause("name")` or `pause_script("name")` | Pause a running script; global alias available |
+| `unpause_script "name"` | `Script.unpause("name")` or `unpause_script("name")` | Unpause a script; global alias available |
 | `wait_until { condition }` | `wait_until(function() return condition end)` | Poll until truthy |
+| `wait_until("msg") { condition }` | `wait_until("msg", function() return condition end)` | Announces once if not immediately true |
 | `wait_while { condition }` | `wait_while(function() return condition end)` | Poll while truthy |
 | `sleep secs` | `pause(secs)` | Ruby `sleep` → Lua `pause` |
 
@@ -178,9 +181,11 @@ In Lich5, game state is accessed via `XMLData.field_name`. In Revenant, use `Gam
 | `XMLData.encumbrance_text` / `checkencumbrance` | `GameState.encumbrance` | String |
 | `XMLData.encumbrance_value` / `percentencumbrance` | `GameState.encumbrance_value` | Integer |
 | `XMLData.server_time` | `GameState.server_time` | Unix timestamp |
+| `Time.now - $login_time` | `GameState.login_time` | Seconds elapsed since login (float). Use `GameState.login_time < 10` to detect fresh sessions. |
 | `XMLData.name` / `checkname` | `GameState.name` | Character name |
 | `XMLData.game` | `GameState.game` | Game code (e.g., "GS3") |
 | `XMLData.level` | `GameState.level` | Character level |
+| `XMLData.next_level_text` | `GameState.next_level_text` | Human-readable exp-to-next string, e.g. "5,000 experience until level 50." Empty string if not yet received. |
 | `XMLData.bounty_task` / `checkbounty` | `Bounty.task` | Bounty task string |
 | `XMLData.society_task` | `Society.task` | Society task string |
 
@@ -220,6 +225,7 @@ In Lich5, game state is accessed via `XMLData.field_name`. In Revenant, use `Gam
 | `obj.type` | `obj.type` | Type classification or nil |
 | `obj.type =~ /gem/` | `obj:type_p("gem")` | Type predicate check |
 | `obj.sellable` | `obj.sellable` | Sellable classification or nil |
+| `GameObj.type_data.select { \|k,v\| ... }` | `GameObj.classify(noun, name)` | Returns comma-separated type string (e.g. `"gem"`, `"box,container"`) or nil. Replaces the manual type_data pattern-matching pattern. |
 
 ### Common check* → GameObj Conversions
 
@@ -352,6 +358,8 @@ Full skill list: `two_weapon_combat`, `armor_use`, `shield_use`, `combat_maneuve
 | `Spell.active` | `Spell.active()` | Array of active spell tables |
 | `Spell[101].active_p` (num) | `Spell.active_p(101)` | Is spell num active? |
 | `Spell[101].known_p` (num) | `Spell.known_p(101)` | Is spell num known? |
+| `Spell[101].affordable?` | `Spell[101]:affordable()` | **CRITICAL**: `affordable` is a method defined in `lib/gs/spell_casting.lua`. `Spell[101].affordable` returns the function itself (always truthy). Always call as `Spell[101]:affordable()` to get a boolean. |
+| `Spell[101].cast(target)` | `Spell[101]:cast(target)` | Cast spell at optional target; defined in `lib/gs/spell_casting.lua` |
 
 ### Pattern: checkspell
 ```ruby
@@ -370,11 +378,33 @@ if Spell.active_p(101) and Spell.active_p(401) then
 | Lich5 Ruby | Revenant Lua | Notes |
 |-----------|-------------|-------|
 | `DownstreamHook.add("name", proc { \|s\| ... })` | `DownstreamHook.add("name", function(s) ... end)` | Function receives line string |
+| `DownstreamHook.add("name", proc { ... })` (with ordering hack) | `DownstreamHook.add("name", func, priority)` | Optional third arg: integer priority (default 0). Lower runs first. |
 | `DownstreamHook.remove("name")` | `DownstreamHook.remove("name")` | |
 | `UpstreamHook.add("name", proc { \|s\| ... })` | `UpstreamHook.add("name", function(s) ... end)` | |
 | `UpstreamHook.remove("name")` | `UpstreamHook.remove("name")` | |
+| N/A | `DownstreamHook.list()` / `DownstreamHook.sources()` | Returns table of registered hook names (in priority order) |
 
 **Key difference:** In Lich5, hook procs return the (possibly modified) string, or `nil` to squelch. In Revenant, hook functions work the same way — return the string to pass through, or return nil to squelch.
+
+### Hook Priority
+
+Hooks run in priority order (lowest first). Default priority is 0. Use the built-in constants for well-known ordering:
+
+| Constant | Value | Use case |
+|----------|-------|----------|
+| `DownstreamHook.PRIORITY_FIRST` | `i32::MIN` | Must run before all other hooks |
+| `DownstreamHook.PRIORITY_DEFAULT` | `0` | Normal hooks (default if omitted) |
+| `DownstreamHook.PRIORITY_LAST` | `i32::MAX` | Must run after all other hooks |
+
+Same constants exist on `UpstreamHook`.
+
+```lua
+-- Run after all other downstream hooks (e.g. linktothefast)
+DownstreamHook.add("my_final_hook", my_func, DownstreamHook.PRIORITY_LAST)
+
+-- Run before all other upstream hooks
+UpstreamHook.add("my_first_hook", my_func, UpstreamHook.PRIORITY_FIRST)
+```
 
 ---
 
@@ -395,6 +425,33 @@ if Spell.active_p(101) and Spell.active_p(401) then
 | `Map.room_count` | `Map.room_count()` | Total number of rooms |
 | `Room.find_nearest_by_tag(tag)` | `Room.find_nearest_by_tag(tag)` | `{id=N, path={cmds}}` or nil |
 | `Room.path_to(dest)` | `Room.path_to(dest)` | Path from current room |
+
+### Map Mutation (Revenant-only)
+
+| Revenant Lua | Description |
+|-------------|-------------|
+| `Map.new(id, props)` | Create a new room with optional properties table |
+| `Map.set_wayto(room_id, dest_id, command)` | Set a wayto route |
+| `Map.set_timeto(room_id, dest_id, seconds)` | Set a timeto value |
+| `Map.delete_wayto(from_id, to_id)` | Remove a wayto route |
+| `Map.delete_timeto(from_id, to_id)` | Remove a timeto value |
+| `Map.clear_routes(room_id)` | Remove all wayto/timeto from a room |
+| `Map.set_tags(room_id, tags_table)` | Replace room tags |
+| `Map.add_tag(room_id, tag)` | Add a single tag |
+| `Map.remove_tag(room_id, tag)` | Remove a single tag |
+| `Map.set_description(room_id, desc)` | Set room description |
+| `Map.set_paths(room_id, paths_table)` | Set room exit paths |
+| `Map.set_location(room_id, location)` | Set room location |
+| `Map.set_terrain(room_id, terrain)` | Set room terrain |
+| `Map.set_climate(room_id, climate)` | Set room climate |
+| `Map.set_image(room_id, image)` | Set room image |
+| `Map.add_uid(room_id, uid)` | Add a UID to a room |
+| `Map.all_tags()` | Get all unique tags across all rooms |
+| `Map.find_nearest_by_tag(tag)` | Find nearest room with tag from current room |
+| `Map.find_all_nearest_by_tag(tag)` | Find all nearest rooms with tag |
+| `Map.find_nearest_room(from_id, ids_table)` | Find nearest room from a set of IDs |
+| `Map.path_cost(from, to)` | Get path cost (number of steps) |
+| `Map.ids_from_uid(uid)` | Get room IDs matching a UID |
 
 ### Room table fields (from Map.find_room / Room.current):
 - `id` — integer
@@ -468,8 +525,11 @@ These have no Lich5 equivalent:
 
 | Revenant Lua | Description |
 |-------------|-------------|
-| `Http.get(url)` | HTTP GET → `{status, body, headers}` |
+| `Http.get(url, timeout_secs?)` | HTTP GET → `{status, body, headers}`. Default timeout 120s. Pass larger value (e.g. 300) for large file downloads. |
 | `Http.get_json(url)` | HTTP GET + JSON parse → Lua table |
+| `Http.post(url, body, headers?)` | HTTP POST → `{status, body, headers}` |
+| `Http.post_json(url, table, headers?)` | HTTP POST with JSON body → `{status, body, headers}` |
+| `Http.request(method, url, body?, headers?)` | Generic HTTP request → `{status, body, headers}` |
 | `Json.encode(table)` | Lua table → JSON string |
 | `Json.decode(string)` | JSON string → Lua table |
 | `File.read("path")` | Read file (sandboxed to scripts dir) |
@@ -482,13 +542,24 @@ These have no Lich5 equivalent:
 | `File.mtime("path")` | File modification time (unix) |
 | `File.replace(src, dst)` | Rename/move file |
 | `Crypto.md5(string)` | MD5 hash (hex) |
+| `Crypto.sha1(string)` | SHA-1 hash (hex) |
+| `Crypto.sha1_base64(string)` | SHA-1 hash (base64) |
+| `Crypto.sha1_file(path)` | SHA-1 of file contents (hex) |
+| `Crypto.sha1_file_base64(path)` | SHA-1 of file contents (base64) |
 | `Crypto.sha256(string)` | SHA-256 hash |
 | `Crypto.sha256_file(path)` | SHA-256 of file contents |
+| `Crypto.base64url_encode(string)` | URL-safe base64 (no padding) — for JWT construction |
+| `Crypto.base64url_decode(string)` | Decode URL-safe base64 → string |
+| `Crypto.rsa_sign_pkcs1v15_sha256(pem, data)` | Sign data with RSA PKCS#8 PEM key → base64url signature (for Google OAuth2 JWTs) |
+| `time_f()` | Current wall-clock time as float seconds since Unix epoch. Use when sub-second precision is needed (e.g. TTL/elapsed-time tracking). `os.time()` only returns integer seconds; `time_f()` matches Ruby's `Time.now.to_f`. |
 | `Version.parse("1.2.3")` | Parse semver → table |
 | `Version.compare(a, b)` | Compare versions: -1/0/1 |
 | `Version.satisfies(ver, constraint)` | Check semver constraint |
+| `Version.current()` | Engine version string (from Cargo.toml) |
 | `Version.engine_path()` | Path to engine binary |
+| `Version.sqlite()` | SQLite library version string |
 | `send_to_script("name", "msg")` | Inject line into another script's buffer |
+| `System.open_url(url)` | Open URL in default browser → `true, nil` or `nil, error` (http/https only) |
 
 ---
 
@@ -842,7 +913,112 @@ end
 
 ---
 
-## 21. Game-Specific File Organization
+## 21. Regex
+
+Revenant exposes a full PCRE regex engine via the `Regex` global. Use it when the Ruby original uses `Regexp` (especially for complex patterns that Lua patterns cannot express).
+
+### Compiled Object API
+
+```lua
+local re = Regex.new("Wall of Thorns Poison.*")  -- compile once, reuse
+re:test("Wall of Thorns Poison (5)")              -- → true
+re:match("foo bar")                               -- → matched string or nil
+re:find("foo bar")                                -- → start, end (1-indexed) or nil, nil
+re:captures("2024-03-18")                         -- → table: [0]=full, [1]=group1, named keys
+re:replace("hello world", "goodbye")             -- → first match replaced
+re:replace_all("aabbcc", "x")                    -- → all matches replaced
+re:split("one,two,three")                         -- → {"one","two","three"}
+re:pattern()                                      -- → original pattern string
+```
+
+### Convenience (one-off, no reuse)
+
+```lua
+Regex.test("pattern", text)                       -- → bool
+Regex.match("pattern", text)                      -- → matched string or nil
+Regex.replace("pattern", text, replacement)       -- → string
+Regex.replace_all("pattern", text, replacement)   -- → string
+Regex.split("pattern", text)                      -- → table
+```
+
+### Ruby → Lua Regex Translation
+
+```ruby
+# Ruby
+str =~ /Wall of Thorns Poison/
+str.match(/(\d+):(\d+):(\d+)/)
+str.scan(/\d+/)
+str.gsub(/foo/, "bar")
+hash.any? { |k, _| k.to_s =~ /pattern/ }
+```
+```lua
+-- Lua
+Regex.test("Wall of Thorns Poison", str)
+local caps = Regex.new("(\\d+):(\\d+):(\\d+)"):captures(str)
+-- caps[1], caps[2], caps[3] are the groups
+-- no scan equivalent; use gmatch for simple patterns, or loop with find
+Regex.replace_all("foo", str, "bar")
+local re = Regex.new("pattern")
+local found = false
+for k, _ in pairs(hash) do
+    if type(k) == "string" and re:test(k) then found = true; break end
+end
+```
+
+**Rule:** Prefer Lua's built-in `string.find` / `string.match` / `string.gmatch` for simple patterns. Use `Regex.new()` when the Ruby source uses named captures, alternation (`|`), lookahead/lookbehind, or other constructs that Lua patterns cannot express.
+
+---
+
+## 22. Effects (GemStone IV only)
+
+Revenant implements `Effects::Spells`, `Effects::Buffs`, `Effects::Debuffs`, and `Effects::Cooldowns` as `Effects.Spells`, `Effects.Buffs`, `Effects.Debuffs`, and `Effects.Cooldowns`. These are auto-loaded as globals when the game is GemStone IV (via `lib/gs/effects.lua`).
+
+Each registry is populated by parsing the game's PSM3 XML stream (`<dialogData>` / `<progressBar>` elements).
+
+### API
+
+| Lich5 Ruby | Revenant Lua | Notes |
+|-----------|-------------|-------|
+| `Effects::Debuffs.active?("Bind")` | `Effects.Debuffs.active("Bind")` | Returns bool |
+| `Effects::Buffs.active?(140)` | `Effects.Buffs.active(140)` | Numeric bar ID lookup |
+| `Effects::Spells.expiration("Shroud of Deception")` | `Effects.Spells.expiration("Shroud of Deception")` | Unix timestamp, 0 if absent |
+| `Effects::Spells.time_left("Minor Summoning")` | `Effects.Spells.time_left("Minor Summoning")` | **Minutes** remaining (same as Lich5) |
+| `Effects::Cooldowns.to_h` | `Effects.Cooldowns.to_table()` | Shallow copy `{name/id → expiry_ts}` |
+| `Effects::Cooldowns.to_h` | `Effects.Cooldowns.to_h()` | `{name → seconds_remaining}` (alternate format) |
+| `Effects::Buffs.each { \|k, v\| }` | `Effects.Buffs.each(function(k, v) end)` | Iterate all entries |
+| `Effects::Debuffs.to_h.keys & list` | `(loop over Effects.Debuffs.to_table())` | No set-intersection operator in Lua |
+
+### Regex argument (mirrors Lich5's Regexp branch)
+
+When passed a `Regex` object, `active()`, `expiration()`, and `time_left()` test each string key against the pattern and return the first match:
+
+```lua
+-- Lich5: Effects::Debuffs.to_h.keys.any? { |k| k.to_s =~ /Wall of Thorns Poison/ }
+local re = Regex.new("Wall of Thorns Poison")
+if Effects.Debuffs.active(re) then ... end
+```
+
+### time_left unit
+
+`time_left()` returns **minutes** (matching Lich5). Comparisons in converted scripts are always minute-based:
+
+```lua
+if Effects.Spells.time_left("Shroud of Deception") < 2 then   -- less than 2 minutes
+if Effects.Buffs.time_left("Rapid Fire") > 0.05 then           -- more than ~3 seconds
+```
+
+### Blocking-debuff pattern (echild.lic style)
+
+```lua
+local blocking = { "Bind", "Corrupt Essence", "Calm", "Mind Jolt", "Net", "Silenced", "Sleep", "Web" }
+for _, debuff in ipairs(blocking) do
+    if Effects.Debuffs.active(debuff) then return false end
+end
+```
+
+---
+
+## 23. Game-Specific File Organization
 
 Revenant organizes scripts and libraries by game to keep GS-only and DR-only code separate.
 
@@ -914,4 +1090,123 @@ elseif GameState.game == "DR" then
     -- DragonRealms logic
     local wealth = DRCM.check_wealth("kronars")
 end
+```
+
+## 24. SQLite API
+
+Revenant provides a full SQLite API via the `Sqlite` global (implemented in
+`engine/src/lua_api/sqlite.rs` using `rusqlite`). Database files are sandboxed
+to `scripts/data/`.
+
+### Opening / Closing
+
+```lua
+local conn, err = Sqlite.open("mydb.db")   -- opens scripts/data/mydb.db
+if not conn then error(err) end
+conn:close()
+```
+
+### Executing SQL (no return rows)
+
+```lua
+-- Named parameters
+local ok, err = conn:exec("INSERT INTO foo (name) VALUES (:name)", { name = "bar" })
+
+-- Positional parameters
+conn:exec("INSERT INTO foo VALUES (?, ?)", { "hello", 42 })
+
+-- Multiple statements at once
+conn:exec_batch([[
+  CREATE TABLE IF NOT EXISTS foo (id INTEGER PRIMARY KEY, name TEXT);
+  CREATE INDEX IF NOT EXISTS ix_foo_name ON foo(name);
+]])
+```
+
+### Querying Rows
+
+```lua
+-- query2: returns array-of-arrays, first row is column headers
+local rows, err = conn:query2("SELECT id, name FROM foo WHERE name LIKE :pat",
+                              { pat = "%bar%" })
+if rows and #rows > 1 then
+  local headers = rows[1]   -- { "id", "name" }
+  for i = 2, #rows do
+    local row = rows[i]     -- { 1, "foobar" }
+  end
+end
+
+-- scalar: returns single value
+local count, err = conn:scalar("SELECT count(*) FROM foo")
+```
+
+### Utility
+
+```lua
+conn:changes()      -- row count affected by last exec
+conn:last_rowid()   -- last inserted rowid
+conn:pragma("user_version", 12)          -- set pragma
+conn:pragma("user_version")              -- get pragma (returns value)
+conn:create_regexp_function()            -- enable REGEXP operator (fancy-regex)
+```
+
+### REGEXP
+
+After calling `conn:create_regexp_function()`, you can use REGEXP in queries:
+
+```lua
+conn:create_regexp_function()
+local rows = conn:query2("SELECT name FROM item WHERE name REGEXP :pat",
+                          { pat = "^golden .+ wand$" })
+```
+
+### Lich5 → Revenant SQLite mapping
+
+| Lich5 (Ruby)                          | Revenant (Lua)                         |
+|---------------------------------------|----------------------------------------|
+| `SQLite3::Database.new(path)`         | `Sqlite.open("name.db")`               |
+| `db.execute(sql, params)`             | `conn:exec(sql, params)`               |
+| `db.execute2(sql, params)`            | `conn:query2(sql, params)`             |
+| `db.get_first_value(sql, params)`     | `conn:scalar(sql, params)`             |
+| `db.execute_batch(sql)`               | `conn:exec_batch(sql)`                 |
+| `db.changes`                          | `conn:changes()`                       |
+| `db.last_insert_row_id`               | `conn:last_rowid()`                    |
+| `db.close`                            | `conn:close()`                         |
+| `db.create_function("REGEXP", ...)`   | `conn:create_regexp_function()`        |
+
+### Temp Tables (staging pattern)
+
+The standard pattern for bulk upserts avoids SQLite's lack of `UPDATE ... JOIN`:
+
+```lua
+-- Stage data in a temp table
+conn:exec_batch([[
+  CREATE TEMPORARY TABLE IF NOT EXISTS temp_item (
+      character_id INTEGER NOT NULL
+    , name TEXT NOT NULL
+    , amount INTEGER NOT NULL
+  )
+]])
+
+-- Bulk insert
+for _, item in ipairs(items) do
+  conn:exec("INSERT INTO temp_item VALUES (:cid, :name, :amt)",
+    { cid = char_id, name = item.name, amt = item.amount })
+end
+
+-- Delete rows no longer present
+conn:exec([[
+  DELETE FROM inventory
+  WHERE character_id = :cid
+    AND NOT EXISTS (SELECT 1 FROM temp_item t WHERE t.name = inventory.name)
+]], { cid = char_id })
+
+-- Upsert via INSERT ... ON CONFLICT DO UPDATE
+conn:exec([[
+  INSERT INTO inventory (character_id, name, amount)
+  SELECT character_id, name, amount FROM temp_item WHERE character_id = :cid
+  ON CONFLICT(character_id, name) DO UPDATE SET amount = excluded.amount
+]], { cid = char_id })
+
+-- Clean up
+conn:exec("DELETE FROM temp_item WHERE character_id = :cid", { cid = char_id })
 ```

@@ -56,4 +56,71 @@ setmetatable(M, {
   end,
 })
 
+-------------------------------------------------------------------------------
+-- Guild predicates (mirrors Lich5 DRStats.barbarian?, DRStats.thief?, etc.)
+-------------------------------------------------------------------------------
+
+--- Check if character is a Barbarian.
+-- @return boolean
+function M.barbarian() return state.guild == "Barbarian" end
+
+--- Check if character is a Thief.
+-- @return boolean
+function M.thief() return state.guild == "Thief" end
+
+--- Check if character is a Trader.
+-- @return boolean
+function M.trader() return state.guild == "Trader" end
+
+--- Check if character is a Moon Mage.
+-- @return boolean
+function M.moon_mage() return state.guild == "Moon Mage" end
+
+--- Check if character is a Warrior Mage.
+-- @return boolean
+function M.warrior_mage() return state.guild == "Warrior Mage" end
+
+--- Check if character is an Empath.
+-- @return boolean
+function M.empath() return state.guild == "Empath" end
+
+--- Check if character is a Cleric.
+-- @return boolean
+function M.cleric() return state.guild == "Cleric" end
+
+--- Check if character is a Paladin.
+-- @return boolean
+function M.paladin() return state.guild == "Paladin" end
+
+--- Check if character is a Ranger.
+-- @return boolean
+function M.ranger() return state.guild == "Ranger" end
+
+--- Check if character is a Bard.
+-- @return boolean
+function M.bard() return state.guild == "Bard" end
+
+--- Check if character is a Necromancer.
+-- @return boolean
+function M.necromancer() return state.guild == "Necromancer" end
+
+--- Check if character is a Commoner.
+-- @return boolean
+function M.commoner() return state.guild == "Commoner" end
+
+-------------------------------------------------------------------------------
+-- Vital delegates — live values from GameState (not stored in stat table)
+-------------------------------------------------------------------------------
+
+--- Current stamina/fatigue level as a percentage (0–100).
+-- Lich5 mapped DRStats.fatigue → XMLData.stamina (the live vital, not the base stat).
+-- In Revenant, GameState.stamina holds the DR stamina vital parsed from XML.
+-- @return number 0–100, where 100 = fully rested / 0 = exhausted
+function M.fatigue()
+  if GameState and type(GameState.stamina) == "number" then
+    return GameState.stamina
+  end
+  return 0
+end
+
 return M

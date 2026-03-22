@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-20
 --- name: kswole
 --- version: 1.1.6
 --- author: elanthia-online
@@ -198,8 +199,7 @@ local SCRIPTS_TO_PAUSE = { "bigshot" }
 
 local function has_debuff()
     for _, debuff in ipairs(DISPELABLE_DEBUFFS) do
-        local spell = Spell[debuff]
-        if spell and spell.active then
+        if Effects.Debuffs.active(debuff) then
             return true
         end
     end
@@ -230,9 +230,11 @@ local function show_help()
     respond("|")
     respond("| Hunting areas currently supported:")
     respond("|   Atoll/Nelemar, Bonespear, Bowels, Citadel, Confluence, Crawling Shore, Den of Rot,")
-    respond("|   Duskruin Arena, Grimswarm, Hidden Plateau, Hinterwilds, Moonsedge, OSA (partial),")
-    respond("|   OTF (incl. Aqueducts), Red Forest, Reim, Rift/Scatter, Sanctum of Scales,")
-    respond("|   Icemule Trace (partial), Ta'Vaalor (partial).")
+    respond("|   Duskruin Arena, Faethyl Bog, Forgotten Vineyard, Grimswarm, Hidden Plateau,")
+    respond("|   Hinterwilds, Moonsedge, OSA (partial), OTF (incl. Aqueducts), Red Forest, Reim,")
+    respond("|   Rift/Scatter, Sailor's Grief, Sanctum of Scales, Stormpeak/Titan's Deluge,")
+    respond("|   Icemule Trace (partial), Ta'Vaalor (partial), The Hive,")
+    respond("|   WL Graveyard/Shadow Valley.")
     respond("|")
     respond("| Usage:")
     respond("|   ;kswole")
@@ -244,10 +246,16 @@ end
 --------------------------------------------------------------------------------
 
 local function check_prerequisites()
-    -- Check if character knows KS feats or Shield Mind
-    -- In Revenant, Feat/Shield APIs may not exist; we rely on dothistimeout
-    -- to detect cooldown/availability at runtime. Just warn if unknown.
+    local has_ks = Feat.known("Kroderine Soul") or (Feat.known("Absorb Magic") and Feat.known("Dispel Magic"))
+    local has_sm = Shield.known("Shield Mind")
+    if not has_ks and not has_sm then
+        respond("| ERROR: This script requires Kroderine Soul feats or Shield Mind specialization.")
+        respond("| If you recently fixskilled into Kroderine Soul, type FEAT LIST ALL and try again.")
+        respond("| If you recently fixskilled into Shield Mind, type SHIELD LIST ALL and try again.")
+        return false
+    end
     respond("| KSwole active. Monitoring for creature spell preps...")
+    return true
 end
 
 --------------------------------------------------------------------------------
@@ -255,7 +263,7 @@ end
 --------------------------------------------------------------------------------
 
 local function run()
-    check_prerequisites()
+    if not check_prerequisites() then return end
 
     while true do
         local line = get()
@@ -264,35 +272,57 @@ local function run()
         if dead() then return end
 
         if CREATURE_SPELL_PREPS:test(line) then
-            -- Try Feat Absorb
-            if not stunned() then
-                waitcastrt()
-                local absorb = dothistimeout("feat absorb", 2, {
-                    "You open yourself to the ravenous void",
-                    "You strain, but the void within remains stubbornly out of reach",
-                })
-                if absorb and string.find(absorb, "You strain") then
-                    -- Wait for cooldown then retry
-                    pause(2)
-                    fput("feat absorb")
+            if not stunned() and not Effects.Debuffs.active("Sympathy") then
+                if Feat.available("Absorb Magic") and not Effects.Cooldowns.active("Absorb Magic") then
+                    -- Feat Absorb available and off cooldown
+                    waitcastrt()
+                    local absorb = dothistimeout("feat absorb", 2, {
+                        "You open yourself to the ravenous void",
+                        "You strain, but the void within remains stubbornly out of reach",
+                    })
+                    if absorb and string.find(absorb, "You strain") then
+                        -- Cooldown hit unexpectedly; wait for availability then retry
+                        wait_until(function() return Feat.available("Absorb Magic") end)
+                        fput("feat absorb")
+                    end
+                elseif Shield.available("Shield Mind") then
+                    -- Feat Absorb unavailable; fall back to Shield Mind
+                    waitcastrt()
+                    waitrt()
+                    pause_scripts()
+                    local sm = dothistimeout("shield mind", 2, {
+                        "thereby forcing any incoming attacks against your mind or soul to penetrate your",
+                        "You must be wielding a shield",
+                        "You cannot muster the necessary focus to shield your mind and soul quite so soon",
+                    })
+                    unpause_scripts()
+                    -- If on cooldown, skip (next iteration)
                 end
             end
         elseif has_debuff() then
-            -- Try Feat Dispel
             if not stunned() then
-                waitcastrt()
-                local dispel = dothistimeout("feat dispel", 2, {
-                    "You reach for the emptiness within",
-                    "You are unable to reach past the twisting tension",
-                })
-                if dispel and string.find(dispel, "You are unable") then
-                    -- Dispel on cooldown; try Mental Dispel (1218) if available
-                    if Spell[1218] and Spell[1218].known then
-                        pause_scripts()
-                        fput("incant 1218 " .. GameState.name)
-                        pause(0.5)
-                        unpause_scripts()
+                if Feat.available("Dispel Magic") then
+                    -- Try Feat Dispel
+                    waitcastrt()
+                    local dispel = dothistimeout("feat dispel", 2, {
+                        "You reach for the emptiness within",
+                        "You are unable to reach past the twisting tension",
+                    })
+                    if dispel and string.find(dispel, "You are unable") then
+                        -- Dispel on cooldown; fall through to Mental Dispel
+                        if Feat.known("Mental Acuity") and Spell[1218].known and Spell[1218]:affordable() and not muckled() then
+                            pause_scripts()
+                            Spell[1218]:force_channel(GameState.name)
+                            pause(0.5)
+                            unpause_scripts()
+                        end
                     end
+                elseif Feat.known("Mental Acuity") and Spell[1218].known and Spell[1218]:affordable() and not muckled() then
+                    -- Feat Dispel not available; try Mental Dispel (1218) directly
+                    pause_scripts()
+                    Spell[1218]:force_channel(GameState.name)
+                    pause(0.5)
+                    unpause_scripts()
                 end
             end
         end

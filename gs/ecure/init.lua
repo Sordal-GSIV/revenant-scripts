@@ -1,4 +1,5 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-18
 --- name: ecure
 --- version: 2.0.3
 --- author: elanthia-online
@@ -54,6 +55,7 @@ if Stats.prof ~= "Empath" then
 end
 
 silence_me()
+before_dying(function() DownstreamHook.remove("Appraising") end)
 
 local settings = config.load()
 local args = Script.vars
@@ -153,7 +155,7 @@ elseif #targets > 0 then
     for _, target_input in ipairs(targets) do
         local found = false
         for _, pc in ipairs(pcs) do
-            if pc.noun:lower():find(target_input:lower(), 1, true) then
+            if pc.noun:lower():find("^" .. target_input:lower()) then
                 healer.heal_target(settings, pc.noun)
                 found = true
                 break
@@ -168,7 +170,7 @@ else
     healer.heal_self(settings)
 end
 
--- Alt behavior: exit after healing targets
-if settings.alternative_behavior and #targets > 0 then
+-- Alt behavior: exit after any args were passed (not just named targets)
+if settings.alternative_behavior and #Script.vars > 0 then
     return
 end

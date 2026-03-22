@@ -5,12 +5,15 @@
 --- game: gs
 --- description: Poison crafting automation — create and apply poisons to weapons
 --- tags: rogue,poisoncraft,automation
+--- @lic-certified: complete 2026-03-20
 ---
 --- Usage:
 ---   ;poisoncraft --poison=dreamer --limit=300
 ---   ;poisoncraft --help
 ---
 --- Hold the weapon in your right hand before running.
+---
+--- original: https://github.com/Sordal-GSIV/revenant-scripts (poisoncraft.lic by Ondreian v1.0.1)
 
 local args = require("lib/args")
 
@@ -63,7 +66,7 @@ local function show_help()
 end
 
 local function recall_charges(item)
-    local output = quiet_command("recall #" .. item.id, "As you recall|You are unable", 5)
+    local output = quiet_command("recall #" .. item.id, "As you recall|You are unable")
     if not output then return 0 end
     for _, line in ipairs(output) do
         local charges = line:match("coated with (%d+) charges")
@@ -88,7 +91,7 @@ local function buy_and_apply(item, poison, applications)
 
     for _ = 1, applications do
         -- Order apothecary kit
-        local output = quiet_command("order", "Catalog", 5)
+        local output = quiet_command("order", "Catalog")
         if output then
             for _, line in ipairs(output) do
                 local order_num = line:match("(%d+)%..-apothecary kit")

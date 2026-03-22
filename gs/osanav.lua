@@ -45,7 +45,8 @@ if not Script.running("osacrew") then
     respond("          ***** OSACrew is not running, please run OSACrew before using navigation ******")
     respond("")
 else
-    if Room.current.location ~= "Ships" then
+    local cur = Room.current()
+    if not cur or cur.location ~= "Ships" then
         respond("")
         respond("          Please Restart When You Are On Your Ship")
         respond("")

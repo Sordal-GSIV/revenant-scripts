@@ -10,6 +10,9 @@ local GLOBAL_DEFAULTS = {
     map_scales = {},
     expanded_canvas = true,
     dynamic_indicator_size = false,
+    opacity = 1.0,
+    borderless = false,
+    hide_scrollbars = false,
 }
 
 local CHAR_DEFAULTS = {
@@ -78,6 +81,14 @@ function M.set_scale(state, map_key, value)
         if not state.map_scales then state.map_scales = {} end
         state.map_scales[map_key] = value
     end
+end
+
+function M.reset()
+    -- Reset global settings
+    Settings.map_prefs = Json.encode(GLOBAL_DEFAULTS)
+    -- Reset character-specific settings
+    CharSettings.map_geometry = Json.encode(CHAR_DEFAULTS)
+    respond("[map: All settings have been reset to defaults]")
 end
 
 return M

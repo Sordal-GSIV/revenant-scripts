@@ -6,4 +6,4 @@
 --- description: Display your current room ID
 --- tags: navigation, room, debug
 
-echo("Current room id: " .. tostring(Room.current.id))
+echo("Current room id: " .. tostring(Room.id))

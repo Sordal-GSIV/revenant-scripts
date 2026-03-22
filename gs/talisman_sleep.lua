@@ -1,9 +1,16 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-20
 --- name: talisman_sleep
 --- version: 1.0
 --- author: unknown
 --- game: gs
+--- tags: combat, talisman, sleep, automation
 --- description: Auto-cast Symbol of Sleep and point Twisted Talisman at random targets when off cooldown.
+---
+--- Original Lich5 author: unknown (from lich_repo_mirror/lib/talisman_sleep.lic)
+---
+--- Usage:
+---   ;talisman_sleep
 
 while true do
     waitrt()

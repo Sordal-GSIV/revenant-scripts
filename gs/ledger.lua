@@ -22,6 +22,7 @@
 ---
 --- NOTE: Requires Revenant SQLite support. Transactions are tracked via
 --- downstream hooks monitoring bank deposit/withdrawal messages.
+--- @lic-audit: validated 2026-03-17
 
 local Ledger = {}
 
@@ -151,8 +152,7 @@ local function with_commas(n)
     return result
 end
 
-local function sum_transactions(filter)
-    local txns = load_transactions()
+local function sum_transactions_from(txns, filter)
     local total = 0
     for _, txn in ipairs(txns) do
         local match = true
@@ -169,23 +169,82 @@ local function sum_transactions(filter)
     return total
 end
 
+local function sum_transactions(filter)
+    return sum_transactions_from(load_transactions(), filter)
+end
+
+--- Load all transaction keys matching a pattern and sum across them
+--- This handles cross-month queries for yearly/total periods
+local function sum_all_matching_keys(filter)
+    local total = 0
+    -- Scan all CharSettings keys matching ledger_txns_* pattern
+    local all_settings = CharSettings._all and CharSettings._all() or nil
+    if all_settings then
+        for key, raw in pairs(all_settings) do
+            if key:find("^ledger_txns_") then
+                local ok, data = pcall(Json.decode, raw)
+                if ok and type(data) == "table" then
+                    total = total + sum_transactions_from(data, filter)
+                end
+            end
+        end
+    else
+        -- Fallback: iterate known month keys for the current year
+        local date = os.date("*t")
+        if filter.year then
+            for month = 1, 12 do
+                local key = string.format("ledger_txns_%04d_%02d", filter.year, month)
+                local raw = CharSettings[key]
+                if raw and raw ~= "" then
+                    local ok, data = pcall(Json.decode, raw)
+                    if ok and type(data) == "table" then
+                        total = total + sum_transactions_from(data, filter)
+                    end
+                end
+            end
+        else
+            -- Total (all time): scan a reasonable range of years
+            local this_year = date.year
+            for yr = this_year - 10, this_year do
+                for month = 1, 12 do
+                    local key = string.format("ledger_txns_%04d_%02d", yr, month)
+                    local raw = CharSettings[key]
+                    if raw and raw ~= "" then
+                        local ok, data = pcall(Json.decode, raw)
+                        if ok and type(data) == "table" then
+                            total = total + sum_transactions_from(data, filter)
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return total
+end
+
 local function query_sum(txn_type, period)
     local date = os.date("*t")
     local filter = {type = txn_type, game = GameState.game}
-    if period == "yearly" then
-        filter.year = date.year
-    elseif period == "monthly" then
+    if period == "monthly" then
         filter.year = date.year
         filter.month = date.month
+        return sum_transactions(filter)
     elseif period == "daily" then
         filter.year = date.year
         filter.month = date.month
         filter.day = date.day
+        return sum_transactions(filter)
     elseif period == "hourly" then
         filter.year = date.year
         filter.month = date.month
         filter.day = date.day
         filter.hour = date.hour
+        return sum_transactions(filter)
+    elseif period == "yearly" then
+        filter.year = date.year
+        return sum_all_matching_keys(filter)
+    elseif period == "total" then
+        return sum_all_matching_keys(filter)
     end
     return sum_transactions(filter)
 end
@@ -193,20 +252,26 @@ end
 local function character_sum(txn_type, period)
     local date = os.date("*t")
     local filter = {type = txn_type, game = GameState.game, character = GameState.name}
-    if period == "yearly" then
-        filter.year = date.year
-    elseif period == "monthly" then
+    if period == "monthly" then
         filter.year = date.year
         filter.month = date.month
+        return sum_transactions(filter)
     elseif period == "daily" then
         filter.year = date.year
         filter.month = date.month
         filter.day = date.day
+        return sum_transactions(filter)
     elseif period == "hourly" then
         filter.year = date.year
         filter.month = date.month
         filter.day = date.day
         filter.hour = date.hour
+        return sum_transactions(filter)
+    elseif period == "yearly" then
+        filter.year = date.year
+        return sum_all_matching_keys(filter)
+    elseif period == "total" then
+        return sum_all_matching_keys(filter)
     end
     return sum_transactions(filter)
 end
@@ -266,6 +331,9 @@ local withdraw_patterns = {
     "teller scribbles the transaction into a book and hands you ([%d,]+) silver",
     "teller carefully records the transaction, .* hands you ([%d,]+) silver",
 }
+
+--- Teras Isle note withdrawal pattern: "scrip for X silvers"
+local teras_note_pattern = "scrip for ([%d,]+) silvers?"
 
 local deposit_patterns = {
     "You deposit ([%d,]+) silvers? into your account",

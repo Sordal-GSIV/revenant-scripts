@@ -4,6 +4,7 @@
 --- author: Hailye
 --- game: gs
 --- description: Re-infuse 1625 when violet flames are extinguished. Pauses bigshot during cast.
+--- @lic-certified: complete 2026-03-19
 
 silence_me()
 

@@ -5,6 +5,7 @@
 --- game: gs
 --- description: Enchanting helper - checks suffusion, casts 925, and reports resources
 --- tags: enchant,925,magic
+--- @lic-certified: complete 2026-03-18
 
 local function check_resources()
     fput("sense")

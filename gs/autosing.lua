@@ -1,18 +1,50 @@
 --- @revenant-script
+--- @lic-certified: complete 2026-03-19
 --- name: autosing
 --- version: 1.0.0
 --- author: Timbalt
 --- game: gs
 --- tags: bard, loresing, logging, automation
---- description: Auto-loresing everything in a container and log formatted results
+--- description: Auto-loresing everything in a container; logs formatted results to a dated file
 ---
---- Original Lich5 authors: Timbalt
---- Ported to Revenant Lua from autosing.lic
+--- Original Lich5 author: Timbalt
 ---
---- Usage: ;autosing
---- Requires: ;vars set sing_to_me_container = <container>
+--- Usage:
+---   ;autosing
+--- Requires sing_to_me_container to be set:
+---   ;e UserVars.sing_to_me_container = "sack"
 
-local log_dir = GameState.script_dir or "."
+--------------------------------------------------------------------------------
+-- Log file — one file per calendar day, sandboxed to the scripts data dir
+--------------------------------------------------------------------------------
+
+local LOG_FILE = "data/autoSing-LOG-" .. os.date("%Y-%m-%d") .. ".txt"
+
+-- Append text to the sandboxed log file
+local function log_append(text)
+    local existing = File.exists(LOG_FILE) and (File.read(LOG_FILE) or "") or ""
+    File.write(LOG_FILE, existing .. text)
+end
+
+-- Per-script log buffer; flushed after each item and on script death
+local log_buf = ""
+
+local function log(text)
+    log_buf = log_buf .. text
+end
+
+local function flush_log()
+    if log_buf ~= "" then
+        log_append(log_buf)
+        log_buf = ""
+    end
+end
+
+before_dying(flush_log)
+
+--------------------------------------------------------------------------------
+-- Collect lines from the game until pattern matches or timeout elapses
+--------------------------------------------------------------------------------
 
 local function get_until(pattern, timeout)
     timeout = timeout or 30
@@ -22,21 +54,26 @@ local function get_until(pattern, timeout)
         local line = get()
         if not line then break end
         lines[#lines + 1] = line
-        if Regex.test(line, pattern) then break end
+        if Regex.test(pattern, line) then break end
     end
     return lines
 end
 
+--------------------------------------------------------------------------------
+-- Send a loresing command; return the informational output lines
+-- (everything after the "..." ellipsis, with XML stripped and empty lines removed)
+--------------------------------------------------------------------------------
+
 local function sing_info(cmd)
-    local info = {}
+    local info    = {}
     fput(cmd)
-    local lines = get_until("Roundtime|prompt")
+    local lines   = get_until("Roundtime|<prompt")
     local catching = false
     for _, line in ipairs(lines) do
         if not catching and line:find("%.%.%.") then catching = true end
         if catching then
-            local stripped = line:match("^%s*(.-)%s*$"):gsub("<.->", "")
-            if stripped ~= "" and not Regex.test(line, "Roundtime|prompt") then
+            local stripped = line:gsub("<[^>]+>", ""):match("^%s*(.-)%s*$")
+            if stripped ~= "" and not Regex.test("Roundtime|<prompt", line) then
                 info[#info + 1] = stripped
             end
         end
@@ -44,16 +81,21 @@ local function sing_info(cmd)
     return info
 end
 
-local container_name = UserVars.get("sing_to_me_container")
+--------------------------------------------------------------------------------
+-- Main
+--------------------------------------------------------------------------------
+
+local container_name = UserVars.sing_to_me_container
 if not container_name or container_name == "" then
-    echo("First time running the script? Set your sing_to_me_container")
-    echo(";vars set sing_to_me_container = container")
-    return
+    echo("First time running the script? Set your container:")
+    echo("  ;e UserVars.sing_to_me_container = \"sack\"")
+    Script.exit()
 end
 
+-- Locate the container in inventory
 local main_container = nil
 for _, obj in ipairs(GameObj.inv()) do
-    if Regex.test(obj.name, container_name) then
+    if Regex.test(container_name, obj.name) then
         main_container = obj
         break
     end
@@ -61,70 +103,80 @@ end
 
 if not main_container then
     echo("Container '" .. container_name .. "' not found in inventory!")
-    return
+    Script.exit()
 end
 
+-- Populate container contents via look
 fput("look in my " .. main_container.noun)
+pause(0.5)
+
+local SEP = string.rep("=", 78)
+
+local LORESING_SECTIONS = {
+    { "Weight/Value", "loresing %s that I hold;let your value now be told"           },
+    { "Purpose",      "loresing %s that I hold;let your purpose now be told"         },
+    { "Magic",        "loresing %s that I hold;let your  magic now be told"          },
+    { "Special",      "loresing %s that I hold;let your special ability now be told" },
+}
 
 for _, item in ipairs(main_container.contents or {}) do
     fput("get #" .. item.id)
+    waitrt()
 
-    local log_file = log_dir .. "/autoSing-LOG-" .. os.date("%Y-%m-%d") .. ".txt"
-    local file = io.open(log_file, "a")
-
+    -- Glance to get the full item name as it appears in-hand
     fput("glance")
-    local glance_result = get()
-    local fullitemname = glance_result and glance_result:match("You glance down to see (.-) in your right hand")
-    if fullitemname and file then
-        local sep = string.rep("=", 78)
-        file:write("\n" .. sep .. "\n")
-        file:write("Item: " .. fullitemname .. "\n")
-        file:write(sep .. "\n\n")
+    local glance_line = get()
+    local fullname = glance_line
+        and glance_line:match("You glance down to see (.+) in your right hand")
+    if fullname then
+        log("\n" .. SEP .. "\n")
+        log("Item: " .. fullname .. "\n")
+        log(SEP .. "\n\n")
     end
 
     fput("speak bard")
-    wait(0.5)
+    pause(0.5)
 
-    local sections = {
-        { "Weight/Value", "loresing " .. item.noun .. " that I hold;let your value now be told" },
-        { "Purpose",      "loresing " .. item.noun .. " that I hold;let your purpose now be told" },
-        { "Magic",        "loresing " .. item.noun .. " that I hold;let your  magic now be told" },
-        { "Special",      "loresing " .. item.noun .. " that I hold;let your special ability now be told" },
-    }
+    for _, section in ipairs(LORESING_SECTIONS) do
+        local section_name = section[1]
+        local cmd          = string.format(section[2], item.noun)
 
-    for _, section in ipairs(sections) do
-        local section_name, cmd = section[1], section[2]
         local details = sing_info(cmd)
-        wait(1)
+        pause(1)
         waitrt()
         waitcastrt()
-        wait(1)
+        pause(1)
 
-        -- Clean lines
+        -- Deduplicate, strip whitespace, filter out resonance noise
         local cleaned = {}
-        local seen = {}
+        local seen    = {}
         for _, line in ipairs(details) do
             local trimmed = line:match("^%s*(.-)%s*$")
-            if trimmed ~= "" and not Regex.test(trimmed, "^As you sing, you feel a faint resonating vibration") and not seen[trimmed] then
+            if trimmed ~= ""
+                and not Regex.test("^As you sing, you feel a faint resonating vibration", trimmed)
+                and not seen[trimmed] then
                 cleaned[#cleaned + 1] = trimmed
                 seen[trimmed] = true
             end
         end
 
-        if #cleaned > 0 and file then
-            file:write("  " .. section_name .. ":\n")
+        if #cleaned > 0 then
+            log("  " .. section_name .. ":\n")
             for _, line in ipairs(cleaned) do
-                file:write("    * " .. line .. "\n")
+                log("    \xE2\x80\xA2 " .. line .. "\n")  -- UTF-8 bullet •
             end
-            file:write("\n")
+            log("\n")
         end
     end
 
-    if file then file:close() end
+    -- Flush after each item so data is preserved if script is killed
+    flush_log()
 
-    wait(1)
+    pause(1)
     fput("put #" .. item.id .. " in my " .. container_name)
     waitrt()
     waitcastrt()
-    wait(0.5)
+    pause(0.5)
 end
+
+echo("Loresing complete. Log: " .. LOG_FILE)

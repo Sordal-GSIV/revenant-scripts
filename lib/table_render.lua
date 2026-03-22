@@ -40,6 +40,12 @@ function M:add_separator()
     table.insert(self.rows, {type = "sep"})
 end
 
+-- add_full_row: add a row that spans all columns (no column separators).
+-- text may contain \n for pre-wrapped multi-line content.
+function M:add_full_row(text)
+    table.insert(self.rows, {type = "full", text = tostring(text or "")})
+end
+
 function M:render()
     local lines = {}
     local ncols = #self.headings
@@ -61,6 +67,22 @@ function M:render()
         return "|" .. table.concat(parts, "|") .. "|"
     end
 
+    -- Inner width for full-span rows: sum of (col_width + 2) for all cols + (ncols-1) separators
+    local inner_width = ncols - 1
+    for i = 1, ncols do
+        inner_width = inner_width + self.col_widths[i] + 2
+    end
+
+    local function full_row(text)
+        local result = {}
+        -- Split on embedded newlines so callers can pre-wrap content
+        for segment in (text .. "\n"):gmatch("([^\n]*)\n") do
+            local pad = math.max(0, inner_width - #segment)
+            table.insert(result, "|" .. segment .. string.rep(" ", pad) .. "|")
+        end
+        return result
+    end
+
     table.insert(lines, border_line())
     table.insert(lines, format_row(self.headings))
     table.insert(lines, border_line())
@@ -68,6 +90,10 @@ function M:render()
     for _, entry in ipairs(self.rows) do
         if entry.type == "sep" then
             table.insert(lines, border_line())
+        elseif entry.type == "full" then
+            for _, l in ipairs(full_row(entry.text)) do
+                table.insert(lines, l)
+            end
         else
             table.insert(lines, format_row(entry.data))
         end
